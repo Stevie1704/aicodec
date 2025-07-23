@@ -62,7 +62,7 @@ ai-encode --ext .py --ext .js --file Dockerfile --output my_project.json
 
 **Using a Configuration File:**
 
-For easier use, create a `.config.json` file in your project root. The script will automatically load it.
+For easier use, create a `.aicodec-config.json` file in your project root. The script will automatically load it.
 
 ```json
 {

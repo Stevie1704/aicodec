@@ -93,7 +93,7 @@ def main():
 
     # --- Arguments Definition ---
     parser.add_argument('-c', '--config', type=str,
-                        default='.codegenrc.json', help="Path to the configuration file.")
+                        default='.aicodec-config.json', help="Path to the configuration file.")
     parser.add_argument('-d', '--dir', type=str,
                         help="The directory to search.")
     parser.add_argument('-o', '--output', type=str,
@@ -116,7 +116,7 @@ def main():
     args = parser.parse_args()
 
     # --- Configuration Merging Logic ---
-    # 1. Start with hardcoded defaults (especially for exclusions).
+    # 1. Start with hardcoded defaults.
     config = {
         'dir': '.',
         'output': 'aggregated_content.json',
@@ -132,8 +132,6 @@ def main():
     config.update(file_config)
 
     # 3. Override with any command-line arguments provided by the user.
-    # We check if the arg is not None to distinguish between a user-provided
-    # value and the default value of the argument.
     if args.dir is not None:
         config['dir'] = args.dir
     if args.output is not None:
