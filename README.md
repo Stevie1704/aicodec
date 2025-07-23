@@ -1,10 +1,10 @@
-# AI Codec: Your AI Coding Assistant Toolkit
+# AI Codec: Lightweight AI Coding Assistant Toolkit
 
-AI Codec is a toolkit designed to streamline the process of interacting with Large Language Models (LLMs) for code generation and modification. It provides a structured, reliable, and efficient way to package your local codebase for an LLM and then automatically apply its suggested changes back to your project.
+AI Codec is a toolkit designed to streamline the process of interacting with Large Language Models (LLMs) for code generation and modification. It provides a structured, reliable, and efficient way to package your local codebase for an LLM and then automatically apply its suggested changes back to your project. No need for an API key, just put the structured json in the LLM's chat window of your choice and get started.
 
 ## The Problem
 
-When working with LLMs like Gemini, developers often face two major challenges:
+When working with LLMs, developers often face two major challenges:
 
 1. **Context Stuffing:** Manually copying and pasting relevant files into a prompt is tedious and quickly hits the model's context window limit.
 
@@ -14,13 +14,13 @@ This toolkit solves these problems with two specialized command-line tools: an *
 
 ## Why Use AI Codec?
 
-While many sophisticated AI coding tools exist, AI Codec's strength lies in its **simplicity and transparency**.
+While many sophisticated AI coding tools exist (see last chapter), AI Codec's strength lies in its **simplicity and transparency**.
 
 * **Full Control:** You have complete control over the process. You see the exact JSON context being sent to the LLM and the exact JSON changes being returned before they are applied. There are no hidden steps.
 
 * **Decoupled Workflow:** The encoder and decoder are separate commands. This allows for an asynchronous workflow where you can generate context, get feedback, and apply changes at your own pace.
 
-* **Simplicity and Portability:** It's a simple Python package with minimal dependencies. It's easy to understand, modify, and run anywhere you have Python, without needing to install an IDE or plugin.
+* **Simplicity and Portability:** It's a simple Python package with minimal dependencies. It's easy to understand, modify, and run anywhere you have Python, without needing to install a complex IDE or plugin.
 
 ## Workflow
 
@@ -38,86 +38,79 @@ The end-to-end workflow is simple and powerful:
 
 2. Navigate to the repository root and install the package in editable mode. This will also install dependencies like `jsonschema` and make the command-line tools available.
 
-   ```
+   ```bash
    pip install -e .
    ```
 
 3. To install the dependencies required for running tests, use:
 
-   ```
+   ```bash
    pip install -e ".[dev]"
    ```
 
 ## Usage
 
-### 1. `ai-encode` (The Encoder)
+### Configuration File
 
-This script packages your project into a JSON file.
+For the best experience, create a `.aicodec-config.json` file in your project root. This allows you to run both `ai-encode` and `ai-decode` without any command-line arguments.
 
-**Basic Usage:**
-
-```
-ai-encode --ext .py --ext .js --file Dockerfile --output my_project.json
-```
-
-**Using a Configuration File:**
-
-For easier use, create a `.aicodec-config.json` file in your project root. The script will automatically load it.
-
+**Example `.aicodec-config.json`:**
 ```json
 {
-    "ext": [
-        ".py",
-        ".toml",
-        ".md",
-        ".json"
-    ],
-    "output": "aicodec-code.json",
-    "exclude_dirs": [
-        ".git",
-        "__pycache__",
-        "dist",
-        "build",
-        ".pytest_cache"
-    ]
+    "encoder": {
+        "ext": [
+            ".py",
+            ".toml",
+            ".md"
+        ],
+        "file": ["Dockerfile"],
+        "output": "project_context.json",
+        "exclude_dirs": [
+            ".git",
+            "__pycache__",
+            "dist",
+            "build",
+            ".pytest_cache"
+        ]
+    },
+    "decoder": {
+        "input": "llm-changes.json",
+        "output_dir": "."
+    }
 }
 ```
 
-Then, you can simply run the command from your project root:
+### 1. `ai-encode` (The Encoder)
 
-```
+With the configuration file in place, you can simply run:
+```bash
 ai-encode
+```
+Alternatively, you can override any setting using command-line arguments:
+```bash
+ai-encode --ext .py --output my_project.json
 ```
 
 ### 2. `ai-decode` (The Decoder)
 
-This script applies the changes suggested by the LLM.
-
-**Basic Usage:**
-
-Assume the LLM has provided a `changes.json` file.
-
+With the configuration file in place, you can simply run:
+```bash
+ai-decode
 ```
-# Perform a dry run first to see what will happen
-ai-decode --input changes.json --output-dir ./my-project --dry-run
-
-# If the dry run looks good, apply the changes for real
-ai-decode --input changes.json --output-dir ./my-project
+To perform a dry run first, use the `--dry-run` flag:
+```bash
+ai-decode --dry-run
 ```
 
 ## Running Tests
 
 This project uses `pytest`. To run the test suite, navigate to the project root and run:
 
-```
+```bash
 pytest
 ```
 
 ## Interacting with the LLM
-
-### The `changes.json` Format
-
-The decoder expects a specific JSON structure, which is defined by `decoder_schema.json`. When prompting your LLM, you must ask it to respond in this format.
 
 ### Example Prompt
 

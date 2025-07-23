@@ -30,9 +30,13 @@ def apply_changes(changes_data, output_dir, dry_run=False, auto_confirm=False):
         return
 
     if not auto_confirm:
-        confirm = input("\nDo you want to apply these changes? (y/n): ")
-        if confirm.lower() != 'y':
-            print("Operation cancelled.")
+        try:
+            confirm = input("\nDo you want to apply these changes? [y/N]: ")
+            if confirm.lower().strip() != 'y':
+                print("Operation cancelled.")
+                return
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user.")
             return
 
     print("\nApplying changes...")
@@ -64,6 +68,14 @@ def apply_changes(changes_data, output_dir, dry_run=False, auto_confirm=False):
     print("\nAll changes applied.")
 
 
+def load_config(config_path):
+    """Loads configuration from a JSON file if it exists."""
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+
 def main():
     """
     Parses arguments, validates the input file against a schema,
@@ -74,24 +86,26 @@ def main():
     )
 
     parser.add_argument(
+        '-c', '--config',
+        type=str,
+        default='.aicodec-config.json',
+        help="Path to the configuration file."
+    )
+    parser.add_argument(
         '-i', '--input',
         type=str,
-        required=True,
         help="Path to the input JSON file containing the changes."
     )
-
     parser.add_argument(
         '-od', '--output-dir',
         type=str,
-        help="The directory where files will be created/updated. Defaults to the input file's directory."
+        help="The directory where files will be created/updated."
     )
-
     parser.add_argument(
         '--dry-run',
         action='store_true',
         help="Show changes without applying them."
     )
-
     parser.add_argument(
         '-y', '--yes',
         action='store_true',
@@ -100,18 +114,29 @@ def main():
 
     args = parser.parse_args()
 
-    # --- Determine the output directory ---
-    if args.output_dir:
-        output_directory = args.output_dir
-    else:
-        # Default to the directory of the input file
-        output_directory = os.path.dirname(os.path.abspath(args.input))
+    # --- Configuration Loading and Merging ---
+    full_config = load_config(args.config)
+    decoder_config = full_config.get('decoder', {})
+
+    # Determine settings with priority: CLI argument > config file
+    input_file = args.input or decoder_config.get('input')
+    output_directory = args.output_dir or decoder_config.get('output_dir')
+
+    # Validate that we have an input file
+    if not input_file:
+        parser.error(
+            "No input file specified. Provide it via the --input argument or in the 'decoder' section of your config file.")
+
+    # Handle default for output_directory if not specified anywhere
+    if not output_directory:
+        output_directory = os.path.dirname(os.path.abspath(input_file))
 
     # --- Load Data and Schema ---
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         schema_path = os.path.join(script_dir, 'decoder_schema.json')
-        with open(args.input, 'r', encoding='utf-8') as f:
+
+        with open(input_file, 'r', encoding='utf-8') as f:
             data_to_validate = json.load(f)
         with open(schema_path, 'r', encoding='utf-8') as f:
             schema = json.load(f)
@@ -119,7 +144,8 @@ def main():
         print(f"Error: Could not find a required file. {e}")
         return
     except json.JSONDecodeError as e:
-        print(f"Error: Could not decode JSON. Please check the format. {e}")
+        print(
+            f"Error: Could not decode JSON from {input_file}. Please check the format. {e}")
         return
 
     # --- Validate against Schema ---

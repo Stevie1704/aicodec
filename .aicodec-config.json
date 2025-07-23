@@ -1,15 +1,21 @@
 {
-    "ext": [
-        ".py",
-        ".toml",
-        ".md",
-        ".json"
-    ],
-    "output": "aicodec-code.json",
-    "exclude_dirs": [
-        ".git",
-        "__pycache__",
-        "dist",
-        "build"
-    ]
+    "encoder": {
+        "ext": [
+            ".py",
+            ".toml",
+            ".md",
+            ".json"
+        ],
+        "output": "aicodec-code.json",
+        "exclude_dirs": [
+            ".git",
+            "__pycache__",
+            "dist",
+            "build"
+        ]
+    },
+    "decoder": {
+        "input": "llm-changes.json",
+        "output-dir": "."
+    }
 }

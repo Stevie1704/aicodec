@@ -5,7 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aicodec"
 version = "0.1.0"
-description = "A set of tools to encode and decode file structures into JSON for communicating with an llm."
+description = "A set of tools to encode and decode file structures into JSON for communicating with a llm."
+readme = "README.md"
+license = { text = "MIT License" }
+authors = [
+  { email = "steviekra@gmail.com" },
+]
 dependencies = [
     "jsonschema",
 ]

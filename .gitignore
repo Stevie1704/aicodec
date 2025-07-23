@@ -20,3 +20,6 @@
 /.vscode/
 
 .env
+
+aicodec-code.json
+llm-changes.json

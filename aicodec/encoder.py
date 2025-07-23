@@ -128,8 +128,9 @@ def main():
     }
 
     # 2. Load settings from the config file and update the defaults.
-    file_config = load_config(args.config)
-    config.update(file_config)
+    full_config = load_config(args.config)
+    encoder_config = full_config.get("encoder", {})
+    config.update(encoder_config)
 
     # 3. Override with any command-line arguments provided by the user.
     if args.dir is not None:
