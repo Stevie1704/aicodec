@@ -1,0 +1,15 @@
+{
+    "ext": [
+        ".py",
+        ".toml",
+        ".md",
+        ".json"
+    ],
+    "output": "aicodec-code.json",
+    "exclude_dirs": [
+        ".git",
+        "__pycache__",
+        "dist",
+        "build"
+    ]
+}

@@ -1,0 +1,49 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "LLM Code Change Proposal",
+    "description": "A schema for validating a JSON structure that describes code modifications proposed by an LLM.",
+    "type": "object",
+    "properties": {
+        "summary": {
+            "description": "A brief, human-readable summary of the changes being proposed.",
+            "type": "string"
+        },
+        "changes": {
+            "description": "A list of specific file changes to be applied.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "filePath": {
+                        "description": "The relative path to the file that should be modified.",
+                        "type": "string"
+                    },
+                    "action": {
+                        "description": "The operation to perform on the file.",
+                        "type": "string",
+                        "enum": [
+                            "REPLACE",
+                            "CREATE"
+                        ]
+                    },
+                    "content": {
+                        "description": "The new, full content of the file.",
+                        "type": "string"
+                    },
+                    "comment": {
+                        "description": "An optional comment explaining the reason for the change.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "filePath",
+                    "action",
+                    "content"
+                ]
+            }
+        }
+    },
+    "required": [
+        "changes"
+    ]
+}
