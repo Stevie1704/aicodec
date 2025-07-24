@@ -2,9 +2,10 @@
     "encoder": {
         "ext": [
             ".py",
-            ".toml",
-            ".md",
-            ".json"
+            ".toml"
+        ],
+        "files": [
+            "aicodec/decoder_schema.json"
         ],
         "output": "aicodec-code.json",
         "exclude_dirs": [

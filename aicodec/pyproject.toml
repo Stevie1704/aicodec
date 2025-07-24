@@ -19,7 +19,6 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-mock",
-    "pytest-cov",
 ]
 
 # This section makes your scripts available as command-line tools

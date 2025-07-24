@@ -23,15 +23,12 @@
                         "type": "string",
                         "enum": [
                             "REPLACE",
-                            "CREATE"
+                            "CREATE",
+                            "DELETE"
                         ]
                     },
                     "content": {
-                        "description": "The new, full content of the file.",
-                        "type": "string"
-                    },
-                    "comment": {
-                        "description": "An optional comment explaining the reason for the change.",
+                        "description": "The new, full content of the file. Can be empty for DELETE actions.",
                         "type": "string"
                     }
                 },
