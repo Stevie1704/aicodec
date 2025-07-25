@@ -33,7 +33,7 @@
     <header class="bg-gray-800 p-4 border-b border-gray-700 shadow-lg flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-white">AI Codec Review UI</h1>
-            <p id="review-summary" class="text-sm text-gray-400">Load files to begin review.</p>
+            <p id="review-summary" class="text-sm text-gray-400">Loading files...</p>
         </div>
         <button id="apply-btn"
             class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
@@ -42,7 +42,7 @@
 
     <main class="flex-grow flex flex-col md:flex-row p-4 gap-4">
         <div class="w-full md:w-1/4 flex flex-col gap-4">
-            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+            <div id="manual-loader-card" class="bg-gray-800 p-4 rounded-lg border border-gray-700">
                 <h2 class="text-lg font-semibold mb-3">1. Load Files</h2>
                 <div class="space-y-3">
                     <div>
@@ -86,7 +86,6 @@
         </div>
     </main>
 
-    <!-- Modal for results -->
     <div id="result-modal"
         class="fixed inset-0 z-10 overflow-y-auto hidden modal-backdrop flex items-center justify-center">
         <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl border border-gray-700">
@@ -117,6 +116,7 @@
         const modalContent = document.getElementById('modal-content');
         const closeModalBtn = document.getElementById('close-modal-btn');
 
+        // Initialize Monaco Editor
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs' } });
         require(['vs/editor/editor.main'], function () {
             diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
@@ -125,10 +125,87 @@
                 scrollBeyondLastLine: false,
                 automaticLayout: true
             });
+            console.log('Monaco editor initialized');
         });
 
+        // Auto-load context on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOM loaded, attempting to fetch context...');
+            await loadContext();
+        });
+
+        async function loadContext() {
+            console.log('loadContext called');
+            reviewSummary.textContent = 'Attempting to load context...';
+
+            try {
+                console.log('Making fetch request to /api/context');
+                const response = await fetch('/api/context');
+                console.log(`Response: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Data received:', data);
+
+                if (data.original && data.changes) {
+                    console.log('Processing loaded data...');
+                    processLoadedData(data.original, data.changes);
+                    reviewSummary.textContent = 'Context loaded successfully.';
+                } else {
+                    throw new Error('Invalid data structure received from server');
+                }
+            } catch (e) {
+                console.error("Could not automatically load context:", e);
+                reviewSummary.textContent = `Auto-load failed: ${e.message}. Please load files manually.`;
+            }
+        }
+
+        // File input event listeners
         originalFileInput.addEventListener('change', (event) => handleFileLoad(event, 'original'));
         changesFileInput.addEventListener('change', (event) => handleFileLoad(event, 'changes'));
+
+        function processLoadedData(originalData, changesData) {
+            try {
+                console.log('Processing original data:', originalData);
+                console.log('Processing changes data:', changesData);
+
+                originalContext.clear();
+                if (Array.isArray(originalData)) {
+                    originalData.forEach(item => {
+                        if (item.filePath && typeof item.content === 'string') {
+                            originalContext.set(item.filePath, item.content);
+                        }
+                    });
+                } else {
+                    throw new Error('Original context must be a JSON array.');
+                }
+
+                if (changesData && Array.isArray(changesData.changes)) {
+                    llmChanges = changesData.changes;
+                    reviewSummary.textContent = changesData.summary || 'No summary provided.';
+                } else {
+                    throw new Error('Changes file must be a JSON object with a `changes` array.');
+                }
+
+                console.log(`Loaded ${originalContext.size} original files and ${llmChanges.length} changes`);
+
+                if (originalContext.size > 0 && llmChanges.length > 0) {
+                    processAndDisplayChanges();
+                    // Hide the manual file loader card if auto-load was successful
+                    document.getElementById('manual-loader-card').style.display = 'none';
+                } else {
+                    throw new Error('No valid data found to process');
+                }
+
+                console.log('Data processing completed successfully');
+            } catch (e) {
+                console.error('Error processing loaded data:', e);
+                reviewSummary.textContent = `Error processing data: ${e.message}`;
+            }
+        }
 
         async function handleFileLoad(event, type) {
             const file = event.target.files[0];
@@ -141,7 +218,11 @@
                 if (type === 'original') {
                     originalContext.clear();
                     if (Array.isArray(data)) {
-                        data.forEach(item => originalContext.set(item.filePath, item.content));
+                        data.forEach(item => {
+                            if (item.filePath && typeof item.content === 'string') {
+                                originalContext.set(item.filePath, item.content);
+                            }
+                        });
                     } else {
                         throw new Error('Original context must be a JSON array.');
                     }
@@ -163,6 +244,7 @@
         }
 
         function processAndDisplayChanges() {
+            console.log('Processing and displaying changes...');
             fileList.innerHTML = '';
             fileListPlaceholder.style.display = 'none';
 
@@ -182,7 +264,7 @@
                     <input type="checkbox" class="change-checkbox h-4 w-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-700" data-index="${index}">
                     <div class="flex-grow flex justify-between items-center">
                         <span class="font-mono text-sm">${change.filePath}</span>
-                        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${actionColors[action] || 'bg-gray-600'} ">${action}</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${actionColors[action] || 'bg-gray-600'}">${action}</span>
                     </div>
                 `;
                 fileList.appendChild(listItem);
@@ -196,6 +278,7 @@
                 fileListPlaceholder.style.display = 'block';
             }
             updateApplyButtonState();
+            console.log(`Displayed ${llmChanges.length} changes`);
         }
 
         function updateApplyButtonState() {
@@ -203,6 +286,7 @@
             applyBtn.disabled = !anyChecked;
         }
 
+        // File list click handler
         fileList.addEventListener('click', (event) => {
             const listItem = event.target.closest('.file-item');
             if (!listItem) return;
@@ -218,11 +302,13 @@
             listItem.classList.add('active');
         });
 
+        // Select all checkbox
         selectAllCheckbox.addEventListener('change', (event) => {
             document.querySelectorAll('.change-checkbox').forEach(cb => cb.checked = event.target.checked);
             updateApplyButtonState();
         });
 
+        // Apply button
         applyBtn.addEventListener('click', async () => {
             const selectedChanges = [];
             document.querySelectorAll('.change-checkbox:checked').forEach(cb => {
@@ -240,9 +326,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(selectedChanges)
                 });
-                if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`);
-                }
                 const results = await response.json();
                 displayResults(results);
             } catch (error) {
@@ -270,19 +353,36 @@
             const change = llmChanges[index];
             if (!change) return;
 
+            console.log('Showing diff for:', change.filePath);
+
             const originalText = originalContext.get(change.filePath) || '';
-            const modifiedText = change.action.toUpperCase() === 'DELETE' ? '' : change.content;
+            const modifiedText = change.action.toUpperCase() === 'DELETE' ? '' : (change.content || '');
 
-            const originalModel = monaco.editor.createModel(originalText, getLanguage(change.filePath));
-            const modifiedModel = monaco.editor.createModel(modifiedText, getLanguage(change.filePath));
+            if (diffEditor) {
+                const originalModel = monaco.editor.createModel(originalText, getLanguage(change.filePath));
+                const modifiedModel = monaco.editor.createModel(modifiedText, getLanguage(change.filePath));
 
-            diffEditor.setModel({ original: originalModel, modified: modifiedModel });
-            editorTitle.textContent = change.filePath;
+                diffEditor.setModel({ original: originalModel, modified: modifiedModel });
+                editorTitle.textContent = change.filePath;
+            } else {
+                console.error('Diff editor not initialized yet');
+            }
         }
 
         function getLanguage(filePath) {
             const extension = filePath.split('.').pop().toLowerCase();
-            const langMap = { 'py': 'python', 'js': 'javascript', 'ts': 'typescript', 'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown', 'toml': 'toml', 'yaml': 'yaml', 'sh': 'shell' };
+            const langMap = {
+                'py': 'python',
+                'js': 'javascript',
+                'ts': 'typescript',
+                'html': 'html',
+                'css': 'css',
+                'json': 'json',
+                'md': 'markdown',
+                'toml': 'toml',
+                'yaml': 'yaml',
+                'sh': 'shell'
+            };
             return langMap[extension] || 'plaintext';
         }
 
