@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "0.2.0"
+version = "0.5.0"
 description = "A set of tools to encode and decode file structures into JSON for communicating with an llm."
 readme = "README.md"
 license = { text = "MIT License" }
@@ -20,9 +20,13 @@ dev = [
     "pytest",
     "pytest-mock",
     "pytest-cov",
+    "pytest-html",
+    "requests"
+
 ]
 
 # This section makes your scripts available as command-line tools
 [project.scripts]
 ai-encode = "aicodec.cli:encode_main"
 ai-decode = "aicodec.cli:decode_main"
+ai-review = "aicodec.review_server:main"

@@ -5,6 +5,7 @@ import json
 from aicodec.core.config import EncoderConfig
 from aicodec.services.encoder_service import EncoderService
 
+
 @pytest.fixture
 def project_structure(tmp_path):
     project_dir = tmp_path / 'my_project'
@@ -18,6 +19,7 @@ def project_structure(tmp_path):
     (project_dir / 'error.log').write_text('log message')
     (project_dir / '.DS_Store').write_text('metadata')
     return project_dir
+
 
 def test_aggregation_full(project_structure):
     output_file = project_structure.parent / 'output.json'
@@ -38,11 +40,12 @@ def test_aggregation_full(project_structure):
     assert len(data) == 3
     result_paths = sorted([item['filePath'] for item in data])
     expected_paths = sorted([
-        os.path.join('my_project', 'main.py'),
-        os.path.join('my_project', 'src', 'utils.js'),
-        os.path.join('my_project', 'Dockerfile')
+        'main.py',
+        os.path.join('src', 'utils.js'),
+        'Dockerfile'
     ])
     assert result_paths == expected_paths
+
 
 def test_encoder_io_error(project_structure, mocker):
     """Test that an IOError during file writing is handled."""
@@ -51,4 +54,5 @@ def test_encoder_io_error(project_structure, mocker):
     config = EncoderConfig(directory=str(project_structure), ext=['.py'])
     service = EncoderService(config)
     service.run()
-    mock_print.assert_any_call(f"Error writing to output file {config.output}: Disk full")
+    mock_print.assert_any_call(
+        f"Error writing to output file {config.output}: Disk full")

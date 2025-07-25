@@ -44,6 +44,14 @@ def changes_file(tmp_path):
 
 
 @pytest.fixture
+def change_file_wrong(tmp_path):
+    changes_data = {"foo": "bar"}
+    file_path = tmp_path / "changes_wrong.json"
+    file_path.write_text(json.dumps(changes_data))
+    return file_path
+
+
+@pytest.fixture
 def setup_output_dir(temp_output_dir):
     (temp_output_dir / "existing_file.txt").write_text("Old content")
     (temp_output_dir / "file_to_delete.txt").write_text("This will be deleted")
@@ -80,6 +88,18 @@ def test_decoder_user_cancel(changes_file, setup_output_dir, mocker):
     assert not (setup_output_dir / "new_file.txt").exists()
 
 
+def test_decoder_wrong_validation(change_file_wrong, setup_output_dir, capsys):
+    config = DecoderConfig(input=str(change_file_wrong),
+                           output_dir=str(setup_output_dir))
+    service = DecoderService(config)
+    service.run(auto_confirm=True)
+    # Capture the output from stdout/stderr
+    captured = capsys.readouterr()
+
+    # Assert that your new, user-friendly error message is in the output
+    assert " does not conform to the schema." in captured.out
+
+
 def test_decoder_file_not_found(capsys):
     config = DecoderConfig(input="non_existent_file.json")
     service = DecoderService(config)
@@ -88,7 +108,7 @@ def test_decoder_file_not_found(capsys):
     assert "Error: Could not find a required file" in captured.out
 
 
-def test_decoder_json_decode_error(tmp_path):
+def test_decoder_json_decode_error(tmp_path, capsys):
     bad_json_file = tmp_path / "bad.json"
     bad_json_file.write_text("{ not valid json }")
     config = DecoderConfig(input=str(bad_json_file))
@@ -96,5 +116,9 @@ def test_decoder_json_decode_error(tmp_path):
 
     # We expect service.run() to handle the error internally and not raise an exception
     # It should simply print an error and return.
-    with pytest.raises(json.JSONDecodeError):
-        service.run()
+    service.run()
+    # Capture the output from stdout/stderr
+    captured = capsys.readouterr()
+
+    # Assert that your new, user-friendly error message is in the output
+    assert "Error: Could not parse input file" in captured.out

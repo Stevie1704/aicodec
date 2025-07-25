@@ -66,3 +66,7 @@ def decode_main():
     config = DecoderConfig(input=input_file, output_dir=output_dir)
     service = DecoderService(config)
     service.run(dry_run=args.dry_run, auto_confirm=args.yes)
+
+
+if __name__ == "__main__":
+    encode_main()

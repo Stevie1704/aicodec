@@ -4,8 +4,9 @@
             ".py",
             ".toml"
         ],
-        "files": [
-            "aicodec/decoder_schema.json"
+        "file": [
+            "decoder_schema.json",
+            "index.html"
         ],
         "output": "aicodec-code.json",
         "exclude_dirs": [

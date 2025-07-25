@@ -1,7 +1,7 @@
 # aicodec/services/decoder_service.py
 import os
 import json
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 from aicodec.core.config import DecoderConfig
 from aicodec.core.models import Change, ChangeAction, ChangeSet
 
@@ -22,12 +22,19 @@ class DecoderService:
                 data_to_validate = json.load(f)
             with open(schema_path, 'r', encoding='utf-8') as f:
                 schema = json.load(f)
+            validate(instance=data_to_validate, schema=schema)
+            print("JSON data is valid against the schema.")
         except FileNotFoundError as e:
             print(f"Error: Could not find a required file. {e}")
             return
-
-        validate(instance=data_to_validate, schema=schema)
-        print("JSON data is valid against the schema.")
+        except json.JSONDecodeError as e:
+            print(
+                f"Error: Could not parse input file '{self.config.input}'. Invalid JSON. {e}")
+            return
+        except ValidationError as e:
+            print(
+                f"Error: Input file '{self.config.input}' does not conform to the schema. {e.message}")
+            return
 
         changes = [Change(file_path=c['filePath'], action=ChangeAction(
             c['action']), content=c.get('content', '')) for c in data_to_validate['changes']]
