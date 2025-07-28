@@ -160,6 +160,7 @@
             } catch (e) {
                 console.error("Could not automatically load context:", e);
                 reviewSummary.textContent = `Auto-load failed: ${e.message}. Please load files manually.`;
+                document.getElementById('manual-loader-card').style.display = 'block';
             }
         }
 

@@ -4,29 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "0.5.0"
+version = "0.6.0"
 description = "A set of tools to encode and decode file structures into JSON for communicating with an llm."
 readme = "README.md"
-license = { text = "MIT License" }
-authors = [
-  { name = "Your Name", email = "your.email@example.com" },
+license = { file = "LICENSE" }
+authors = [{ name = "Your Name", email = "your.email@example.com" }]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
 ]
-dependencies = [
-    "jsonschema",
-]
+dependencies = ["jsonschema"]
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-mock",
-    "pytest-cov",
-    "pytest-html",
-    "requests"
-
-]
+dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 
 # This section makes your scripts available as command-line tools
 [project.scripts]
-ai-encode = "aicodec.cli:encode_main"
-ai-decode = "aicodec.cli:decode_main"
-ai-review = "aicodec.review_server:main"
+aicodec-aggregate = "aicodec.cli:aggregate_main"
+aicodec-apply = "aicodec.cli:decode_main"        # Will be renamed later
+aicodec-review = "aicodec.review_server:main"
+
+[tool.setuptools]
+packages = ["aicodec"]

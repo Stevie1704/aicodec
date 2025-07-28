@@ -80,7 +80,14 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             action = change.get('action')
             relative_path = change.get('filePath')
             content = change.get('content', '')
-            target_path = Path(self.output_dir) / relative_path
+            output_path_abs = Path(self.output_dir).resolve()
+            target_path = output_path_abs.joinpath(relative_path).resolve()
+
+            # Check that the resolved target path is a child of the output directory
+            if output_path_abs not in target_path.parents and target_path != output_path_abs:
+                results.append({'filePath': relative_path, 'status': 'FAILURE',
+                               'reason': 'Directory traversal attempt blocked.'})
+                continue  # Skip to the next change
 
             try:
                 if action.upper() in ['CREATE', 'REPLACE']:

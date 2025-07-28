@@ -113,23 +113,19 @@ def test_post_apply_changes_delete_nonexistent_skipped(live_server):
 
 
 # TODO: check if this is necessary, since it's only locally running
-# def test_post_apply_changes_directory_traversal_failure(live_server):
-    # """SECURITY: Ensure directory traversal is blocked."""
-    # url, output_dir = live_server
-
-    # # This malicious payload attempts to write a file outside the project dir
-    # malicious_changes = [{"filePath": "../malicious.txt",
-    # "action": "CREATE", "content": "pwned"}]
-
-    # response = requests.post(f"{url}/api/apply", json=malicious_changes)
-
-    # # The server should catch this and return a failure status.
-    # # This test relies on a patched server that prevents traversal.
-    # # Without a patch, this test would fail and the file would be created.
-    # assert response.status_code == 200  # The API call itself succeeds
-    # result = response.json()[0]
-    # assert result['status'] == 'FAILURE'
-    # assert "Directory traversal" in result['reason']
-
-    # # Most importantly, verify the malicious file was NOT created
-    # assert not (output_dir.parent / "malicious.txt").exists()
+def test_post_apply_changes_directory_traversal_failure(live_server):
+    """SECURITY: Ensure directory traversal is blocked."""
+    url, output_dir = live_server
+    # This malicious payload attempts to write a file outside the project dir
+    malicious_changes = [{"filePath": "../malicious.txt",
+                          "action": "CREATE", "content": "pwned"}]
+    response = requests.post(f"{url}/api/apply", json=malicious_changes)
+    # The server should catch this and return a failure status.
+    # This test relies on a patched server that prevents traversal.
+    # Without a patch, this test would fail and the file would be created.
+    assert response.status_code == 200  # The API call itself succeeds
+    result = response.json()[0]
+    assert result['status'] == 'FAILURE'
+    assert "Directory traversal" in result['reason']
+    # Most importantly, verify the malicious file was NOT created
+    assert not (output_dir.parent / "malicious.txt").exists()

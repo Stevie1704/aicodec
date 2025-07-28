@@ -9,11 +9,10 @@ import json
 class EncoderConfig:
     """Configuration for the encoder."""
     directory: str = '.'
-    output: str = 'aggregated_content.json'
     ext: List[str] = field(default_factory=list)
     file: List[str] = field(default_factory=list)
     exclude_dirs: List[str] = field(default_factory=lambda: [
-                                    '.git', 'node_modules', '__pycache__', '.venv', 'dist', 'build'])
+                                    '.git', 'node_modules', '__pycache__', '.venv', 'dist', 'build', '.aicodec'])
     exclude_exts: List[str] = field(
         default_factory=lambda: ['.log', '.tmp', '.bak'])
     exclude_files: List[str] = field(default_factory=lambda: ['.DS_Store'])

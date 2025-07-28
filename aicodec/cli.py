@@ -5,26 +5,23 @@ from aicodec.core.config import EncoderConfig, DecoderConfig, load_config
 from aicodec.services.encoder_service import EncoderService
 from aicodec.services.decoder_service import DecoderService
 
-
-def encode_main():
-    parser = argparse.ArgumentParser(description="AI Codec Encoder")
+def aggregate_main():
+    parser = argparse.ArgumentParser(description="AI Codec Aggregator")
     parser.add_argument('-c', '--config', type=str,
                         default='.aicodec-config.json')
     parser.add_argument('-d', '--dir', type=str)
-    parser.add_argument('-o', '--output', type=str)
     parser.add_argument('-e', '--ext', action='append', default=[])
     parser.add_argument('-f', '--file', action='append', default=[])
     parser.add_argument('--exclude-dir', action='append', default=[])
     parser.add_argument('--exclude-ext', action='append', default=[])
     parser.add_argument('--exclude-file', action='append', default=[])
+    parser.add_argument('--full', action='store_true', help="Perform a full aggregation, ignoring previous hashes.")
     args = parser.parse_args()
 
     file_cfg = load_config(args.config).get('encoder', {})
 
     config = EncoderConfig(
         directory=args.dir or file_cfg.get('dir', '.'),
-        output=args.output or file_cfg.get(
-            'output', 'aggregated_content.json'),
         ext=[e if e.startswith('.') else '.' +
              e for e in args.ext or file_cfg.get('ext', [])],
         file=args.file or file_cfg.get('file', []),
@@ -39,7 +36,7 @@ def encode_main():
             "No files to aggregate. Please provide inclusions in your config or via arguments.")
 
     service = EncoderService(config)
-    service.run()
+    service.run(full_run=args.full)
 
 
 def decode_main():
@@ -69,4 +66,6 @@ def decode_main():
 
 
 if __name__ == "__main__":
-    encode_main()
+    # This part is for direct script execution, which is less common with installed scripts.
+    # We can decide how to handle this, maybe default to aggregate or show help.
+    pass
