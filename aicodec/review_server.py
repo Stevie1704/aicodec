@@ -4,6 +4,7 @@ import socketserver
 import webbrowser
 import os
 import json
+import hashlib
 from pathlib import Path
 
 PORT = 8000
@@ -34,23 +35,29 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
                     action = None
                     original_content = ""
+                    should_include = False
 
                     if target_path.exists():
                         original_content = target_path.read_text(encoding='utf-8')
                         if llm_action in ['CREATE', 'REPLACE']:
                             action = 'REPLACE'
+                            # Hash comparison to see if the file is actually different
+                            hash_on_disk = hashlib.sha256(original_content.encode('utf-8')).hexdigest()
+                            hash_proposed = hashlib.sha256(proposed_content.encode('utf-8')).hexdigest()
+                            if hash_on_disk != hash_proposed:
+                                should_include = True
                         elif llm_action == 'DELETE':
                             action = 'DELETE'
-                            proposed_content = "" # Diff view should show an empty proposed state for deletes
+                            proposed_content = "" 
+                            should_include = True # A deletion is always a change
                     else: # File does not exist on disk
-                        original_content = ""
                         if llm_action in ['CREATE', 'REPLACE']:
                             action = 'CREATE'
+                            should_include = True # A creation is always a change
                         elif llm_action == 'DELETE':
-                            # It makes no sense to delete a file that doesn't exist, so we skip it.
-                            continue
+                            continue # Skip deleting a non-existent file
 
-                    if action:
+                    if should_include:
                         processed_changes.append({
                             "filePath": relative_path,
                             "original_content": original_content,

@@ -105,6 +105,35 @@ def test_get_api_context_live_filesystem(live_server):
     assert delete_change['original_content'] == 'original content'
     assert delete_change['proposed_content'] == ''
 
+def test_api_context_filters_identical_replace(live_server):
+    """Verify that a REPLACE action with identical content is filtered out by the hashing logic."""
+    url, output_dir = live_server
+    # Create a file with specific content
+    (output_dir / "identical_file.txt").write_text("same content")
+
+    # Create a new changes file for this scenario
+    changes_file = output_dir.parent / "identical_changes.json"
+    llm_changes = {
+        "changes": [
+            {"filePath": "identical_file.txt", "action": "REPLACE", "content": "same content"},
+            {"filePath": "another_new_file.txt", "action": "CREATE", "content": "a real change"}
+        ]
+    }
+    changes_file.write_text(json.dumps(llm_changes))
+    
+    # Point the running server to this new changes file
+    ReviewHttpRequestHandler.changes_file_path = str(changes_file)
+
+    response = requests.get(f"{url}/api/context")
+    assert response.status_code == 200
+    data = response.json()
+    changes = data['changes']
+
+    # The identical change should be filtered out, leaving only the CREATE
+    assert len(changes) == 1
+    assert changes[0]['filePath'] == 'another_new_file.txt'
+    assert changes[0]['action'] == 'CREATE'
+
 def test_get_api_context_server_error(live_server, temp_files):
     url, _ = live_server
     # Make a file unreadable to trigger an error

@@ -62,6 +62,8 @@ def test_review_and_apply_main_missing_args(mocker):
     """Verify that the script exits if required arguments are missing."""
     mocker.patch.object(
         sys, 'argv', ['aicodec-apply', '--output-dir', '/path/to/project'])
+    # Also mock the config loader to ensure no config is found
+    mocker.patch('aicodec.cli.load_config', return_value={})
 
     with pytest.raises(SystemExit):
         cli.review_and_apply_main()
