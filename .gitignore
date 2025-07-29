@@ -22,6 +22,4 @@
 
 .env
 
-aicodec-code.json
-llm-changes.json
 .aicodec
