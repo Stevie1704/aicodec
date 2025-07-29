@@ -49,8 +49,6 @@ def review_and_apply_main():
                         help="Path to the config file.")
     parser.add_argument('-od', '--output-dir', type=Path,
                         help="The project directory to apply changes to (overrides config).")
-    parser.add_argument('--original', type=Path,
-                        help="Path to the original context JSON file (overrides config).")
     parser.add_argument('--changes', type=Path,
                         help="Path to the LLM changes JSON file (overrides config).")
     args = parser.parse_args()
@@ -59,16 +57,14 @@ def review_and_apply_main():
 
     # Prioritize CLI arguments, then fall back to config file values
     output_dir = args.output_dir or file_cfg.get('output_dir')
-    original_file = args.original or file_cfg.get('original')
     changes_file = args.changes or file_cfg.get('changes')
 
     # Check if all required configurations are present
-    if not all([output_dir, original_file, changes_file]):
+    if not all([output_dir, changes_file]):
         parser.error(
-            "Missing required configuration. Provide 'output_dir', 'original', and 'changes' via CLI arguments or in the 'apply' section of your config file.")
+            "Missing required configuration. Provide 'output_dir' and 'changes' via CLI arguments or in the 'apply' section of your config file.")
 
-    launch_review_server(Path(output_dir), Path(
-        original_file), Path(changes_file))
+    launch_review_server(Path(output_dir), Path(changes_file))
 
 
 if __name__ == "__main__":

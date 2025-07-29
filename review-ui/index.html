@@ -1,393 +1,332 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Codec - Review UI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" data-name="vs/editor/editor.main"
-        href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs/editor/editor.main.min.css">
+    <title>AI Codec Review</title>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #d4d4d4;
+            --primary-color: #0e639c;
+            --border-color: #3c3c3c;
+            --card-bg: #252526;
+            --button-bg: #0e639c;
+            --button-hover-bg: #1177bb;
+            --button-disabled-bg: #5a5a5a;
+            --error-color: #f48771;
         }
-
-        #editor-container {
-            height: calc(100vh - 220px);
-            min-height: 400px;
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-
-        .file-item.active {
-            background-color: #374151;
+        header {
+            padding: 10px 20px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
         }
-
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
+        header h1 { margin: 0; font-size: 1.2em; }
+        .container {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100vh - 55px);
+        }
+        .sidebar {
+            width: 350px;
+            min-width: 300px;
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .diff-header {
+            padding: 10px 15px;
+            background-color: #1e1e1e;
+            border-bottom: 1px solid var(--border-color);
+            font-family: Menlo, Monaco, 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #cccccc;
+        }
+        #diff-editor {
+            flex-grow: 1;
+            width: 100%;
+        }
+        .card {
+            background-color: #2a2a2b;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .card h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        #changes-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        #changes-list li {
+            padding: 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        #changes-list li:hover {
+            background-color: #333;
+        }
+        #changes-list li.selected {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .change-item-checkbox {
+            margin-right: 10px;
+        }
+        .action-tag {
+            font-size: 0.7em;
+            padding: 2px 5px;
+            border-radius: 3px;
+            color: white;
+            margin-left: auto;
+            font-weight: bold;
+        }
+        .action-CREATE { background-color: #28a745; }
+        .action-REPLACE { background-color: #007bff; }
+        .action-DELETE { background-color: #dc3545; }
+        .button {
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+        .button:hover:not(:disabled) {
+            background-color: var(--button-hover-bg);
+        }
+        .button:disabled {
+            background-color: var(--button-disabled-bg);
+            cursor: not-allowed;
+        }
+        #error-banner {
+            background-color: var(--error-color);
+            color: #1e1e1e;
+            padding: 5px 20px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .changes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #summary-text {
+            font-style: italic;
+            font-size: 0.9em;
         }
     </style>
 </head>
-
-<body class="h-full bg-gray-900 text-gray-200 flex flex-col">
-
-    <header class="bg-gray-800 p-4 border-b border-gray-700 shadow-lg flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-white">AI Codec Review UI</h1>
-            <p id="review-summary" class="text-sm text-gray-400">Loading files...</p>
-        </div>
-        <button id="apply-btn"
-            class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
-            disabled>Apply Selected Changes</button>
+<body>
+    <div id="error-banner">Auto-load failed. Check console for details.</div>
+    <header>
+        <h1>AI Codec Review UI</h1>
+        <button id="apply-button" class="button" disabled>Apply Selected Changes</button>
     </header>
-
-    <main class="flex-grow flex flex-col md:flex-row p-4 gap-4">
-        <div class="w-full md:w-1/4 flex flex-col gap-4">
-            <div id="manual-loader-card" class="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                <h2 class="text-lg font-semibold mb-3">1. Load Files</h2>
-                <div class="space-y-3">
-                    <div>
-                        <label for="original-file" class="block text-sm font-medium text-gray-300">Original
-                            Context</label>
-                        <input type="file" id="original-file" accept=".json"
-                            class="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500">
-                    </div>
-                    <div>
-                        <label for="changes-file" class="block text-sm font-medium text-gray-300">LLM Changes</label>
-                        <input type="file" id="changes-file" accept=".json"
-                            class="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500">
-                    </div>
-                </div>
+    <div class="container">
+        <div class="sidebar">
+            <div class="card">
+                <h3>Summary</h3>
+                <div id="summary-text">Loading summary...</div>
             </div>
-            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 flex-grow flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold">Changes</h2>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="select-all-checkbox"
-                            class="h-4 w-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-700">
-                        <label for="select-all-checkbox" class="ml-2 text-sm text-gray-300">Select All</label>
+            <div class="card" style="flex-grow: 1; display: flex; flex-direction: column;">
+                <div class="changes-header">
+                    <h3>Changes</h3>
+                    <div>
+                        <input type="checkbox" id="select-all-checkbox" checked> <label for="select-all-checkbox">Select All</label>
                     </div>
                 </div>
-                <div id="file-list-container" class="overflow-y-auto flex-grow">
-                    <p id="file-list-placeholder" class="text-gray-500 text-sm">Load files to see proposed changes.</p>
-                    <ul id="file-list" class="space-y-1"></ul>
-                </div>
+                <ul id="changes-list">
+                    
+                </ul>
             </div>
         </div>
-
-        <div class="w-full md:w-3/4 bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
-            <div class="p-3 border-b border-gray-700 flex items-center justify-between">
-                <h2 id="editor-title" class="text-lg font-semibold">Diff View</h2>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-400"><span class="text-red-400 font-mono">- Old</span> | <span
-                            class="text-green-400 font-mono">+ New</span></span>
-                </div>
-            </div>
-            <div id="editor-container" class="flex-grow p-1"></div>
-        </div>
-    </main>
-
-    <div id="result-modal"
-        class="fixed inset-0 z-10 overflow-y-auto hidden modal-backdrop flex items-center justify-center">
-        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl border border-gray-700">
-            <h3 class="text-lg font-bold text-white mb-4">Apply Results</h3>
-            <div id="modal-content" class="max-h-96 overflow-y-auto text-sm"></div>
-            <div class="mt-6 text-right">
-                <button id="close-modal-btn"
-                    class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Close</button>
-            </div>
+        <div class="main-content">
+            <div id="diff-header">Select a file to see the diff</div>
+            <div id="diff-editor"></div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/loader.min.js"></script>
     <script>
-        let originalContext = new Map();
-        let llmChanges = [];
         let diffEditor;
+        let allChanges = [];
 
-        const originalFileInput = document.getElementById('original-file');
-        const changesFileInput = document.getElementById('changes-file');
-        const fileList = document.getElementById('file-list');
-        const fileListPlaceholder = document.getElementById('file-list-placeholder');
-        const editorTitle = document.getElementById('editor-title');
-        const reviewSummary = document.getElementById('review-summary');
-        const applyBtn = document.getElementById('apply-btn');
-        const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        const resultModal = document.getElementById('result-modal');
-        const modalContent = document.getElementById('modal-content');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-
-        // Initialize Monaco Editor
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs' } });
-        require(['vs/editor/editor.main'], function () {
-            diffEditor = monaco.editor.createDiffEditor(document.getElementById('editor-container'), {
-                theme: 'vs-dark',
-                readOnly: true,
-                scrollBeyondLastLine: false,
-                automaticLayout: true
-            });
-            console.log('Monaco editor initialized');
-        });
-
-        // Auto-load context on page load
-        window.addEventListener('DOMContentLoaded', async () => {
-            console.log('DOM loaded, attempting to fetch context...');
-            await loadContext();
-        });
-
-        async function loadContext() {
-            console.log('loadContext called');
-            reviewSummary.textContent = 'Attempting to load context...';
-
-            try {
-                console.log('Making fetch request to /api/context');
-                const response = await fetch('/api/context');
-                console.log(`Response: ${response.status} ${response.statusText}`);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                console.log('Data received:', data);
-
-                if (data.original && data.changes) {
-                    console.log('Processing loaded data...');
-                    processLoadedData(data.original, data.changes);
-                    reviewSummary.textContent = 'Context loaded successfully.';
-                } else {
-                    throw new Error('Invalid data structure received from server');
-                }
-            } catch (e) {
-                console.error("Could not automatically load context:", e);
-                reviewSummary.textContent = `Auto-load failed: ${e.message}. Please load files manually.`;
-                document.getElementById('manual-loader-card').style.display = 'block';
-            }
-        }
-
-        // File input event listeners
-        originalFileInput.addEventListener('change', (event) => handleFileLoad(event, 'original'));
-        changesFileInput.addEventListener('change', (event) => handleFileLoad(event, 'changes'));
-
-        function processLoadedData(originalData, changesData) {
-            try {
-                console.log('Processing original data:', originalData);
-                console.log('Processing changes data:', changesData);
-
-                originalContext.clear();
-                if (Array.isArray(originalData)) {
-                    originalData.forEach(item => {
-                        if (item.filePath && typeof item.content === 'string') {
-                            originalContext.set(item.filePath, item.content);
-                        }
-                    });
-                } else {
-                    throw new Error('Original context must be a JSON array.');
-                }
-
-                if (changesData && Array.isArray(changesData.changes)) {
-                    llmChanges = changesData.changes;
-                    reviewSummary.textContent = changesData.summary || 'No summary provided.';
-                } else {
-                    throw new Error('Changes file must be a JSON object with a `changes` array.');
-                }
-
-                console.log(`Loaded ${originalContext.size} original files and ${llmChanges.length} changes`);
-
-                if (originalContext.size > 0 && llmChanges.length > 0) {
-                    processAndDisplayChanges();
-                    // Hide the manual file loader card if auto-load was successful
-                    document.getElementById('manual-loader-card').style.display = 'none';
-                } else {
-                    throw new Error('No valid data found to process');
-                }
-
-                console.log('Data processing completed successfully');
-            } catch (e) {
-                console.error('Error processing loaded data:', e);
-                reviewSummary.textContent = `Error processing data: ${e.message}`;
-            }
-        }
-
-        async function handleFileLoad(event, type) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            try {
-                const content = await file.text();
-                const data = JSON.parse(content);
-
-                if (type === 'original') {
-                    originalContext.clear();
-                    if (Array.isArray(data)) {
-                        data.forEach(item => {
-                            if (item.filePath && typeof item.content === 'string') {
-                                originalContext.set(item.filePath, item.content);
-                            }
-                        });
-                    } else {
-                        throw new Error('Original context must be a JSON array.');
-                    }
-                } else if (type === 'changes') {
-                    if (data && Array.isArray(data.changes)) {
-                        llmChanges = data.changes;
-                        reviewSummary.textContent = data.summary || 'No summary provided.';
-                    } else {
-                        throw new Error('Changes file must be a JSON object with a `changes` array.');
-                    }
-                }
-
-                if (originalContext.size > 0 && llmChanges.length > 0) {
-                    processAndDisplayChanges();
-                }
-            } catch (e) {
-                alert(`Error parsing ${file.name}: ${e.message}`);
-            }
-        }
-
-        function processAndDisplayChanges() {
-            console.log('Processing and displaying changes...');
-            fileList.innerHTML = '';
-            fileListPlaceholder.style.display = 'none';
-
-            llmChanges.forEach((change, index) => {
-                const listItem = document.createElement('li');
-                listItem.className = 'file-item p-2 rounded-md cursor-pointer hover:bg-gray-700 transition-colors flex items-center gap-3';
-                listItem.dataset.index = index;
-
-                const actionColors = {
-                    'CREATE': 'bg-green-500/20 text-green-400 border-green-500/30',
-                    'REPLACE': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-                    'DELETE': 'bg-red-500/20 text-red-400 border-red-500/30'
-                };
-                const action = change.action.toUpperCase();
-
-                listItem.innerHTML = `
-                    <input type="checkbox" class="change-checkbox h-4 w-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-700" data-index="${index}">
-                    <div class="flex-grow flex justify-between items-center">
-                        <span class="font-mono text-sm">${change.filePath}</span>
-                        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${actionColors[action] || 'bg-gray-600'}">${action}</span>
-                    </div>
-                `;
-                fileList.appendChild(listItem);
+        document.addEventListener('DOMContentLoaded', () => {
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs' } });
+            require(['vs/editor/editor.main'], function () {
+                diffEditor = monaco.editor.createDiffEditor(document.getElementById('diff-editor'), {
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    automaticLayout: true
+                });
             });
 
-            if (llmChanges.length > 0) {
-                showDiff(0);
-                fileList.children[0].classList.add('active');
-            } else {
-                fileListPlaceholder.textContent = 'No changes to review.';
-                fileListPlaceholder.style.display = 'block';
-            }
+            fetchChanges();
+
+            document.getElementById('select-all-checkbox').addEventListener('change', toggleSelectAll);
+            document.getElementById('apply-button').addEventListener('click', applyChanges);
+        });
+
+        function fetchChanges() {
+            fetch('/api/context')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    allChanges = data.changes || [];
+                    document.getElementById('summary-text').textContent = data.summary || 'No summary provided.';
+                    renderChangesList(allChanges);
+                })
+                .catch(error => {
+                    console.error('Error fetching changes:', error);
+                    document.getElementById('error-banner').style.display = 'block';
+                });
+        }
+
+        function renderChangesList(changes) {
+            const list = document.getElementById('changes-list');
+            list.innerHTML = '';
+            changes.forEach((change, index) => {
+                const li = document.createElement('li');
+                li.dataset.index = index;
+                li.onclick = () => displayDiff(index);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'change-item-checkbox';
+                checkbox.checked = true;
+                checkbox.onchange = updateApplyButtonState;
+                li.appendChild(checkbox);
+
+                const filePath = document.createElement('span');
+                filePath.textContent = change.filePath;
+                li.appendChild(filePath);
+
+                const tag = document.createElement('span');
+                tag.className = `action-tag action-${change.action}`;
+                tag.textContent = change.action;
+                li.appendChild(tag);
+
+                list.appendChild(li);
+            });
             updateApplyButtonState();
-            console.log(`Displayed ${llmChanges.length} changes`);
+        }
+
+        function displayDiff(index) {
+            document.querySelectorAll('#changes-list li').forEach(li => li.classList.remove('selected'));
+            document.querySelector(`#changes-list li[data-index='${index}']`).classList.add('selected');
+
+            const change = allChanges[index];
+            const originalContent = change.original_content;
+            const modifiedContent = change.proposed_content;
+
+            const originalModel = monaco.editor.createModel(originalContent, getLanguage(change.filePath));
+            const modifiedModel = monaco.editor.createModel(modifiedContent, getLanguage(change.filePath));
+
+            diffEditor.setModel({
+                original: originalModel,
+                modified: modifiedModel
+            });
+
+            document.getElementById('diff-header').textContent = `${change.filePath} - ${change.action}`;
+        }
+
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('select-all-checkbox').checked;
+            document.querySelectorAll('.change-item-checkbox').forEach(cb => cb.checked = isChecked);
+            updateApplyButtonState();
         }
 
         function updateApplyButtonState() {
-            const anyChecked = document.querySelector('.change-checkbox:checked');
-            applyBtn.disabled = !anyChecked;
+            const anyChecked = document.querySelector('.change-item-checkbox:checked') !== null;
+            document.getElementById('apply-button').disabled = !anyChecked;
         }
 
-        // File list click handler
-        fileList.addEventListener('click', (event) => {
-            const listItem = event.target.closest('.file-item');
-            if (!listItem) return;
-
-            if (event.target.type === 'checkbox') {
-                updateApplyButtonState();
-                return;
-            }
-
-            const index = parseInt(listItem.dataset.index, 10);
-            showDiff(index);
-            document.querySelectorAll('.file-item.active').forEach(el => el.classList.remove('active'));
-            listItem.classList.add('active');
-        });
-
-        // Select all checkbox
-        selectAllCheckbox.addEventListener('change', (event) => {
-            document.querySelectorAll('.change-checkbox').forEach(cb => cb.checked = event.target.checked);
-            updateApplyButtonState();
-        });
-
-        // Apply button
-        applyBtn.addEventListener('click', async () => {
+        function applyChanges() {
             const selectedChanges = [];
-            document.querySelectorAll('.change-checkbox:checked').forEach(cb => {
-                const index = parseInt(cb.dataset.index, 10);
-                selectedChanges.push(llmChanges[index]);
+            document.querySelectorAll('#changes-list li').forEach((li, index) => {
+                if (li.querySelector('.change-item-checkbox').checked) {
+                    // Send the full change object expected by the backend
+                    const change = allChanges[index];
+                    selectedChanges.push({
+                        filePath: change.filePath,
+                        action: change.action,
+                        content: change.proposed_content
+                    });
+                }
             });
 
-            if (selectedChanges.length === 0) return;
+            const applyButton = document.getElementById('apply-button');
+            applyButton.disabled = true;
+            applyButton.textContent = 'Applying...';
 
-            try {
-                applyBtn.disabled = true;
-                applyBtn.textContent = 'Applying...';
-                const response = await fetch('/api/apply', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(selectedChanges)
-                });
-                const results = await response.json();
-                displayResults(results);
-            } catch (error) {
-                displayResults([{ filePath: 'N/A', status: 'FAILURE', reason: `Network error: ${error.message}` }]);
-            } finally {
-                applyBtn.disabled = false;
-                applyBtn.textContent = 'Apply Selected Changes';
-            }
-        });
-
-        function displayResults(results) {
-            modalContent.innerHTML = results.map(r => `
-                <div class="p-2 rounded-md mb-2 ${r.status === 'SUCCESS' ? 'bg-green-500/10' : 'bg-red-500/10'}">
-                    <span class="font-bold ${r.status === 'SUCCESS' ? 'text-green-400' : 'text-red-400'}">${r.status}</span> - 
-                    <span class="font-mono">${r.filePath}</span>
-                    ${r.reason ? `<p class="text-xs text-gray-400 mt-1">${r.reason}</p>` : ''}
-                </div>
-            `).join('');
-            resultModal.classList.remove('hidden');
+            fetch('/api/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedChanges)
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Apply result:', result);
+                alert('Changes applied! See console for details.');
+                applyButton.textContent = 'Apply Selected Changes';
+                // Optionally, refresh or show status
+            })
+            .catch(error => {
+                console.error('Error applying changes:', error);
+                alert('Failed to apply changes.');
+                applyButton.disabled = false;
+                applyButton.textContent = 'Apply Selected Changes';
+            });
         }
 
-        closeModalBtn.addEventListener('click', () => resultModal.classList.add('hidden'));
-
-        function showDiff(index) {
-            const change = llmChanges[index];
-            if (!change) return;
-
-            console.log('Showing diff for:', change.filePath);
-
-            const originalText = originalContext.get(change.filePath) || '';
-            const modifiedText = change.action.toUpperCase() === 'DELETE' ? '' : (change.content || '');
-
-            if (diffEditor) {
-                const originalModel = monaco.editor.createModel(originalText, getLanguage(change.filePath));
-                const modifiedModel = monaco.editor.createModel(modifiedText, getLanguage(change.filePath));
-
-                diffEditor.setModel({ original: originalModel, modified: modifiedModel });
-                editorTitle.textContent = change.filePath;
-            } else {
-                console.error('Diff editor not initialized yet');
-            }
-        }
-
-        function getLanguage(filePath) {
-            const extension = filePath.split('.').pop().toLowerCase();
+        function getLanguage(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
             const langMap = {
-                'py': 'python',
-                'js': 'javascript',
-                'ts': 'typescript',
-                'html': 'html',
-                'css': 'css',
-                'json': 'json',
-                'md': 'markdown',
-                'toml': 'toml',
-                'yaml': 'yaml',
-                'sh': 'shell'
+                'py': 'python', 'js': 'javascript', 'ts': 'typescript', 'html': 'html',
+                'css': 'css', 'json': 'json', 'md': 'markdown', 'java': 'java',
+                'go': 'go', 'sh': 'shell', 'yml': 'yaml', 'yaml': 'yaml'
             };
-            return langMap[extension] || 'plaintext';
+            return langMap[ext] || 'plaintext';
         }
 
     </script>
 </body>
-
 </html>

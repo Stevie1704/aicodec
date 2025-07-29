@@ -4,6 +4,13 @@ import sys
 from pathlib import Path
 from aicodec import cli
 
+
+@pytest.fixture(autouse=True)
+def mock_server_effects(mocker):
+    """Prevents tests from having side effects like opening a browser or hanging on a server loop."""
+    mocker.patch('webbrowser.open_new_tab')
+    mocker.patch('socketserver.TCPServer.serve_forever')
+
 # Test aicodec-aggregate
 
 
@@ -30,14 +37,14 @@ def test_aggregate_main_no_inclusions(mocker):
 
 def test_review_and_apply_main_with_args(mocker):
     """Verify that the main review function calls the server launcher with correct args."""
-    # Mock the function that launches the web server
+    # We mock the entire function to assert it's called correctly,
+    # while the autouse fixture handles the side effects.
     mock_launch_server = mocker.patch('aicodec.cli.launch_review_server')
 
     # Mock command-line arguments
     mocker.patch.object(sys, 'argv', [
         'aicodec-apply',
         '--output-dir', '/path/to/project',
-        '--original', '/path/to/context.json',
         '--changes', '/path/to/changes.json'
     ])
 
@@ -47,6 +54,34 @@ def test_review_and_apply_main_with_args(mocker):
     # Assert that the server launcher was called with the correctly parsed Path objects
     mock_launch_server.assert_called_once_with(
         Path('/path/to/project'),
-        Path('/path/to/context.json'),
         Path('/path/to/changes.json')
+    )
+
+
+def test_review_and_apply_main_missing_args(mocker):
+    """Verify that the script exits if required arguments are missing."""
+    mocker.patch.object(
+        sys, 'argv', ['aicodec-apply', '--output-dir', '/path/to/project'])
+
+    with pytest.raises(SystemExit):
+        cli.review_and_apply_main()
+
+
+def test_review_and_apply_from_config(mocker):
+    """Verify that the app can read all its config from a file."""
+    mock_launch_server = mocker.patch('aicodec.cli.launch_review_server')
+    mock_load_config = mocker.patch('aicodec.cli.load_config', return_value={
+        'apply': {
+            'output_dir': '/config/project',
+            'changes': '/config/changes.json'
+        }
+    })
+
+    mocker.patch.object(sys, 'argv', ['aicodec-apply'])
+    cli.review_and_apply_main()
+
+    mock_load_config.assert_called_once()
+    mock_launch_server.assert_called_once_with(
+        Path('/config/project'),
+        Path('/config/changes.json')
     )

@@ -11,20 +11,56 @@ PORT = 8000
 
 class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     output_dir = "."
-    original_file_path = None
     changes_file_path = None
 
     def do_GET(self):
         if self.path == '/api/context':
             try:
-                with open(self.original_file_path, 'r', encoding='utf-8') as f:
-                    original_data = json.load(f)
                 with open(self.changes_file_path, 'r', encoding='utf-8') as f:
                     changes_data = json.load(f)
 
+                processed_changes = []
+                llm_summary = changes_data.get("summary", "No summary provided.")
+                proposed_changes = changes_data.get("changes", [])
+
+                for change in proposed_changes:
+                    relative_path = change.get('filePath')
+                    if not relative_path:
+                        continue
+
+                    proposed_content = change.get('content', '')
+                    llm_action = change.get('action', '').upper()
+                    target_path = Path(self.output_dir).resolve().joinpath(relative_path)
+
+                    action = None
+                    original_content = ""
+
+                    if target_path.exists():
+                        original_content = target_path.read_text(encoding='utf-8')
+                        if llm_action in ['CREATE', 'REPLACE']:
+                            action = 'REPLACE'
+                        elif llm_action == 'DELETE':
+                            action = 'DELETE'
+                            proposed_content = "" # Diff view should show an empty proposed state for deletes
+                    else: # File does not exist on disk
+                        original_content = ""
+                        if llm_action in ['CREATE', 'REPLACE']:
+                            action = 'CREATE'
+                        elif llm_action == 'DELETE':
+                            # It makes no sense to delete a file that doesn't exist, so we skip it.
+                            continue
+
+                    if action:
+                        processed_changes.append({
+                            "filePath": relative_path,
+                            "original_content": original_content,
+                            "proposed_content": proposed_content,
+                            "action": action
+                        })
+
                 response_data = {
-                    'original': original_data,
-                    'changes': changes_data
+                    'summary': llm_summary,
+                    'changes': processed_changes
                 }
 
                 self.send_response(200)
@@ -98,16 +134,12 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                                'status': 'FAILURE', 'reason': str(e)})
         return results
 
-def launch_review_server(output_dir, original_file, changes_file):
-    if not original_file.exists():
-        print(f"Error: Original file '{original_file}' does not exist.")
-        return
+def launch_review_server(output_dir, changes_file):
     if not changes_file.exists():
         print(f"Error: Changes file '{changes_file}' does not exist.")
         return
 
     ReviewHttpRequestHandler.output_dir = str(output_dir.resolve())
-    ReviewHttpRequestHandler.original_file_path = str(original_file.resolve())
     ReviewHttpRequestHandler.changes_file_path = str(changes_file.resolve())
 
     review_ui_dir = Path(__file__).parent.parent / 'review-ui'
