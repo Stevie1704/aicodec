@@ -21,8 +21,7 @@ dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 # This section makes your scripts available as command-line tools
 [project.scripts]
 aicodec-aggregate = "aicodec.cli:aggregate_main"
-aicodec-apply = "aicodec.cli:decode_main"        # Will be renamed later
-aicodec-review = "aicodec.review_server:main"
+aicodec-apply = "aicodec.cli:review_and_apply_main"
 
 [tool.setuptools]
 packages = ["aicodec"]

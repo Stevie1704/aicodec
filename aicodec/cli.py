@@ -1,9 +1,9 @@
 # aicodec/cli.py
 import argparse
-import os
-from aicodec.core.config import EncoderConfig, DecoderConfig, load_config
+from pathlib import Path
+from aicodec.core.config import EncoderConfig, load_config
 from aicodec.services.encoder_service import EncoderService
-from aicodec.services.decoder_service import DecoderService
+from aicodec.review_server import launch_review_server
 
 def aggregate_main():
     parser = argparse.ArgumentParser(description="AI Codec Aggregator")
@@ -39,33 +39,18 @@ def aggregate_main():
     service.run(full_run=args.full)
 
 
-def decode_main():
-    parser = argparse.ArgumentParser(description="AI Codec Decoder")
-    parser.add_argument('-c', '--config', type=str,
-                        default='.aicodec-config.json')
-    parser.add_argument('-i', '--input', type=str)
-    parser.add_argument('-od', '--output-dir', type=str)
-    parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('-y', '--yes', action='store_true')
+def review_and_apply_main():
+    parser = argparse.ArgumentParser(description="AI Codec Review and Apply UI")
+    parser.add_argument('-od', '--output-dir', type=Path, required=True,
+                        help="The project directory to apply changes to.")
+    parser.add_argument('--original', type=Path, required=True,
+                        help="Path to the original context JSON file. (e.g., .aicodec/context.json)")
+    parser.add_argument('--changes', type=Path, required=True,
+                        help="Path to the LLM changes JSON file.")
     args = parser.parse_args()
 
-    file_cfg = load_config(args.config).get('decoder', {})
-
-    input_file = args.input or file_cfg.get('input')
-    if not input_file:
-        parser.error(
-            "No input file specified. Provide it via --input or in the config file.")
-
-    output_dir = args.output_dir or file_cfg.get('output_dir')
-    if not output_dir:
-        output_dir = os.path.dirname(os.path.abspath(input_file))
-
-    config = DecoderConfig(input=input_file, output_dir=output_dir)
-    service = DecoderService(config)
-    service.run(dry_run=args.dry_run, auto_confirm=args.yes)
+    launch_review_server(args.output_dir, args.original, args.changes)
 
 
 if __name__ == "__main__":
-    # This part is for direct script execution, which is less common with installed scripts.
-    # We can decide how to handle this, maybe default to aggregate or show help.
     pass

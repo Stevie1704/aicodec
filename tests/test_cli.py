@@ -1,6 +1,7 @@
 # tests/test_cli.py
 import pytest
 import sys
+from pathlib import Path
 from aicodec import cli
 
 # Test aicodec-aggregate
@@ -20,26 +21,33 @@ def test_aggregate_main_no_inclusions(mocker):
     with pytest.raises(SystemExit):
         cli.aggregate_main()
 
-# Test ai-decode (will be updated later)
-def test_decode_main_with_args(mocker):
-    mocker.patch.object(sys, 'argv', ['ai-decode', '-i', 'changes.json', '--yes'])
-    mock_service = mocker.patch('aicodec.cli.DecoderService')
-    cli.decode_main()
-    mock_service.assert_called_once()
-    config_arg = mock_service.call_args[0][0]
-    assert config_arg.input == 'changes.json'
+# Test aicodec-apply (now review_and_apply_main)
+def test_review_and_apply_main_with_args(mocker):
+    """Verify that the main review function calls the server launcher with correct args."""
+    # Mock the function that launches the web server
+    mock_launch_server = mocker.patch('aicodec.cli.launch_review_server')
 
-def test_decode_main_from_config(mocker):
-    mocker.patch.object(sys, 'argv', ['ai-decode', '--yes'])
-    mocker.patch('aicodec.cli.load_config', return_value={'decoder': {'input': 'cfg_changes.json'}})
-    mock_service = mocker.patch('aicodec.cli.DecoderService')
-    cli.decode_main()
-    mock_service.assert_called_once()
-    config_arg = mock_service.call_args[0][0]
-    assert config_arg.input == 'cfg_changes.json'
+    # Mock command-line arguments
+    mocker.patch.object(sys, 'argv', [
+        'aicodec-apply',
+        '--output-dir', '/path/to/project',
+        '--original', '/path/to/context.json',
+        '--changes', '/path/to/changes.json'
+    ])
 
-def test_decode_main_no_input(mocker):
-    mocker.patch.object(sys, 'argv', ['ai-decode'])
-    mocker.patch('aicodec.cli.load_config', return_value={})
+    # Run the main function
+    cli.review_and_apply_main()
+
+    # Assert that the server launcher was called with the correctly parsed Path objects
+    mock_launch_server.assert_called_once_with(
+        Path('/path/to/project'),
+        Path('/path/to/context.json'),
+        Path('/path/to/changes.json')
+    )
+
+def test_review_and_apply_main_missing_args(mocker):
+    """Verify that the script exits if required arguments are missing."""
+    mocker.patch.object(sys, 'argv', ['aicodec-apply', '--original', 'context.json'])
+    
     with pytest.raises(SystemExit):
-        cli.decode_main()
+        cli.review_and_apply_main()

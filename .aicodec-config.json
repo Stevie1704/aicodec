@@ -13,7 +13,8 @@
             ".git",
             "__pycache__",
             "dist",
-            "build"
+            "build",
+            "htmlcov"
         ]
     },
     "decoder": {
