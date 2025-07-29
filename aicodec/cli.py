@@ -20,7 +20,7 @@ def aggregate_main():
                         help="Perform a full aggregation, ignoring previous hashes.")
     args = parser.parse_args()
 
-    file_cfg = load_config(args.config).get('encoder', {})
+    file_cfg = load_config(args.config).get('aggregate', {})
 
     config = EncoderConfig(
         directory=args.dir or file_cfg.get('dir', '.'),
@@ -68,4 +68,4 @@ def review_and_apply_main():
 
 
 if __name__ == "__main__":
-    pass
+    aggregate_main()
