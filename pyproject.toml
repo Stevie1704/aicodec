@@ -13,7 +13,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
-dependencies = ["jsonschema"]
+dependencies = ["jsonschema", "pyperclip"]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
@@ -22,6 +22,7 @@ dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 [project.scripts]
 aicodec-aggregate = "aicodec.cli:aggregate_main"
 aicodec-apply = "aicodec.cli:review_and_apply_main"
+aicodec-prepare = "aicodec.cli:prepare_main"
 
 [tool.setuptools]
 packages = ["aicodec"]
