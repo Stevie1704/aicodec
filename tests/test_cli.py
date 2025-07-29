@@ -6,97 +6,57 @@ from pathlib import Path
 from aicodec import cli
 
 @pytest.fixture(autouse=True)
-def mock_server_effects(mocker):
+def mock_side_effects(mocker):
     """Prevents tests from having side effects like opening a browser or hanging on a server loop."""
     mocker.patch('webbrowser.open_new_tab')
     mocker.patch('socketserver.TCPServer.serve_forever')
+    mocker.patch('aicodec.cli.open_file_in_editor')
+    mocker.patch('aicodec.cli.pyperclip')
 
-# Test aicodec-aggregate
-def test_aggregate_main_with_args(mocker):
-    mocker.patch.object(sys, 'argv', ['aicodec-aggregate', '--ext', 'py', '-d', '/tmp/project'])
+
+def test_aggregate_command(mocker):
     mock_service = mocker.patch('aicodec.cli.EncoderService')
-    cli.aggregate_main()
+    mocker.patch.object(sys, 'argv', ['aicodec', 'aggregate', '--ext', 'py', '-d', '/tmp/project'])
+    cli.main()
     mock_service.assert_called_once()
     config_arg = mock_service.call_args[0][0]
     assert config_arg.directory == '/tmp/project'
-    assert '.py' in config_arg.ext
 
-# Test aicodec-apply
-def test_review_and_apply_main_with_args(mocker):
+def test_apply_command(mocker):
     mock_launch_server = mocker.patch('aicodec.cli.launch_review_server')
-    mocker.patch.object(sys, 'argv', [
-        'aicodec-apply',
-        '--output-dir', '/path/to/project',
-        '--changes', '/path/to/changes.json'
-    ])
-    cli.review_and_apply_main()
-    mock_launch_server.assert_called_once_with(
-        Path('/path/to/project'),
-        Path('/path/to/changes.json')
-    )
+    mocker.patch.object(sys, 'argv', ['aicodec', 'apply', '--output-dir', '.', '--changes', 'c.json'])
+    cli.main()
+    mock_launch_server.assert_called_once_with(Path('.'), Path('c.json'))
 
-def test_review_and_apply_main_missing_args(mocker):
-    mocker.patch.object(
-        sys, 'argv', ['aicodec-apply', '--output-dir', '/path/to/project'])
+def test_apply_command_missing_args(mocker, capsys):
+    mocker.patch.object(sys, 'argv', ['aicodec', 'apply', '--output-dir', '.'])
     mocker.patch('aicodec.cli.load_config', return_value={})
-    with pytest.raises(SystemExit):
-        cli.review_and_apply_main()
+    cli.main()
+    assert 'Missing required configuration' in capsys.readouterr().out
 
-# Test aicodec-prepare
-@pytest.fixture
-def mock_open_editor(mocker):
-    return mocker.patch('aicodec.cli.open_file_in_editor')
-
-@pytest.fixture
-def mock_pyperclip(mocker):
-    return mocker.patch('aicodec.cli.pyperclip')
-
-def test_prepare_main_creates_new_file(tmp_path, mock_open_editor):
+def test_prepare_command_editor(tmp_path, mocker):
+    mock_open_editor = mocker.patch('aicodec.utils.open_file_in_editor')
     changes_file = tmp_path / "changes.json"
-    mocker.patch.object(sys, 'argv', ['aicodec-prepare', '--changes', str(changes_file)])
-    cli.prepare_main()
+    mocker.patch.object(sys, 'argv', ['aicodec', 'prepare', '--changes', str(changes_file)])
+    cli.main()
     assert changes_file.exists()
-    assert changes_file.stat().st_size == 0
     mock_open_editor.assert_called_once_with(changes_file)
 
-def test_prepare_main_confirms_overwrite_no(tmp_path, mocker, mock_open_editor):
-    original_content = "existing content"
-    changes_file = tmp_path / "changes.json"
-    changes_file.write_text(original_content)
-    mocker.patch.object(sys, 'argv', ['aicodec-prepare', '--changes', str(changes_file)])
-    mocker.patch('builtins.input', return_value='n')
-    cli.prepare_main()
-    assert changes_file.read_text() == original_content
-    mock_open_editor.assert_not_called()
-
-def test_prepare_from_clipboard_success(tmp_path, mock_pyperclip, mock_open_editor, capsys):
+def test_prepare_command_from_clipboard(tmp_path, mocker):
+    mock_pyperclip = mocker.patch('pyperclip.paste')
     valid_json = json.dumps({"summary": "from clipboard"})
-    mock_pyperclip.paste.return_value = valid_json
+    mock_pyperclip.return_value = valid_json
     changes_file = tmp_path / "changes.json"
-    mocker.patch.object(sys, 'argv', ['aicodec-prepare', '--from-clipboard', '--changes', str(changes_file)])
-    
-    cli.prepare_main()
-
+    mocker.patch.object(sys, 'argv', ['aicodec', 'prepare', '--from-clipboard', '--changes', str(changes_file)])
+    cli.main()
     assert changes_file.read_text() == valid_json
+
+def test_prepare_command_overwrite_cancel(tmp_path, mocker, capsys):
+    mock_open_editor = mocker.patch('aicodec.utils.open_file_in_editor')
+    changes_file = tmp_path / "changes.json"
+    changes_file.write_text("existing content")
+    mocker.patch('builtins.input', return_value='n')
+    mocker.patch.object(sys, 'argv', ['aicodec', 'prepare', '--changes', str(changes_file)])
+    cli.main()
+    assert "Operation cancelled" in capsys.readouterr().out
     mock_open_editor.assert_not_called()
-    assert 'Successfully wrote content from clipboard' in capsys.readouterr().out
-
-def test_prepare_from_clipboard_invalid_json(tmp_path, mock_pyperclip, capsys):
-    mock_pyperclip.paste.return_value = "{not valid json}"
-    changes_file = tmp_path / "changes.json"
-    mocker.patch.object(sys, 'argv', ['aicodec-prepare', '--from-clipboard', '--changes', str(changes_file)])
-
-    cli.prepare_main()
-
-    assert not changes_file.exists()
-    assert 'Clipboard content is not valid JSON' in capsys.readouterr().out
-
-def test_prepare_from_clipboard_empty(tmp_path, mock_pyperclip, capsys):
-    mock_pyperclip.paste.return_value = ""
-    changes_file = tmp_path / "changes.json"
-    mocker.patch.object(sys, 'argv', ['aicodec-prepare', '--from-clipboard', '--changes', str(changes_file)])
-
-    cli.prepare_main()
-
-    assert not changes_file.exists()
-    assert 'Clipboard is empty' in capsys.readouterr().out

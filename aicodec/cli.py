@@ -9,22 +9,59 @@ from aicodec.review_server import launch_review_server
 from aicodec.utils import open_file_in_editor
 
 
-def aggregate_main():
-    parser = argparse.ArgumentParser(description="AI Codec Aggregator")
-    parser.add_argument('-c', '--config', type=str,
-                        default='.aicodec/config.json')
-    parser.add_argument('-d', '--dir', type=str)
-    parser.add_argument('-e', '--ext', action='append', default=[])
-    parser.add_argument('-f', '--file', action='append', default=[])
-    parser.add_argument('--exclude-dir', action='append', default=[])
-    parser.add_argument('--exclude-ext', action='append', default=[])
-    parser.add_argument('--exclude-file', action='append', default=[])
-    parser.add_argument('--full', action='store_true',
-                        help="Perform a full aggregation, ignoring previous hashes.")
+def main():
+    parser = argparse.ArgumentParser(
+        description="A lightweight communication layer for developers to interact with LLMs."
+    )
+    subparsers = parser.add_subparsers(
+        dest='command', required=True, help='Available commands')
+
+    # --- Aggregate Command ---
+    agg_parser = subparsers.add_parser(
+        'aggregate', help='Aggregate project files into a JSON context.')
+    agg_parser.add_argument('-c', '--config', type=str,
+                            default='.aicodec/config.json')
+    agg_parser.add_argument('-d', '--dir', type=str)
+    agg_parser.add_argument('-e', '--ext', action='append', default=[])
+    agg_parser.add_argument('-f', '--file', action='append', default=[])
+    agg_parser.add_argument('--exclude-dir', action='append', default=[])
+    agg_parser.add_argument('--exclude-ext', action='append', default=[])
+    agg_parser.add_argument('--exclude-file', action='append', default=[])
+    agg_parser.add_argument('--full', action='store_true',
+                            help="Perform a full aggregation, ignoring previous hashes.")
+
+    # --- Apply Command ---
+    apply_parser = subparsers.add_parser(
+        'apply', help='Review and apply changes from an LLM.')
+    apply_parser.add_argument('-c', '--config', type=str,
+                              default='.aicodec/config.json', help="Path to the config file.")
+    apply_parser.add_argument('-od', '--output-dir', type=Path,
+                              help="The project directory to apply changes to (overrides config).")
+    apply_parser.add_argument(
+        '--changes', type=Path, help="Path to the LLM changes JSON file (overrides config).")
+
+    # --- Prepare Command ---
+    prep_parser = subparsers.add_parser(
+        'prepare', help='Prepare the changes file, either by opening an editor or from clipboard.')
+    prep_parser.add_argument('-c', '--config', type=str,
+                             default='.aicodec/config.json', help="Path to the config file.")
+    prep_parser.add_argument(
+        '--changes', type=Path, help="Path to the LLM changes JSON file (overrides config).")
+    prep_parser.add_argument('--from-clipboard', action='store_true',
+                             help="Paste content directly from the system clipboard.")
+
     args = parser.parse_args()
 
-    file_cfg = load_config(args.config).get('aggregate', {})
+    if args.command == 'aggregate':
+        handle_aggregate(args)
+    elif args.command == 'apply':
+        handle_apply(args)
+    elif args.command == 'prepare':
+        handle_prepare(args)
 
+
+def handle_aggregate(args):
+    file_cfg = load_config(args.config).get('aggregate', {})
     config = EncoderConfig(
         directory=args.dir or file_cfg.get('dir', '.'),
         ext=[e if e.startswith('.') else '.' +
@@ -35,55 +72,26 @@ def aggregate_main():
             '.') else '.' + e for e in args.exclude_ext or file_cfg.get('exclude_exts', [])],
         exclude_files=args.exclude_file or file_cfg.get('exclude_files', [])
     )
-
     if not config.ext and not config.file:
-        parser.error(
-            "No files to aggregate. Please provide inclusions in your config or via arguments.")
-
+        print("Error: No files to aggregate. Please provide inclusions in your config or via arguments.")
+        return
     service = EncoderService(config)
     service.run(full_run=args.full)
 
 
-def review_and_apply_main():
-    parser = argparse.ArgumentParser(
-        description="AI Codec Review and Apply UI")
-    parser.add_argument('-c', '--config', type=str,
-                        default='.aicodec/config.json',
-                        help="Path to the config file.")
-    parser.add_argument('-od', '--output-dir', type=Path,
-                        help="The project directory to apply changes to (overrides config).")
-    parser.add_argument('--changes', type=Path,
-                        help="Path to the LLM changes JSON file (overrides config).")
-    args = parser.parse_args()
-
+def handle_apply(args):
     file_cfg = load_config(args.config)
-    changes_file_cfg = file_cfg.get('prepare', {}).get(
-        'changes', '.aicodec/changes.json')
-    output_dir_cfg = file_cfg.get('apply', {}).get('output_dir', '.')
-
-    # Prioritize CLI arguments, then fall back to config file values
+    output_dir_cfg = file_cfg.get('apply', {}).get('output_dir')
+    changes_file_cfg = file_cfg.get('prepare', {}).get('changes')
     output_dir = args.output_dir or output_dir_cfg
     changes_file = args.changes or changes_file_cfg
-
-    # Check if all required configurations are present
     if not all([output_dir, changes_file]):
-        parser.error(
-            "Missing required configuration. Provide 'output_dir', and 'changes' via CLI arguments or in the 'review' section of your config file.")
-
+        print("Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config.")
+        return
     launch_review_server(Path(output_dir), Path(changes_file))
 
 
-def prepare_main():
-    parser = argparse.ArgumentParser(
-        description="Prepares the changes file for LLM output.")
-    parser.add_argument('-c', '--config', type=str,
-                        default='.aicodec/config.json', help="Path to the config file.")
-    parser.add_argument('--changes', type=Path,
-                        help="Path to the LLM changes JSON file (overrides config).")
-    parser.add_argument('--from-clipboard', action='store_true',
-                        help="Paste content directly from the system clipboard.")
-    args = parser.parse_args()
-
+def handle_prepare(args):
     file_cfg = load_config(args.config).get('prepare', {})
     changes_path_str = args.changes or file_cfg.get(
         'changes', '.aicodec/changes.json')
@@ -91,7 +99,6 @@ def prepare_main():
     from_clipboard_cfg = True if file_cfg.get(
         'from-clipboard', 'false').lower() == 'true' else False
     from_clipboard = args.from_clipboard or from_clipboard_cfg
-
     if changes_path.exists() and changes_path.stat().st_size > 0:
         choice = input(
             f'"{changes_path}" already exists with content. Overwrite? [y/N] ').lower()
@@ -101,24 +108,21 @@ def prepare_main():
 
     changes_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if from_clipboard:
+    if args.from_clipboard:
         clipboard_content = pyperclip.paste()
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return
         try:
-            # Validate that the content is valid JSON before writing
             json.loads(clipboard_content)
         except json.JSONDecodeError:
             print(
                 "Error: Clipboard content is not valid JSON. Please copy the correct output.")
             return
-
         changes_path.write_text(clipboard_content, encoding='utf-8')
         print(
             f'Successfully wrote content from clipboard to "{changes_path}".')
     else:
-        # Creates or truncates the file to be empty
         with open(changes_path, 'w') as f:
             pass
         print(
@@ -127,4 +131,4 @@ def prepare_main():
 
 
 if __name__ == "__main__":
-    prepare_main()
+    main()

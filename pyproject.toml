@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "0.6.0"
-description = "A set of tools to encode and decode file structures into JSON for communicating with an llm."
+version = "1.0.0"
+description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
@@ -18,11 +18,9 @@ dependencies = ["jsonschema", "pyperclip"]
 [project.optional-dependencies]
 dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 
-# This section makes your scripts available as command-line tools
+# A single entry point for the application
 [project.scripts]
-aicodec-aggregate = "aicodec.cli:aggregate_main"
-aicodec-apply = "aicodec.cli:review_and_apply_main"
-aicodec-prepare = "aicodec.cli:prepare_main"
+aicodec = "aicodec.cli:main"
 
 [tool.setuptools]
 packages = ["aicodec"]
