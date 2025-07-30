@@ -23,7 +23,8 @@ def main():
         'aggregate', help='Aggregate project files into a JSON context.')
     agg_parser.add_argument('-c', '--config', type=str,
                             default='.aicodec/config.json')
-    agg_parser.add_argument('--include-dir', type=str, help="The root directory to scan.")
+    agg_parser.add_argument('-d', '--directory', type=str, help="The root directory to scan.")
+    agg_parser.add_argument('--include-dir', action='append', default=[], help="Specific directories to include, overriding exclusions.")
     agg_parser.add_argument('--include-ext', action='append', default=[], help="File extensions to include.")
     agg_parser.add_argument('--include-file', action='append', default=[], help="Specific files or glob patterns to include.")
     agg_parser.add_argument('--exclude-dir', action='append', default=[])
@@ -77,7 +78,8 @@ def handle_aggregate(args):
         use_gitignore = use_gitignore_cfg
 
     config = EncoderConfig(
-        directory=args.include_dir or file_cfg.get('directory', '.'),
+        directory=args.directory or file_cfg.get('directory', '.'),
+        include_dirs=args.include_dir or file_cfg.get('include_dirs', []),
         include_ext=[e if e.startswith('.') else '.' +
              e for e in args.include_ext or file_cfg.get('include_ext', [])],
         include_files=args.include_file or file_cfg.get('include_files', []),
@@ -89,7 +91,7 @@ def handle_aggregate(args):
     )
 
     # If not using gitignore, we must have some inclusion rules.
-    if not config.use_gitignore and not config.include_ext and not config.include_files:
+    if not config.use_gitignore and not config.include_ext and not config.include_files and not config.include_dirs:
         print("Error: No files to aggregate. Please provide inclusions in your config or via arguments, or enable 'use_gitignore'.")
         return
 

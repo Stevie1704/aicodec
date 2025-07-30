@@ -55,9 +55,14 @@ class EncoderService:
         # 1. Find all files that are explicitly included.
         # These will be added at the end, overriding any exclusions.
         explicit_includes = set()
-        if self.config.include_ext or self.config.include_files:
+        if self.config.include_dirs or self.config.include_ext or self.config.include_files:
             for path in all_files:
                 rel_path_str = str(path.relative_to(self.config.directory))
+                
+                if any(rel_path_str.startswith(d) for d in self.config.include_dirs):
+                    explicit_includes.add(path)
+                    continue
+
                 if any(path.name.endswith(ext) for ext in self.config.include_ext):
                     explicit_includes.add(path)
                 if any(fnmatch.fnmatch(rel_path_str, p) for p in self.config.include_files):
@@ -78,9 +83,13 @@ class EncoderService:
         for path in base_files:
             rel_path_str = str(path.relative_to(self.config.directory))
 
-            if any(part in self.config.exclude_dirs for part in path.relative_to(self.config.directory).parts):
+            # Normalize exclude_dirs to prevent partial matches (e.g., 'src' matching 'src_old')
+            normalized_exclude_dirs = {os.path.normpath(d) for d in self.config.exclude_dirs}
+            path_parts = {os.path.normpath(p) for p in path.relative_to(self.config.directory).parts}
+            if not normalized_exclude_dirs.isdisjoint(path_parts):
                 files_to_exclude.add(path)
                 continue
+
             if any(fnmatch.fnmatch(rel_path_str, p) for p in self.config.exclude_files):
                 files_to_exclude.add(path)
                 continue

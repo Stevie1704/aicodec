@@ -7,6 +7,7 @@ from pathlib import Path
 @dataclass
 class EncoderConfig:
     directory: str | Path
+    include_dirs: list[str] = field(default_factory=list)
     include_ext: list[str] = field(default_factory=list)
     include_files: list[str] = field(default_factory=list)
     exclude_dirs: list[str] = field(default_factory=list)
