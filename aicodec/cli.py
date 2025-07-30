@@ -1,6 +1,8 @@
 # aicodec/cli.py
 import argparse
 import json
+import os
+from jsonschema import validate, ValidationError
 import pyperclip
 from pathlib import Path
 from aicodec.core.config import EncoderConfig, load_config
@@ -108,16 +110,30 @@ def handle_prepare(args):
 
     changes_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if args.from_clipboard:
+    if from_clipboard:
         clipboard_content = pyperclip.paste()
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        schema_path = os.path.join(script_dir, 'decoder_schema.json')
         try:
-            json.loads(clipboard_content)
+            with open(schema_path, 'r', encoding='utf-8') as f:
+                schema = json.load(f)
+        except FileNotFoundError as e:
+            print(f"Error: Could not find a required file. {e}")
+            return
+
+        try:
+            json_content = json.loads(clipboard_content)
+            validate(instance=json_content, schema=schema)
         except json.JSONDecodeError:
             print(
                 "Error: Clipboard content is not valid JSON. Please copy the correct output.")
+            return
+        except ValidationError as e:
+            print(
+                f"Error: Clipboard content does not match the expected schema. {e.message}")
             return
         changes_path.write_text(clipboard_content, encoding='utf-8')
         print(
