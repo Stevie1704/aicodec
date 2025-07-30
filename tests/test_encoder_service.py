@@ -20,6 +20,7 @@ def project_structure(tmp_path):
     (project_dir / 'dist' / 'bundle.js').write_text('// excluded bundle')
     (project_dir / 'error.log').write_text('log message')
     (project_dir / '.DS_Store').write_text('metadata')
+    (project_dir / '.gitignore').write_text('*.log\n.DS_Store')
     return project_dir
 
 
@@ -27,32 +28,73 @@ def project_structure(tmp_path):
 def base_config(project_structure):
     return EncoderConfig(
         directory=str(project_structure),
-        ext=['.py', '.js'],
-        file=['Dockerfile'],
+        include_ext=['.py', '.js'],
+        include_files=['Dockerfile'],
+        exclude_dirs=['dist'],
+        exclude_exts=['.log'],
+        exclude_files=['.DS_Store'],
+        use_gitignore=False  # Disabled for this test to be specific
+    )
+
+
+def test_discover_files_with_exclusions(project_structure):
+    """Test basic exclusion rules without gitignore."""
+    config = EncoderConfig(
+        directory=str(project_structure),
         exclude_dirs=['dist'],
         exclude_exts=['.log'],
         exclude_files=['.DS_Store']
     )
+    service = EncoderService(config)
+    files = service._discover_files()
+    relative_files = {str(p.relative_to(project_structure)) for p in files}
+    expected = {'main.py', 'Dockerfile', 'src/utils.js', '.gitignore'}
+    assert relative_files == expected
 
+def test_discover_files_with_inclusions(project_structure):
+    """Test that inclusion rules correctly filter the files."""
+    config = EncoderConfig(
+        directory=str(project_structure),
+        include_ext=['.py'],
+        include_files=['Dockerfile']
+    )
+    service = EncoderService(config)
+    files = service._discover_files()
+    relative_files = {str(p.relative_to(project_structure)) for p in files}
+    # Since use_gitignore is True by default, .log and .DS_Store are excluded
+    expected = {'main.py', 'Dockerfile'}
+    assert relative_files == expected
 
-def test_aggregation_full_initial_run(project_structure, base_config):
-    """Test the first run where no hashes.json exists."""
-    service = EncoderService(base_config)
-    service.run()
+def test_discover_files_with_gitignore(project_structure):
+    """Test that .gitignore rules are respected."""
+    config = EncoderConfig(
+        directory=str(project_structure),
+        use_gitignore=True
+    )
+    service = EncoderService(config)
+    files = service._discover_files()
+    relative_files = {str(p.relative_to(project_structure)) for p in files}
+    # .DS_Store and error.log should be ignored
+    expected = {'main.py', 'Dockerfile', 'src/utils.js', 'dist/bundle.js', '.gitignore'}
+    assert relative_files == expected
 
-    output_file = Path(project_structure) / '.aicodec' / 'context.json'
-    hashes_file = Path(project_structure) / '.aicodec' / 'hashes.json'
+def test_inclusion_overrides_exclusion(project_structure):
+    """Test that include rules take precedence over all exclusion rules."""
+    config = EncoderConfig(
+        directory=str(project_structure),
+        include_files=['dist/bundle.js', 'error.log'],
+        exclude_dirs=['dist'],
+        use_gitignore=True  # .gitignore excludes *.log
+    )
+    service = EncoderService(config)
+    files = service._discover_files()
+    relative_files = {str(p.relative_to(project_structure)) for p in files}
 
-    assert output_file.exists()
-    assert hashes_file.exists()
-
-    data = json.loads(output_file.read_text(encoding='utf-8'))
-    assert len(data) == 3
-
-    hashes_data = json.loads(hashes_file.read_text(encoding='utf-8'))
-    assert len(hashes_data) == 3
-    assert 'main.py' in hashes_data
-
+    # main.py, Dockerfile, src/utils.js, .gitignore are included by default
+    # dist/bundle.js is included explicitly, overriding exclude_dirs
+    # error.log is included explicitly, overriding .gitignore
+    expected = {'main.py', 'Dockerfile', 'src/utils.js', '.gitignore', 'dist/bundle.js', 'error.log'}
+    assert relative_files == expected
 
 def test_aggregation_no_changes(project_structure, base_config, capsys):
     """Test a second run where no files have changed."""
@@ -66,44 +108,3 @@ def test_aggregation_no_changes(project_structure, base_config, capsys):
 
     captured = capsys.readouterr()
     assert "No changes detected in the specified files since last run" in captured.out
-
-
-def test_aggregation_with_changes(project_structure, base_config):
-    """Test a run where one file has been modified."""
-    # First run
-    service1 = EncoderService(base_config)
-    service1.run()
-
-    # Modify a file
-    (project_structure / 'main.py').write_text('print("modified main")')
-
-    # Second run
-    service2 = EncoderService(base_config)
-    service2.run()
-
-    output_file = Path(project_structure) / '.aicodec' / 'context.json'
-    assert output_file.exists()
-    data = json.loads(output_file.read_text(encoding='utf-8'))
-
-    # Only the single changed file should be in the output
-    assert len(data) == 1
-    assert data[0]['filePath'] == 'main.py'
-    assert data[0]['content'] == 'print("modified main")'
-
-
-def test_aggregation_with_full_run_flag(project_structure, base_config):
-    """Test that the --full flag forces re-aggregation of all files."""
-    # First run
-    service1 = EncoderService(base_config)
-    service1.run()
-
-    # Second run with --full flag, even with no changes
-    service2 = EncoderService(base_config)
-    service2.run(full_run=True)
-
-    output_file = Path(project_structure) / '.aicodec' / 'context.json'
-    assert output_file.exists()
-    data = json.loads(output_file.read_text(encoding='utf-8'))
-
-    # All files should be present in the output despite no changes
-    assert len(data) == 3

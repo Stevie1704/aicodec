@@ -50,57 +50,52 @@ class EncoderService:
 
     def _discover_files(self) -> list[Path]:
         """Discovers all files to be included based on the configuration."""
+        all_files = {p for p in self.config.directory.rglob('*') if p.is_file()}
 
-        files_to_consider = set()
+        # 1. Find all files that are explicitly included.
+        # These will be added at the end, overriding any exclusions.
+        explicit_includes = set()
+        if self.config.include_ext or self.config.include_files:
+            for path in all_files:
+                rel_path_str = str(path.relative_to(self.config.directory))
+                if any(path.name.endswith(ext) for ext in self.config.include_ext):
+                    explicit_includes.add(path)
+                if any(fnmatch.fnmatch(rel_path_str, p) for p in self.config.include_files):
+                    explicit_includes.add(path)
 
-        for root, dirs, files in os.walk(self.config.directory, topdown=True):
-            root_path = Path(root)
-
-            # Prune directories based on config and .gitignore
-            dirs[:] = [d for d in dirs if d not in self.config.exclude_dirs]
-            if self.gitignore_spec:
-                rel_dir_paths = [
-                    str((root_path / d).relative_to(self.config.directory)) for d in dirs]
-                ignored_dirs = self.gitignore_spec.match_files(rel_dir_paths)
-                dirs[:] = [d for d_rel, d in zip(
-                    rel_dir_paths, dirs) if d_rel not in ignored_dirs]
-
-            for file in files:
-                files_to_consider.add(root_path / file)
-
+        # 2. Determine the set of files that would normally be included.
+        # This means starting with a base set and applying all exclusion rules.
+        base_files = set()
         if self.config.use_gitignore and self.gitignore_spec:
-            files_to_consider = {
-                p for p in files_to_consider
-                if not self.gitignore_spec.match_file(str(p.relative_to(self.config.directory)))
-            }
+            base_files = {p for p in all_files if not self.gitignore_spec.match_file(
+                str(p.relative_to(self.config.directory)))}
+        else:
+            # If not using gitignore, start with all files.
+            base_files = all_files
 
-        if self.config.ext or self.config.files:
-            included_by_rules = set()
-            if self.config.ext:
-                for path in files_to_consider:
-                    if any(path.name.endswith(ext) for ext in self.config.ext):
-                        included_by_rules.add(path)
-            if self.config.files:
-                for pattern in self.config.files:
-                    for path in files_to_consider:
-                        if fnmatch.fnmatch(str(path.relative_to(self.config.directory)), pattern):
-                            included_by_rules.add(path)
-            files_to_consider = files_to_consider | included_by_rules
-
-        final_files = []
-        for path in sorted(list(files_to_consider)):
+        # Apply non-gitignore exclusion rules
+        files_to_exclude = set()
+        for path in base_files:
             rel_path_str = str(path.relative_to(self.config.directory))
 
+            if any(part in self.config.exclude_dirs for part in path.relative_to(self.config.directory).parts):
+                files_to_exclude.add(path)
+                continue
             if any(fnmatch.fnmatch(rel_path_str, p) for p in self.config.exclude_files):
+                files_to_exclude.add(path)
                 continue
             if any(rel_path_str.endswith(ext) for ext in self.config.exclude_exts):
-                continue
-            if any(part in self.config.exclude_dirs for part in path.parts):
+                files_to_exclude.add(path)
                 continue
 
-            final_files.append(path)
+        # The default set is the base set minus the excluded files.
+        included_by_default = base_files - files_to_exclude
 
-        return final_files
+        # 3. Final set is the union of default-included files and explicitly-included files.
+        # This ensures explicit includes always take precedence.
+        final_files_set = included_by_default | explicit_includes
+
+        return sorted(list(final_files_set))
 
     def run(self, full_run: bool = False):
         """Main execution method to aggregate files."""
@@ -116,8 +111,10 @@ class EncoderService:
 
         for file_path in discovered_files:
             try:
+                # Check if the file is binary
                 with open(file_path, 'rb') as f:
                     if b'\0' in f.read(1024):
+                        # print(f"Skipping binary file: {file_path}")
                         continue
 
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:

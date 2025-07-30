@@ -23,9 +23,9 @@ def main():
         'aggregate', help='Aggregate project files into a JSON context.')
     agg_parser.add_argument('-c', '--config', type=str,
                             default='.aicodec/config.json')
-    agg_parser.add_argument('-d', '--dir', type=str)
-    agg_parser.add_argument('-e', '--ext', action='append', default=[])
-    agg_parser.add_argument('-f', '--file', action='append', default=[])
+    agg_parser.add_argument('--include-dir', type=str, help="The root directory to scan.")
+    agg_parser.add_argument('--include-ext', action='append', default=[], help="File extensions to include.")
+    agg_parser.add_argument('--include-file', action='append', default=[], help="Specific files or glob patterns to include.")
     agg_parser.add_argument('--exclude-dir', action='append', default=[])
     agg_parser.add_argument('--exclude-ext', action='append', default=[])
     agg_parser.add_argument('--exclude-file', action='append', default=[])
@@ -77,10 +77,10 @@ def handle_aggregate(args):
         use_gitignore = use_gitignore_cfg
 
     config = EncoderConfig(
-        directory=args.dir or file_cfg.get('dir', '.'),
-        ext=[e if e.startswith('.') else '.' +
-             e for e in args.ext or file_cfg.get('ext', [])],
-        files=args.file or file_cfg.get('files', []),
+        directory=args.include_dir or file_cfg.get('directory', '.'),
+        include_ext=[e if e.startswith('.') else '.' +
+             e for e in args.include_ext or file_cfg.get('include_ext', [])],
+        include_files=args.include_file or file_cfg.get('include_files', []),
         exclude_dirs=args.exclude_dir or file_cfg.get('exclude_dirs', []),
         exclude_exts=[e if e.startswith(
             '.') else '.' + e for e in args.exclude_ext or file_cfg.get('exclude_exts', [])],
@@ -89,7 +89,7 @@ def handle_aggregate(args):
     )
 
     # If not using gitignore, we must have some inclusion rules.
-    if not config.use_gitignore and not config.ext and not config.file:
+    if not config.use_gitignore and not config.include_ext and not config.include_files:
         print("Error: No files to aggregate. Please provide inclusions in your config or via arguments, or enable 'use_gitignore'.")
         return
 
@@ -118,7 +118,7 @@ def handle_prepare(args):
         'from-clipboard', False)
     if changes_path.exists() and changes_path.stat().st_size > 0:
         choice = input(
-            f'"{changes_path}" already exists with content. Overwrite? [y/N] ').lower()
+            f'\"{changes_path}\" already exists with content. Overwrite? [y/N] ').lower()
         if choice != 'y':
             print("Operation cancelled.")
             return
@@ -152,12 +152,12 @@ def handle_prepare(args):
             return
         changes_path.write_text(clipboard_content, encoding='utf-8')
         print(
-            f'Successfully wrote content from clipboard to "{changes_path}".')
+            f'Successfully wrote content from clipboard to \"{changes_path}\".')
     else:
         with open(changes_path, 'w') as f:
             pass
         print(
-            f'Successfully created empty file at "{changes_path}". Opening in default editor...')
+            f'Successfully created empty file at \"{changes_path}\". Opening in default editor...')
         open_file_in_editor(changes_path)
 
 
