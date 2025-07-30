@@ -1,30 +1,23 @@
 # aicodec/core/config.py
 import json
 from dataclasses import dataclass, field
-from typing import List
+from pathlib import Path
+
 
 @dataclass
 class EncoderConfig:
-    directory: str = '.'
-    ext: List[str] = field(default_factory=list)
-    file: List[str] = field(default_factory=list)
-    exclude_dirs: List[str] = field(default_factory=list)
-    exclude_exts: List[str] = field(default_factory=list)
-    exclude_files: List[str] = field(default_factory=list)
-
-@dataclass
-class ReviewConfig:
-    output_dir: str
-    original: str
-    changes: str
+    directory: str | Path
+    ext: list[str] = field(default_factory=list)
+    file: list[str] = field(default_factory=list)
+    exclude_dirs: list[str] = field(default_factory=list)
+    exclude_exts: list[str] = field(default_factory=list)
+    exclude_files: list[str] = field(default_factory=list)
+    use_gitignore: bool = True
 
 
 def load_config(path: str) -> dict:
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
+    config_path = Path(path)
+    if config_path.is_file():
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except json.JSONDecodeError:
-        print(f"Warning: Could not parse config file at {path}")
-        return {}
+    return {}
