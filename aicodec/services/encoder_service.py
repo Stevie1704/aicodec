@@ -25,10 +25,12 @@ class EncoderService:
             return None
 
         gitignore_path = self.config.directory / '.gitignore'
+        lines = ['.aicodec']  # Always ignore the .aicodec directory
         if gitignore_path.is_file():
             with open(gitignore_path, 'r', encoding='utf-8') as f:
-                return pathspec.PathSpec.from_lines('gitwildmatch', f)
-        return None
+                lines.extend(f.read().splitlines())
+
+        return pathspec.PathSpec.from_lines('gitwildmatch', lines)
 
     def _load_hashes(self) -> dict[str, str]:
         """Loads previously stored file hashes."""
@@ -48,46 +50,52 @@ class EncoderService:
 
     def _discover_files(self) -> list[Path]:
         """Discovers all files to be included based on the configuration."""
-        included_files = set()
-        # Explicitly included files
-        for file_pattern in self.config.file:
-            for path in self.config.directory.glob(file_pattern):
-                if path.is_file():
-                    included_files.add(path)
 
-        # Files matching extensions
-        if self.config.ext:
-            for root, dirs, files in os.walk(self.config.directory, topdown=True):
-                root_path = Path(root)
+        files_to_consider = set()
 
-                # Prune directories based on config and .gitignore
-                dirs[:] = [d for d in dirs if d not in self.config.exclude_dirs]
-                if self.gitignore_spec:
-                    # Check relative paths for gitignore matching
-                    rel_dir_paths = [str((root_path / d).relative_to(self.config.directory)) for d in dirs]
-                    ignored_dirs = self.gitignore_spec.match_files(rel_dir_paths)
-                    dirs[:] = [d for d_rel, d in zip(rel_dir_paths, dirs) if d_rel not in ignored_dirs]
+        for root, dirs, files in os.walk(self.config.directory, topdown=True):
+            root_path = Path(root)
 
-                for file in files:
-                    file_path = root_path / file
-                    if any(file.endswith(ext) for ext in self.config.ext):
-                        included_files.add(file_path)
+            # Prune directories based on config and .gitignore
+            dirs[:] = [d for d in dirs if d not in self.config.exclude_dirs]
+            if self.gitignore_spec:
+                rel_dir_paths = [
+                    str((root_path / d).relative_to(self.config.directory)) for d in dirs]
+                ignored_dirs = self.gitignore_spec.match_files(rel_dir_paths)
+                dirs[:] = [d for d_rel, d in zip(
+                    rel_dir_paths, dirs) if d_rel not in ignored_dirs]
 
-        # Filter out excluded files
+            for file in files:
+                files_to_consider.add(root_path / file)
+
+        if self.config.use_gitignore and self.gitignore_spec:
+            files_to_consider = {
+                p for p in files_to_consider
+                if not self.gitignore_spec.match_file(str(p.relative_to(self.config.directory)))
+            }
+
+        if self.config.ext or self.config.files:
+            included_by_rules = set()
+            if self.config.ext:
+                for path in files_to_consider:
+                    if any(path.name.endswith(ext) for ext in self.config.ext):
+                        included_by_rules.add(path)
+            if self.config.files:
+                for pattern in self.config.files:
+                    for path in files_to_consider:
+                        if fnmatch.fnmatch(str(path.relative_to(self.config.directory)), pattern):
+                            included_by_rules.add(path)
+            files_to_consider = files_to_consider | included_by_rules
+
         final_files = []
-        for path in sorted(list(included_files)):
+        for path in sorted(list(files_to_consider)):
             rel_path_str = str(path.relative_to(self.config.directory))
 
-            # Check config exclusions
             if any(fnmatch.fnmatch(rel_path_str, p) for p in self.config.exclude_files):
                 continue
             if any(rel_path_str.endswith(ext) for ext in self.config.exclude_exts):
                 continue
             if any(part in self.config.exclude_dirs for part in path.parts):
-                continue
-
-            # Check gitignore exclusion
-            if self.gitignore_spec and self.gitignore_spec.match_file(rel_path_str):
                 continue
 
             final_files.append(path)
@@ -105,14 +113,19 @@ class EncoderService:
 
         current_hashes: dict[str, str] = {}
         aggregated_content: list[dict[str, str]] = []
-        files_to_process_count = 0
 
         for file_path in discovered_files:
             try:
+                with open(file_path, 'rb') as f:
+                    if b'\0' in f.read(1024):
+                        continue
+
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
+
                 file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-                relative_path = str(file_path.relative_to(self.config.directory))
+                relative_path = str(
+                    file_path.relative_to(self.config.directory))
                 current_hashes[relative_path] = file_hash
 
                 if previous_hashes.get(relative_path) != file_hash:
@@ -125,7 +138,6 @@ class EncoderService:
 
         if not aggregated_content:
             print("No changes detected in the specified files since last run.")
-            # Still save hashes in case a file was deleted
             self._save_hashes(current_hashes)
             return
 

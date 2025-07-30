@@ -80,16 +80,19 @@ def handle_aggregate(args):
         directory=args.dir or file_cfg.get('dir', '.'),
         ext=[e if e.startswith('.') else '.' +
              e for e in args.ext or file_cfg.get('ext', [])],
-        file=args.file or file_cfg.get('file', []),
+        files=args.file or file_cfg.get('files', []),
         exclude_dirs=args.exclude_dir or file_cfg.get('exclude_dirs', []),
         exclude_exts=[e if e.startswith(
             '.') else '.' + e for e in args.exclude_ext or file_cfg.get('exclude_exts', [])],
         exclude_files=args.exclude_file or file_cfg.get('exclude_files', []),
         use_gitignore=use_gitignore
     )
-    if not config.ext and not config.file:
-        print("Error: No files to aggregate. Please provide inclusions in your config or via arguments.")
+
+    # If not using gitignore, we must have some inclusion rules.
+    if not config.use_gitignore and not config.ext and not config.file:
+        print("Error: No files to aggregate. Please provide inclusions in your config or via arguments, or enable 'use_gitignore'.")
         return
+
     service = EncoderService(config)
     service.run(full_run=args.full)
 

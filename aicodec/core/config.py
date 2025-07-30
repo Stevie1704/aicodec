@@ -8,7 +8,7 @@ from pathlib import Path
 class EncoderConfig:
     directory: str | Path
     ext: list[str] = field(default_factory=list)
-    file: list[str] = field(default_factory=list)
+    files: list[str] = field(default_factory=list)
     exclude_dirs: list[str] = field(default_factory=list)
     exclude_exts: list[str] = field(default_factory=list)
     exclude_files: list[str] = field(default_factory=list)

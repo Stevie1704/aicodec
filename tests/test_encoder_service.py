@@ -7,6 +7,7 @@ from pathlib import Path
 from aicodec.core.config import EncoderConfig
 from aicodec.services.encoder_service import EncoderService
 
+
 @pytest.fixture
 def project_structure(tmp_path):
     project_dir = tmp_path / 'my_project'
@@ -21,6 +22,7 @@ def project_structure(tmp_path):
     (project_dir / '.DS_Store').write_text('metadata')
     return project_dir
 
+
 @pytest.fixture
 def base_config(project_structure):
     return EncoderConfig(
@@ -32,6 +34,7 @@ def base_config(project_structure):
         exclude_files=['.DS_Store']
     )
 
+
 def test_aggregation_full_initial_run(project_structure, base_config):
     """Test the first run where no hashes.json exists."""
     service = EncoderService(base_config)
@@ -39,7 +42,7 @@ def test_aggregation_full_initial_run(project_structure, base_config):
 
     output_file = Path(project_structure) / '.aicodec' / 'context.json'
     hashes_file = Path(project_structure) / '.aicodec' / 'hashes.json'
-    
+
     assert output_file.exists()
     assert hashes_file.exists()
 
@@ -49,6 +52,7 @@ def test_aggregation_full_initial_run(project_structure, base_config):
     hashes_data = json.loads(hashes_file.read_text(encoding='utf-8'))
     assert len(hashes_data) == 3
     assert 'main.py' in hashes_data
+
 
 def test_aggregation_no_changes(project_structure, base_config, capsys):
     """Test a second run where no files have changed."""
@@ -61,7 +65,8 @@ def test_aggregation_no_changes(project_structure, base_config, capsys):
     service2.run()
 
     captured = capsys.readouterr()
-    assert "No file changes detected since last run." in captured.out
+    assert "No changes detected in the specified files since last run" in captured.out
+
 
 def test_aggregation_with_changes(project_structure, base_config):
     """Test a run where one file has been modified."""
@@ -79,11 +84,12 @@ def test_aggregation_with_changes(project_structure, base_config):
     output_file = Path(project_structure) / '.aicodec' / 'context.json'
     assert output_file.exists()
     data = json.loads(output_file.read_text(encoding='utf-8'))
-    
+
     # Only the single changed file should be in the output
     assert len(data) == 1
     assert data[0]['filePath'] == 'main.py'
     assert data[0]['content'] == 'print("modified main")'
+
 
 def test_aggregation_with_full_run_flag(project_structure, base_config):
     """Test that the --full flag forces re-aggregation of all files."""
@@ -98,6 +104,6 @@ def test_aggregation_with_full_run_flag(project_structure, base_config):
     output_file = Path(project_structure) / '.aicodec' / 'context.json'
     assert output_file.exists()
     data = json.loads(output_file.read_text(encoding='utf-8'))
-    
+
     # All files should be present in the output despite no changes
     assert len(data) == 3
