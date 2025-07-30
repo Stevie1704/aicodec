@@ -86,27 +86,39 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
-        if self.path == '/api/apply':
-            try:
-                content_length = int(self.headers['Content-Length'])
-                post_data = self.rfile.read(content_length)
-                changes_to_apply = json.loads(post_data)
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data_raw = self.rfile.read(content_length)
+            post_data = json.loads(post_data_raw)
 
-                results = self._apply_changes(changes_to_apply)
-
+            if self.path == '/api/apply':
+                results = self._apply_changes(post_data)
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps(results).encode('utf-8'))
-            except Exception as e:
-                self.send_response(500)
+
+            elif self.path == '/api/save':
+                self._save_changes_to_file(post_data)
+                self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                error_response = {'status': 'SERVER_ERROR', 'reason': str(e)}
-                self.wfile.write(json.dumps(error_response).encode('utf-8'))
-            return
+                self.wfile.write(json.dumps({'status': 'SUCCESS'}).encode('utf-8'))
+            
+            else:
+                self.send_error(404, "File Not Found")
 
-        self.send_error(404, "File Not Found")
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            error_response = {'status': 'SERVER_ERROR', 'reason': str(e)}
+            self.wfile.write(json.dumps(error_response).encode('utf-8'))
+
+    def _save_changes_to_file(self, data):
+        """Saves the entire changes object back to the changes.json file."""
+        with open(self.changes_file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
 
     def _apply_changes(self, changes_list):
         results = []

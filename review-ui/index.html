@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,8 +16,12 @@
             --button-hover-bg: #1177bb;
             --button-disabled-bg: #5a5a5a;
             --error-color: #f48771;
+            --secondary-button-bg: #3a3d41;
+            --secondary-button-hover-bg: #4a4d51;
         }
-        body, html {
+
+        body,
+        html {
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
@@ -27,6 +32,7 @@
             flex-direction: column;
             overflow: hidden;
         }
+
         header {
             padding: 10px 20px;
             background-color: var(--card-bg);
@@ -36,12 +42,23 @@
             align-items: center;
             flex-shrink: 0;
         }
-        header h1 { margin: 0; font-size: 1.2em; }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
         .container {
             display: flex;
             flex-grow: 1;
             height: calc(100vh - 55px);
         }
+
         .sidebar {
             width: 350px;
             min-width: 300px;
@@ -52,11 +69,13 @@
             flex-direction: column;
             overflow-y: auto;
         }
+
         .main-content {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
         }
+
         .diff-header {
             padding: 10px 15px;
             background-color: #1e1e1e;
@@ -65,10 +84,12 @@
             font-size: 0.9em;
             color: #cccccc;
         }
+
         #diff-editor {
             flex-grow: 1;
             width: 100%;
         }
+
         .card {
             background-color: #2a2a2b;
             border: 1px solid var(--border-color);
@@ -76,7 +97,13 @@
             padding: 15px;
             margin-bottom: 15px;
         }
-        .card h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+
+        .card h3 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
         #changes-list {
             list-style-type: none;
             padding: 0;
@@ -84,6 +111,7 @@
             overflow-y: auto;
             flex-grow: 1;
         }
+
         #changes-list li {
             padding: 8px;
             border-radius: 3px;
@@ -92,16 +120,20 @@
             align-items: center;
             margin-bottom: 5px;
         }
+
         #changes-list li:hover {
             background-color: #333;
         }
+
         #changes-list li.selected {
             background-color: var(--primary-color);
             color: white;
         }
+
         .change-item-checkbox {
             margin-right: 10px;
         }
+
         .action-tag {
             font-size: 0.7em;
             padding: 2px 5px;
@@ -110,9 +142,19 @@
             margin-left: auto;
             font-weight: bold;
         }
-        .action-CREATE { background-color: #28a745; }
-        .action-REPLACE { background-color: #007bff; }
-        .action-DELETE { background-color: #dc3545; }
+
+        .action-CREATE {
+            background-color: #28a745;
+        }
+
+        .action-REPLACE {
+            background-color: #007bff;
+        }
+
+        .action-DELETE {
+            background-color: #dc3545;
+        }
+
         .button {
             background-color: var(--button-bg);
             color: white;
@@ -123,13 +165,24 @@
             font-size: 1em;
             transition: background-color 0.2s;
         }
+
+        .button.secondary {
+            background-color: var(--secondary-button-bg);
+        }
+
         .button:hover:not(:disabled) {
             background-color: var(--button-hover-bg);
         }
+
+        .button.secondary:hover:not(:disabled) {
+            background-color: var(--secondary-button-hover-bg);
+        }
+
         .button:disabled {
             background-color: var(--button-disabled-bg);
             cursor: not-allowed;
         }
+
         #error-banner {
             background-color: var(--error-color);
             color: #1e1e1e;
@@ -138,23 +191,29 @@
             font-weight: bold;
             display: none;
         }
+
         .changes-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
         }
+
         #summary-text {
             font-style: italic;
             font-size: 0.9em;
         }
     </style>
 </head>
+
 <body>
     <div id="error-banner">Auto-load failed. Check console for details.</div>
     <header>
         <h1>AI Codec Review UI</h1>
-        <button id="apply-button" class="button" disabled>Apply Selected Changes</button>
+        <div class="header-buttons">
+            <button id="save-button" class="button secondary" disabled>Save All Changes</button>
+            <button id="apply-button" class="button" disabled>Apply Selected Changes</button>
+        </div>
     </header>
     <div class="container">
         <div class="sidebar">
@@ -166,11 +225,12 @@
                 <div class="changes-header">
                     <h3>Changes</h3>
                     <div>
-                        <input type="checkbox" id="select-all-checkbox" checked> <label for="select-all-checkbox">Select All</label>
+                        <input type="checkbox" id="select-all-checkbox" checked> <label for="select-all-checkbox">Select
+                            All</label>
                     </div>
                 </div>
                 <ul id="changes-list">
-                    
+
                 </ul>
             </div>
         </div>
@@ -183,14 +243,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/loader.min.js"></script>
     <script>
         let diffEditor;
-        let allChanges = [];
+        let allChangesData = { summary: '', changes: [] };
+        let currentModelListener = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs' } });
             require(['vs/editor/editor.main'], function () {
                 diffEditor = monaco.editor.createDiffEditor(document.getElementById('diff-editor'), {
                     theme: 'vs-dark',
-                    readOnly: true,
                     automaticLayout: true
                 });
             });
@@ -198,6 +258,7 @@
             fetchChanges();
 
             document.getElementById('select-all-checkbox').addEventListener('change', toggleSelectAll);
+            document.getElementById('save-button').addEventListener('click', saveChanges);
             document.getElementById('apply-button').addEventListener('click', applyChanges);
         });
 
@@ -210,9 +271,13 @@
                     return response.json();
                 })
                 .then(data => {
-                    allChanges = data.changes || [];
-                    document.getElementById('summary-text').textContent = data.summary || 'No summary provided.';
-                    renderChangesList(allChanges);
+                    allChangesData = {
+                        summary: data.summary || 'No summary provided.',
+                        changes: data.changes || []
+                    };
+                    document.getElementById('summary-text').textContent = allChangesData.summary;
+                    renderChangesList(allChangesData.changes);
+                    document.getElementById('save-button').disabled = false;
                 })
                 .catch(error => {
                     console.error('Error fetching changes:', error);
@@ -250,10 +315,14 @@
         }
 
         function displayDiff(index) {
+            if (currentModelListener) {
+                currentModelListener.dispose();
+            }
+
             document.querySelectorAll('#changes-list li').forEach(li => li.classList.remove('selected'));
             document.querySelector(`#changes-list li[data-index='${index}']`).classList.add('selected');
 
-            const change = allChanges[index];
+            const change = allChangesData.changes[index];
             const originalContent = change.original_content;
             const modifiedContent = change.proposed_content;
 
@@ -263,6 +332,14 @@
             diffEditor.setModel({
                 original: originalModel,
                 modified: modifiedModel
+            });
+
+            diffEditor.getOriginalEditor().updateOptions({ readOnly: true });
+            diffEditor.getModifiedEditor().updateOptions({ readOnly: false });
+
+            // Correctly attach the listener to the new model, not the editor instance
+            currentModelListener = modifiedModel.onDidChangeContent(() => {
+                allChangesData.changes[index].proposed_content = modifiedModel.getValue();
             });
 
             document.getElementById('diff-header').textContent = `${change.filePath} - ${change.action}`;
@@ -279,12 +356,50 @@
             document.getElementById('apply-button').disabled = !anyChecked;
         }
 
+        function saveChanges() {
+            const saveButton = document.getElementById('save-button');
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+
+            const payload = {
+                summary: allChangesData.summary,
+                changes: allChangesData.changes.map(c => ({
+                    filePath: c.filePath,
+                    action: c.action,
+                    content: c.proposed_content
+                }))
+            };
+
+            fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Save failed');
+                    return response.json();
+                })
+                .then(() => {
+                    saveButton.textContent = 'Saved!';
+                    setTimeout(() => {
+                        saveButton.textContent = 'Save All Changes';
+                        saveButton.disabled = false;
+                    }, 2000);
+                })
+                .catch(error => {
+                    console.error('Error saving changes:', error);
+                    alert('Failed to save changes.');
+                    saveButton.textContent = 'Save All Changes';
+                    saveButton.disabled = false;
+                });
+        }
+
         function applyChanges() {
             const selectedChanges = [];
-            document.querySelectorAll('#changes-list li').forEach((li, index) => {
+            document.querySelectorAll('#changes-list li').forEach((li) => {
                 if (li.querySelector('.change-item-checkbox').checked) {
-                    // Send the full change object expected by the backend
-                    const change = allChanges[index];
+                    const index = parseInt(li.dataset.index, 10);
+                    const change = allChangesData.changes[index];
                     selectedChanges.push({
                         filePath: change.filePath,
                         action: change.action,
@@ -302,19 +417,19 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(selectedChanges)
             })
-            .then(response => response.json())
-            .then(result => {
-                console.log('Apply result:', result);
-                alert('Changes applied! See console for details.');
-                applyButton.textContent = 'Apply Selected Changes';
-                // Optionally, refresh or show status
-            })
-            .catch(error => {
-                console.error('Error applying changes:', error);
-                alert('Failed to apply changes.');
-                applyButton.disabled = false;
-                applyButton.textContent = 'Apply Selected Changes';
-            });
+                .then(response => response.json())
+                .then(result => {
+                    console.log('Apply result:', result);
+                    alert('Changes applied! See console for details.');
+                    applyButton.textContent = 'Apply Selected Changes';
+                    updateApplyButtonState();
+                })
+                .catch(error => {
+                    console.error('Error applying changes:', error);
+                    alert('Failed to apply changes.');
+                    applyButton.disabled = false;
+                    applyButton.textContent = 'Apply Selected Changes';
+                });
         }
 
         function getLanguage(filename) {
@@ -322,11 +437,12 @@
             const langMap = {
                 'py': 'python', 'js': 'javascript', 'ts': 'typescript', 'html': 'html',
                 'css': 'css', 'json': 'json', 'md': 'markdown', 'java': 'java',
-                'go': 'go', 'sh': 'shell', 'yml': 'yaml', 'yaml': 'yaml'
+                'go': 'go', 'sh': 'shell', 'yml': 'yaml', 'yaml': 'yaml', 'rs': 'rust'
             };
             return langMap[ext] || 'plaintext';
         }
 
     </script>
 </body>
+
 </html>
