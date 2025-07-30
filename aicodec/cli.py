@@ -18,6 +18,10 @@ def main():
     subparsers = parser.add_subparsers(
         dest='command', required=True, help='Available commands')
 
+    # --- Init Command ---
+    init_parser = subparsers.add_parser(
+        'init', help='Initialize a new aicodec project configuration.')
+
     # --- Aggregate Command ---
     agg_parser = subparsers.add_parser(
         'aggregate', help='Aggregate project files into a JSON context.')
@@ -60,13 +64,94 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == 'aggregate':
+    if args.command == 'init':
+        handle_init(args)
+    elif args.command == 'aggregate':
         handle_aggregate(args)
     elif args.command == 'apply':
         handle_apply(args)
     elif args.command == 'prepare':
         handle_prepare(args)
 
+
+def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
+    """Generic function to get a yes/no confirmation from the user."""
+    options = "[Y/n]" if default_yes else "[y/N]"
+    while True:
+        response = input(f"{prompt} {options} ").lower().strip()
+        if not response:
+            return default_yes
+        if response in ['y', 'yes']:
+            return True
+        if response in ['n', 'no']:
+            return False
+        print("Invalid input. Please enter 'y' or 'n'.")
+
+
+def get_list_from_user(prompt: str) -> list[str]:
+    """Gets a comma-separated list of items from the user."""
+    response = input(f"{prompt} (comma-separated, press Enter to skip): ").strip()
+    if not response:
+        return []
+    return [item.strip() for item in response.split(',')]
+
+
+def handle_init(args):
+    """Handles the interactive project initialization."""
+    print("Initializing aicodec configuration...\n")
+    config_dir = Path('.aicodec')
+    config_file = config_dir / 'config.json'
+
+    if config_file.exists():
+        if not get_user_confirmation(f'Configuration file "{config_file}" already exists. Overwrite?', default_yes=False):
+            print("Initialization cancelled.")
+            return
+
+    config = {
+        "aggregate": {},
+        "prepare": {},
+        "apply": {}
+    }
+
+    # --- Aggregation Config ---
+    print("--- Aggregation Settings ---")
+    config['aggregate']['directory'] = '.'
+    print("The '.git' directory is always excluded by default.")
+    config['aggregate']['exclude_dirs'] = ['.git']
+
+    use_gitignore = get_user_confirmation("Use the .gitignore file for exclusions?", default_yes=True)
+    config['aggregate']['use_gitignore'] = use_gitignore
+
+    if use_gitignore:
+        if get_user_confirmation("Also exclude the .gitignore file itself from the context?", default_yes=True):
+            config['aggregate'].setdefault('exclude_files', []).append('.gitignore')
+
+    if get_user_confirmation("Configure additional inclusions/exclusions?", default_yes=False):
+        config['aggregate'].setdefault('include_dirs', []).extend(get_list_from_user("Directories to always include:"))
+        config['aggregate'].setdefault('include_files', []).extend(get_list_from_user("Files/glob patterns to always include:"))
+        config['aggregate'].setdefault('include_ext', []).extend(get_list_from_user("File extensions to always include (e.g., .py, .ts):"))
+        config['aggregate'].setdefault('exclude_dirs', []).extend(get_list_from_user("Additional directories to exclude:"))
+        config['aggregate'].setdefault('exclude_files', []).extend(get_list_from_user("Additional files/glob patterns to exclude:"))
+        config['aggregate'].setdefault('exclude_exts', []).extend(get_list_from_user("File extensions to always exclude:"))
+
+    # --- Prepare & Apply Config ---
+    print("\n--- LLM Interaction Settings ---")
+    config['prepare']['changes'] = '.aicodec/changes.json'
+    config['apply']['output_dir'] = '.'
+    print("LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.').")
+    print("This can be changed in the config file later if needed.")
+
+    from_clipboard = get_user_confirmation("Read LLM output directly from the clipboard by default?", default_yes=False)
+    config['prepare']['from_clipboard'] = from_clipboard
+    if from_clipboard:
+        print("Note: Using the clipboard in some environments (like devcontainers) might require extra setup.")
+
+    # --- Save Config ---
+    config_dir.mkdir(exist_ok=True)
+    with open(config_file, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=4)
+
+    print(f'\nSuccessfully created configuration at "{config_file}".')
 
 def handle_aggregate(args):
     file_cfg = load_config(args.config).get('aggregate', {})
