@@ -52,6 +52,14 @@ def main():
     apply_parser.add_argument(
         '--changes', type=Path, help="Path to the LLM changes JSON file (overrides config).")
 
+    # --- Revert Command ---
+    revert_parser = subparsers.add_parser(
+        'revert', help='Review and revert previously applied changes.')
+    revert_parser.add_argument('-c', '--config', type=str,
+                               default='.aicodec/config.json', help="Path to the config file.")
+    revert_parser.add_argument('-od', '--output-dir', type=Path,
+                               help="The project directory to revert changes in (overrides config).")
+
     # --- Prepare Command ---
     prep_parser = subparsers.add_parser(
         'prepare', help='Prepare the changes file, either by opening an editor or from clipboard.')
@@ -70,6 +78,8 @@ def main():
         handle_aggregate(args)
     elif args.command == 'apply':
         handle_apply(args)
+    elif args.command == 'revert':
+        handle_revert(args)
     elif args.command == 'prepare':
         handle_prepare(args)
 
@@ -193,7 +203,25 @@ def handle_apply(args):
     if not all([output_dir, changes_file]):
         print("Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config.")
         return
-    launch_review_server(Path(output_dir), Path(changes_file))
+    launch_review_server(Path(output_dir), Path(changes_file), mode='apply')
+
+
+def handle_revert(args):
+    file_cfg = load_config(args.config)
+    output_dir_cfg = file_cfg.get('apply', {}).get('output_dir')
+    output_dir = args.output_dir or output_dir_cfg
+    if not output_dir:
+        print("Error: Missing required configuration. Provide 'output_dir' via CLI or config.")
+        return
+    
+    output_dir_path = Path(output_dir)
+    revert_file = output_dir_path / '.aicodec' / 'revert.json'
+
+    if not revert_file.is_file():
+        print(f"Error: Revert file not found at '{revert_file}'. Run 'aicodec apply' first.")
+        return
+
+    launch_review_server(output_dir_path, revert_file, mode='revert')
 
 
 def handle_prepare(args):

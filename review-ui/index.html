@@ -195,7 +195,7 @@
         .changes-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items.center;
             margin-bottom: 10px;
         }
 
@@ -209,7 +209,7 @@
 <body>
     <div id="error-banner">Auto-load failed. Check console for details.</div>
     <header>
-        <h1>AI Codec Review UI</h1>
+        <h1 id="header-title">AI Codec Review UI</h1>
         <div class="header-buttons">
             <button id="save-button" class="button secondary" disabled>Save All Changes</button>
             <button id="apply-button" class="button" disabled>Apply Selected Changes</button>
@@ -277,12 +277,26 @@
                     };
                     document.getElementById('summary-text').textContent = allChangesData.summary;
                     renderChangesList(allChangesData.changes);
-                    document.getElementById('save-button').disabled = false;
+                    updateUIText(data.mode);
+                    document.getElementById('save-button').disabled = (data.mode === 'revert');
                 })
                 .catch(error => {
                     console.error('Error fetching changes:', error);
                     document.getElementById('error-banner').style.display = 'block';
                 });
+        }
+
+        function updateUIText(mode) {
+            const headerTitle = document.getElementById('header-title');
+            const applyButton = document.getElementById('apply-button');
+
+            if (mode === 'revert') {
+                headerTitle.textContent = 'AI Codec Revert UI';
+                applyButton.textContent = 'Revert Selected Changes';
+            } else {
+                headerTitle.textContent = 'AI Codec Apply UI';
+                applyButton.textContent = 'Apply Selected Changes';
+            }
         }
 
         function renderChangesList(changes) {
@@ -323,6 +337,10 @@
             document.querySelector(`#changes-list li[data-index='${index}']`).classList.add('selected');
 
             const change = allChangesData.changes[index];
+
+            // In our revert mode, the server prepares the diff correctly. 
+            // The 'original_content' is the current file on disk (what will be replaced).
+            // The 'proposed_content' is the content from revert.json (what it will become).
             const originalContent = change.original_content;
             const modifiedContent = change.proposed_content;
 
@@ -335,12 +353,15 @@
             });
 
             diffEditor.getOriginalEditor().updateOptions({ readOnly: true });
-            diffEditor.getModifiedEditor().updateOptions({ readOnly: false });
+            // Only allow editing in 'apply' mode.
+            const isReadOnly = allChangesData.mode === 'revert';
+            diffEditor.getModifiedEditor().updateOptions({ readOnly: isReadOnly });
 
-            // Correctly attach the listener to the new model, not the editor instance
-            currentModelListener = modifiedModel.onDidChangeContent(() => {
-                allChangesData.changes[index].proposed_content = modifiedModel.getValue();
-            });
+            if (!isReadOnly) {
+                currentModelListener = modifiedModel.onDidChangeContent(() => {
+                    allChangesData.changes[index].proposed_content = modifiedModel.getValue();
+                });
+            }
 
             document.getElementById('diff-header').textContent = `${change.filePath} - ${change.action}`;
         }
@@ -420,15 +441,17 @@
                 .then(response => response.json())
                 .then(result => {
                     console.log('Apply result:', result);
-                    alert('Changes applied! See console for details.');
-                    applyButton.textContent = 'Apply Selected Changes';
-                    updateApplyButtonState();
+                    alert('Operation complete! See console for details.');
+                    applyButton.textContent = 'Revert Selected Changes' // Or apply
+                    updateUIText(allChangesData.mode);
+                    // Refresh the list of changes after applying
+                    fetchChanges();
                 })
                 .catch(error => {
                     console.error('Error applying changes:', error);
                     alert('Failed to apply changes.');
                     applyButton.disabled = false;
-                    applyButton.textContent = 'Apply Selected Changes';
+                    updateUIText(allChangesData.mode);
                 });
         }
 
