@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import sys
 from jsonschema import validate, ValidationError
 import pyperclip
 from pathlib import Path
@@ -10,6 +11,13 @@ from aicodec.services.encoder_service import EncoderService
 from aicodec.review_server import launch_review_server
 from aicodec.utils import open_file_in_editor
 
+
+def check_config_exists(config_path_str: str):
+    """Checks if the config file exists and exits if it doesn't."""
+    config_path = Path(config_path_str)
+    if not config_path.is_file():
+        print("aicodec not initialised for this folder. Please run aicodec init before or change the directory.")
+        sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -71,6 +79,10 @@ def main():
                              help="Paste content directly from the system clipboard.")
 
     args = parser.parse_args()
+
+    # For all commands except 'init', we need a config file.
+    if args.command != 'init':
+        check_config_exists(args.config)
 
     if args.command == 'init':
         handle_init(args)
