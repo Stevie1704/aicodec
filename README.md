@@ -1,6 +1,24 @@
 # AI Codec
 
-AI Codec is a lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM). It provides a structured, reviewable, and reversible workflow for applying LLM-generated code changes to your project.
+AI Codec is a lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM). It provides a structured, reviewable, and reversible workflow for applying LLM-generated code changes to your project. This tool is ideal for developers who prefer to work directly with an LLM's web chat interface, rather than using fully integrated solutions like Aider or managing API keys for their projects.
+
+## The Problem
+
+LLMs are incredibly powerful for generating code, but integrating their suggestions into a project is often a messy, manual process. Developers typically face:
+
+- **Unstructured Output**: LLMs produce large, unstructured blocks of code that are difficult to parse.
+- **Tedious Manual Work**: Manually copying and pasting changes across multiple files is slow and highly prone to error.
+- **Difficult Reviews**: It's hard to see a clear "diff" of the proposed changes before applying them, losing the safety of a code review process.
+- **No Easy Undo**: If an applied change introduces a bug, there is no simple, one-step process to revert the file system to its previous state.
+
+## Why Use AI Codec?
+
+AI Codec solves these problems by treating LLM-generated changes as a formal, reviewable patch, much like a pull request.
+
+- **Structured Interaction**: It enforces a simple JSON schema, turning the LLM's raw output into a structured set of changes.
+- **Safe Review Process**: The `aicodec apply` command launches a web UI that provides a git-like diffing experience, so you can see exactly what will change *before* any files are touched.
+- **Developer in Control**: You have the final say. Selectively apply or reject any change, or even edit the LLM's suggestions live in the diff viewer.
+- **Atomic & Reversible Changes**: The `apply` and `revert` commands make applying LLM suggestions a safe, atomic transaction that you can undo with a single command.
 
 ## Features
 
@@ -12,6 +30,16 @@ AI Codec is a lightweight, CLI-first tool designed to streamline the interaction
 - **Clipboard Integration**: Pipe your LLM's response directly from your clipboard into the review process.
 
 ---
+
+## Installation
+
+To install AI Codec, run the following command using pip:
+
+```bash
+pip install aicodec
+```
+
+This will make the `aicodec` command available in your terminal.
 
 ## Workflow and Usage
 
@@ -39,7 +67,7 @@ This command scans your project based on your configuration and creates a `conte
 
 ### Step 3: Generating Changes with an LLM
 
-Upload the content of `context.json` into your LLM of choice (or copy / paste it). Ask it to perform refactoring, add features, fix bugs etc. 
+Copy the contents of `context.json` and paste it into your LLM of choice. Ask it to perform refactoring, add features, or fix bugs. 
 
 **Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.** Here is an example of a valid response:
 
