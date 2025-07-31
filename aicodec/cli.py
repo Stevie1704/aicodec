@@ -30,6 +30,10 @@ def main():
     init_parser = subparsers.add_parser(
         'init', help='Initialize a new aicodec project configuration.')
 
+    # --- Schema Command ---
+    schema_parser = subparsers.add_parser(
+        'schema', help='Print the JSON schema for LLM change proposals.')
+
     # --- Aggregate Command ---
     agg_parser = subparsers.add_parser(
         'aggregate', help='Aggregate project files into a JSON context.')
@@ -80,12 +84,14 @@ def main():
 
     args = parser.parse_args()
 
-    # For all commands except 'init', we need a config file.
-    if args.command != 'init':
+    # For all commands except 'init' and 'schema', we need a config file.
+    if args.command not in ['init', 'schema']:
         check_config_exists(args.config)
 
     if args.command == 'init':
         handle_init(args)
+    elif args.command == 'schema':
+        handle_schema(args)
     elif args.command == 'aggregate':
         handle_aggregate(args)
     elif args.command == 'apply':
@@ -95,6 +101,16 @@ def main():
     elif args.command == 'prepare':
         handle_prepare(args)
 
+
+def handle_schema(args):
+    """Finds and prints the decoder_schema.json file content."""
+    try:
+        schema_path = Path(__file__).parent / 'decoder_schema.json'
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            print(f.read())
+    except FileNotFoundError:
+        print("Error: decoder_schema.json not found in the package directory.", file=sys.stderr)
+        sys.exit(1)
 
 def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
     """Generic function to get a yes/no confirmation from the user."""

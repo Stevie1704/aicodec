@@ -1,6 +1,11 @@
 # AI Codec
 
-AI Codec is a lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM). It provides a structured, reviewable, and reversible workflow for applying LLM-generated code changes to your project. This tool is ideal for developers who prefer to work directly with an LLM's web chat interface, rather than using fully integrated solutions like Aider or managing API keys for their projects.
+AI Codec is a lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM). It provides a structured, reviewable, and reversible workflow for applying LLM-generated code changes to your project.
+
+It’s designed for the developer who:
+* Prefers interacting directly with an LLM's web chat window.
+* Wants to avoid the complexity and cost of managing API keys.
+* Is not using a fully-integrated solution like Aider and wants a structured way to apply code.
 
 ## The Problem
 
@@ -28,15 +33,18 @@ AI Codec solves these problems by treating LLM-generated changes as a formal, re
 - **Selective Application**: You have full control to select which files to modify, create, or delete from the LLM's proposal.
 - **One-Click Revert**: Instantly revert the last set of applied changes with the `aicodec revert` command.
 - **Clipboard Integration**: Pipe your LLM's response directly from your clipboard into the review process.
+- **Built-in Schema Access**: Easily access the required JSON schema with the `aicodec schema` command.
 
 ---
 
 ## Installation
 
-To install AI Codec, run the following command using pip:
+Currently aicodec is not available on PyPi (hopfully soon).
+
+To install AI Codec, clone the repo and run the following command inside the folder (next to pyproject.toml) using pip:
 
 ```bash
-pip install aicodec
+pip install .
 ```
 
 This will make the `aicodec` command available in your terminal.
@@ -53,7 +61,7 @@ First, initialize `aicodec` in your project's root directory. You only need to d
 aicodec init
 ```
 
-This command will guide you through an interactive setup to create a `.aicodec/config.json` file. This file tells `aicodec` which files to include or exclude when building context for the LLM.
+This command will guide you through an interactive setup to create a `.aicodec/config.json` file.
 
 ### Step 2: Aggregating Context
 
@@ -69,25 +77,15 @@ This command scans your project based on your configuration and creates a `conte
 
 Copy the contents of `context.json` and paste it into your LLM of choice. Ask it to perform refactoring, add features, or fix bugs. 
 
-**Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.** Here is an example of a valid response:
+**Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.** To get the required schema, run the following command in your terminal:
 
-```json
-{
-  "summary": "Refactors the main function for clarity and adds error handling.",
-  "changes": [
-    {
-      "filePath": "src/main.py",
-      "action": "REPLACE",
-      "content": "# New, refactored content of main.py..."
-    },
-    {
-      "filePath": "src/utils.py",
-      "action": "CREATE",
-      "content": "# New utility functions..."
-    }
-  ]
-}
+```bash
+aicodec schema
 ```
+
+You can directly pipe this output to your clip by e.g. using `aicodec schema | pbcopy` on macOS, `| clip` on Windows, or `| xclip` on Linux.
+
+You can then provide this schema to the LLM along with your project context and prompt.
 
 ### Step 4: Preparing to Apply Changes
 
@@ -100,8 +98,7 @@ aicodec prepare --from-clipboard
 ```
 
 This validates the JSON from your clipboard and saves it to `.aicodec/changes.json`, getting it ready for review.
-
-Alternatively, you can run `aicodec prepare` without the flag to create an empty file and paste the content manually.
+You can also configure it as default flag in your config by adding under "prepare" the "from-clipboar": true option.
 
 ### Step 5: Reviewing and Applying Changes
 
@@ -126,4 +123,4 @@ If you are unhappy with the result of an `apply` operation, you can easily undo 
 aicodec revert
 ```
 
-This command opens the same review UI, but this time it shows the changes required to restore your files to their state before the last `apply` operation. Select the changes you wish to undo and click **"Revert Selected Changes"**.
+This command opens the same review UI, but this time it shows the changes required to restore your files to their state before the last `apply` operation.
