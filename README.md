@@ -1,164 +1,101 @@
-# AI Codec: Lightweight AI Coding Assistant Toolkit
+# AI Codec
 
-AI Codec is a toolkit designed to streamline the process of interacting with Large Language Models (LLMs) for code generation and modification. It provides a structured, reliable, and efficient way to package your local codebase for an LLM and then automatically apply its suggested changes back to your project. No need for an API key, just put the structured json in the LLM's chat window of your choice and get started.
+AI Codec is a lightweight, CLI-first tool designed to streamline the interaction between a software developer and a Large Language Model (LLM). It provides a structured, reviewable, and reversible workflow for applying LLM-generated code changes to your project.
 
-## The Problem
+## Features
 
-When working with LLMs, developers often face two major challenges:
+- **Interactive Project Setup**: Quickly initialize your project with `aicodec init`.
+- **Flexible File Aggregation**: Gather all relevant project files into a single JSON context for the LLM, with powerful inclusion/exclusion rules.
+- **Web-Based Visual Diff**: Review proposed changes in a clean, web-based diff viewer before they are applied to your file system.
+- **Selective Application**: You have full control to select which files to modify, create, or delete from the LLM's proposal.
+- **One-Click Revert**: Instantly revert the last set of applied changes with the `aicodec revert` command.
+- **Clipboard Integration**: Pipe your LLM's response directly from your clipboard into the review process.
 
-1. **Context Stuffing:** Manually copying and pasting relevant files into a prompt is tedious and quickly hits the model's context window limit.
+---
 
-2. **Applying Changes:** Manually transferring code modifications from the LLM's response back into your local files is slow, error-prone, and doesn't scale.
+## Workflow and Usage
 
-This toolkit solves these problems with two specialized command-line tools: an **encoder** (`ai-encode`) and a **decoder** (`ai-decode`).
+The `aicodec` workflow is designed to be simple and integrate cleanly with your existing development practices, including version control like Git.
 
-## Why Use AI Codec?
+### Step 1: Initialization
 
-While many sophisticated AI coding tools exist (see last chapter), AI Codec's strength lies in its **simplicity and transparency**.
+First, initialize `aicodec` in your project's root directory. You only need to do this once.
 
-* **Full Control:** You have complete control over the process. You see the exact JSON context being sent to the LLM and the exact JSON changes being returned before they are applied. There are no hidden steps.
+```bash
+aicodec init
+```
 
-* **Decoupled Workflow:** The encoder and decoder are separate commands. This allows for an asynchronous workflow where you can generate context, get feedback, and apply changes at your own pace.
+This command will guide you through an interactive setup to create a `.aicodec/config.json` file. This file tells `aicodec` which files to include or exclude when building context for the LLM.
 
-* **Simplicity and Portability:** It's a simple Python package with minimal dependencies. It's easy to understand, modify, and run anywhere you have Python, without needing to install a complex IDE or plugin.
+### Step 2: Aggregating Context
 
-## Workflow
+Next, gather the code you want the LLM to work on.
 
-The end-to-end workflow is simple and powerful:
+```bash
+aicodec aggregate
+```
 
-1. **Encode:** Use the `ai-encode` command to scan your project, select only the relevant source files, and package them into a single `context.json` file.
+This command scans your project based on your configuration and creates a `context.json` file. This file contains the content of all relevant files, which you can now provide to your LLM.
 
-2. **Interact:** Share the contents of `context.json` with your LLM. Ask it to perform a task and request that it provides the response in the specified JSON patch format.
+### Step 3: Generating Changes with an LLM
 
-3. **Decode:** Save the LLM's JSON response as `changes.json` and use the `ai-decode` command to validate and automatically apply the proposed modifications to your project directory.
+Upload the content of `context.json` into your LLM of choice (or copy / paste it). Ask it to perform refactoring, add features, fix bugs etc. 
 
-## Installation
+**Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.** Here is an example of a valid response:
 
-1. Clone this repository.
-
-2. Navigate to the repository root and install the package in editable mode. This will also install dependencies like `jsonschema` and make the command-line tools available.
-
-   ```bash
-   pip install -e .
-   ```
-
-3. To install the dependencies required for running tests, use:
-
-   ```bash
-   pip install -e ".[dev]"
-   ```
-
-## Usage
-
-### Configuration File
-
-For the best experience, create a `.aicodec-config.json` file in your project root. This allows you to run both `ai-encode` and `ai-decode` without any command-line arguments.
-
-**Example `.aicodec-config.json`:**
 ```json
 {
-    "encoder": {
-        "ext": [
-            ".py",
-            ".toml",
-            ".md"
-        ],
-        "file": ["Dockerfile"],
-        "output": "project_context.json",
-        "exclude_dirs": [
-            ".git",
-            "__pycache__",
-            "dist",
-            "build",
-            ".pytest_cache"
-        ]
+  "summary": "Refactors the main function for clarity and adds error handling.",
+  "changes": [
+    {
+      "filePath": "src/main.py",
+      "action": "REPLACE",
+      "content": "# New, refactored content of main.py..."
     },
-    "decoder": {
-        "input": "llm-changes.json",
-        "output_dir": "."
+    {
+      "filePath": "src/utils.py",
+      "action": "CREATE",
+      "content": "# New utility functions..."
     }
+  ]
 }
 ```
 
-### 1. `ai-encode` (The Encoder)
+### Step 4: Preparing to Apply Changes
 
-With the configuration file in place, you can simply run:
-```bash
-ai-encode
-```
-Alternatively, you can override any setting using command-line arguments:
-```bash
-ai-encode --ext .py --output my_project.json
-```
+Once you have the JSON output from the LLM, copy it to your clipboard.
 
-### 2. `ai-decode` (The Decoder)
-
-With the configuration file in place, you can simply run:
-```bash
-ai-decode
-```
-To perform a dry run first, use the `--dry-run` flag:
-```bash
-ai-decode --dry-run
-```
-
-## Running Tests
-
-This project uses `pytest`. To run the test suite, navigate to the project root and run:
+Then, run the `prepare` command:
 
 ```bash
-pytest
+aicodec prepare --from-clipboard
 ```
 
-## Interacting with the LLM
+This validates the JSON from your clipboard and saves it to `.aicodec/changes.json`, getting it ready for review.
 
-### Example Prompt
+Alternatively, you can run `aicodec prepare` without the flag to create an empty file and paste the content manually.
 
-To get a high-quality response from your LLM, you need to be explicit. Here is a template you can use:
+### Step 5: Reviewing and Applying Changes
 
-> **User Prompt:**
->
-> Please act as a senior Python software engineer. Your task is to modify the following codebase based on my request. Your response should be well-structured, adhere to best practices, and be ready for production use.
->
-> Here is the context for the entire project in a JSON format:
-> ```json
-> [PASTE THE CONTENT OF YOUR `project_context.json` HERE]
-> ```
->
-> **My request is:** Please add a new function in `src/utils.py` called `hello_world` that prints "Hello, World!".
->
-> **IMPORTANT:** Your response must be a JSON object that validates against the following schema. Provide only the raw JSON object and nothing else.
->
-> ```json
-> {
->   "$schema": "[http://json-schema.org/draft-07/schema#](http://json-schema.org/draft-07/schema#)",
->   "title": "LLM Code Change Proposal",
->   "type": "object",
->   "properties": {
->     "summary": { "type": "string" },
->     "changes": {
->       "type": "array",
->       "items": {
->         "type": "object",
->         "properties": {
->           "filePath": { "type": "string" },
->           "action": { "type": "string", "enum": ["REPLACE", "CREATE"] },
->           "content": { "type": "string" }
->         },
->         "required": ["filePath", "action", "content"]
->       }
->     }
->   },
->   "required": ["changes"]
-> }
-> ```
+This is the most important step. Run the `apply` command to launch the web-based review UI:
 
-## Related Projects
+```bash
+aicodec apply
+```
 
-If you are looking for more advanced, integrated solutions that combine these steps into a single tool, consider checking out these excellent open-source projects:
+Your browser will open a local web page showing a diff of all proposed changes. Here you can:
+- Select or deselect individual changes.
+- View a color-coded diff for each file.
+- Edit the proposed changes directly in the UI.
 
-* [**Aider**](https://github.com/paul-gauthier/aider): A popular command-line chat tool that lets you code with an LLM right in your terminal. It handles file management and applies changes automatically.
+Once you are satisfied, click **"Apply Selected Changes"**. The tool will modify your local files and create a `.aicodec/revert.json` file as a safety net.
 
-* **[Mentat](https://github.com/AbanteAI/mentat)**: Another powerful terminal-based AI coding assistant that can edit code across multiple files based on your instructions.
+### Step 6: Reverting Changes (The "Oops" Button)
 
-* **[Cursor](https://cursor.sh/)**: An AI-native code editor (a fork of VS Code) that deeply integrates LLM features for code generation, editing, and debugging.
+If you are unhappy with the result of an `apply` operation, you can easily undo it.
+
+```bash
+aicodec revert
+```
+
+This command opens the same review UI, but this time it shows the changes required to restore your files to their state before the last `apply` operation. Select the changes you wish to undo and click **"Revert Selected Changes"**.
