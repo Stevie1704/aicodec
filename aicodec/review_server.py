@@ -7,6 +7,8 @@ import json
 import hashlib
 from pathlib import Path
 from typing import Literal
+import uuid
+from datetime import datetime
 
 PORT = 8000
 
@@ -15,6 +17,7 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     output_dir = "."
     changes_file_path = None
     ui_mode: Literal['apply', 'revert'] = 'apply'
+    session_id = None  # Track the current UI session
 
     def do_GET(self):
         if self.path == '/':
@@ -139,10 +142,93 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         with open(self.changes_file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
 
+    def _load_existing_revert_data(self, revert_file_path: Path) -> dict:
+        """Load existing revert data from file, handling both old and new formats."""
+        if not revert_file_path.exists():
+            return {"changes": [], "session_id": None, "session_start": None}
+        
+        try:
+            with open(revert_file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Handle legacy format (just changes array)
+            if isinstance(data.get('changes'), list) and 'session_id' not in data:
+                return {
+                    "changes": data.get('changes', []),
+                    "session_id": None,
+                    "session_start": None,
+                    "summary": data.get('summary', '')
+                }
+            
+            return data
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {"changes": [], "session_id": None, "session_start": None}
+
+    def _merge_revert_changes(self, existing_changes: list, new_changes: list) -> list:
+        """Merge new revert changes with existing ones, handling conflicts intelligently."""
+        # Create a map of existing changes by file path for quick lookup
+        existing_map = {}
+        for change in existing_changes:
+            file_path = change.get('filePath')
+            if file_path:
+                existing_map[file_path] = change
+        
+        merged_changes = existing_changes.copy()
+        
+        for new_change in new_changes:
+            file_path = new_change.get('filePath')
+            if not file_path:
+                continue
+            
+            if file_path in existing_map:
+                # File was already modified in this session
+                existing_change = existing_map[file_path]
+                
+                # The new change represents what we need to do to revert the current operation
+                # We need to update the existing revert entry to reflect the original state
+                # before any changes in this session
+                
+                if new_change['action'] == 'DELETE':
+                    # Current operation created the file, so we still want to delete it
+                    # Keep the existing change as-is since it represents the original state
+                    pass
+                elif new_change['action'] == 'CREATE':
+                    # Current operation deleted the file, but it was modified earlier in session
+                    # The revert should restore to the original content from before the session
+                    existing_change['action'] = 'CREATE'
+                    # Keep the original content from existing_change
+                elif new_change['action'] == 'REPLACE':
+                    # File was replaced, keep the original content from the first change in session
+                    existing_change['action'] = 'REPLACE'
+                    # Keep the original content from existing_change
+            else:
+                # File is being modified for the first time in this session
+                merged_changes.append(new_change)
+                existing_map[file_path] = new_change
+        
+        return merged_changes
+
     def _apply_changes(self, changes_list):
         results = []
-        revert_changes = []
+        new_revert_changes = []
         output_path_abs = Path(self.output_dir).resolve()
+        
+        # Load existing revert data
+        revert_file_dir = output_path_abs / '.aicodec'
+        revert_file_path = revert_file_dir / 'revert.json'
+        existing_revert_data = self._load_existing_revert_data(revert_file_path)
+        
+        # Check if this is a new session or continuation of existing session
+        current_session_id = self.session_id
+        if (current_session_id != existing_revert_data.get('session_id') or 
+            self.ui_mode == 'revert'):
+            # New session or revert mode - start fresh
+            is_new_session = True
+            session_start_time = datetime.now().isoformat()
+        else:
+            # Continuing existing session
+            is_new_session = False
+            session_start_time = existing_revert_data.get('session_start')
 
         for change in changes_list:
             action = change.get('action')
@@ -173,7 +259,11 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if self.ui_mode == 'apply':
                         revert_action = 'REPLACE' if file_existed else 'DELETE'
                         revert_content = original_content if file_existed else ''
-                        revert_changes.append({'filePath': relative_path, 'action': revert_action, 'content': revert_content})
+                        new_revert_changes.append({
+                            'filePath': relative_path, 
+                            'action': revert_action, 
+                            'content': revert_content
+                        })
 
                 elif action.upper() == 'DELETE':
                     if target_path.exists():
@@ -181,7 +271,11 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                            original_content = target_path.read_text(encoding='utf-8')
                         target_path.unlink()
                         if self.ui_mode == 'apply':
-                            revert_changes.append({'filePath': relative_path, 'action': 'CREATE', 'content': original_content})
+                            new_revert_changes.append({
+                                'filePath': relative_path, 
+                                'action': 'CREATE', 
+                                'content': original_content
+                            })
                     else:
                         results.append(
                             {'filePath': relative_path, 'status': 'SKIPPED', 'reason': 'File not found for DELETE'})
@@ -194,17 +288,36 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                                'status': 'FAILURE', 'reason': str(e)})
 
         # --- Save the revert file if in 'apply' mode and changes were made ---
-        if self.ui_mode == 'apply' and revert_changes:
-            revert_file_dir = output_path_abs / '.aicodec'
+        if self.ui_mode == 'apply' and new_revert_changes:
             revert_file_dir.mkdir(exist_ok=True)
-            revert_file_path = revert_file_dir / 'revert.json'
+            
+            if is_new_session:
+                # Start new session
+                merged_revert_changes = new_revert_changes
+                session_summary = "Session-based revert data for aicodec apply operations. This file accumulates all changes from a UI session."
+            else:
+                # Merge with existing session changes
+                merged_revert_changes = self._merge_revert_changes(
+                    existing_revert_data.get('changes', []), 
+                    new_revert_changes
+                )
+                session_summary = existing_revert_data.get('summary', 
+                    "Session-based revert data for aicodec apply operations. This file accumulates all changes from a UI session.")
+            
             revert_data = {
-                "summary": "Revert data for the last 'aicodec apply' operation. This file is used by 'aicodec revert'.",
-                "changes": revert_changes
+                "summary": session_summary,
+                "changes": merged_revert_changes,
+                "session_id": current_session_id,
+                "session_start": session_start_time,
+                "last_updated": datetime.now().isoformat(),
+                "total_operations": len(merged_revert_changes)
             }
+            
             with open(revert_file_path, 'w', encoding='utf-8') as f:
                 json.dump(revert_data, f, indent=4)
-            print(f"Revert information for {len(revert_changes)} change(s) saved to {revert_file_path}")
+            
+            print(f"Session revert information updated: {len(new_revert_changes)} new change(s), {len(merged_revert_changes)} total in session")
+            print(f"Revert data saved to {revert_file_path}")
 
         return results
 
@@ -216,6 +329,14 @@ def launch_review_server(output_dir: Path, changes_file: Path, mode: Literal['ap
     ReviewHttpRequestHandler.output_dir = str(output_dir.resolve())
     ReviewHttpRequestHandler.changes_file_path = str(changes_file.resolve())
     ReviewHttpRequestHandler.ui_mode = mode
+    
+    # Generate a session ID for this UI session
+    if mode == 'apply':
+        ReviewHttpRequestHandler.session_id = str(uuid.uuid4())
+        print(f"Starting new apply session: {ReviewHttpRequestHandler.session_id}")
+    else:
+        ReviewHttpRequestHandler.session_id = None
+        print("Starting revert session")
 
     review_ui_dir = Path(__file__).parent.parent / 'review-ui'
     if not review_ui_dir.is_dir():
