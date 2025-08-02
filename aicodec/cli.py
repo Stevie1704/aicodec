@@ -19,6 +19,7 @@ def check_config_exists(config_path_str: str):
         print("aicodec not initialised for this folder. Please run aicodec init before or change the directory.")
         sys.exit(1)
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="A lightweight communication layer for developers to interact with LLMs."
@@ -39,10 +40,14 @@ def main():
         'aggregate', help='Aggregate project files into a JSON context.')
     agg_parser.add_argument('-c', '--config', type=str,
                             default='.aicodec/config.json')
-    agg_parser.add_argument('-d', '--directory', type=str, help="The root directory to scan.")
-    agg_parser.add_argument('--include-dir', action='append', default=[], help="Specific directories to include, overriding exclusions.")
-    agg_parser.add_argument('--include-ext', action='append', default=[], help="File extensions to include.")
-    agg_parser.add_argument('--include-file', action='append', default=[], help="Specific files or glob patterns to include.")
+    agg_parser.add_argument('-d', '--directory', type=str,
+                            help="The root directory to scan.")
+    agg_parser.add_argument('--include-dir', action='append', default=[],
+                            help="Specific directories to include, overriding exclusions.")
+    agg_parser.add_argument('--include-ext', action='append',
+                            default=[], help="File extensions to include.")
+    agg_parser.add_argument('--include-file', action='append',
+                            default=[], help="Specific files or glob patterns to include.")
     agg_parser.add_argument('--exclude-dir', action='append', default=[])
     agg_parser.add_argument('--exclude-ext', action='append', default=[])
     agg_parser.add_argument('--exclude-file', action='append', default=[])
@@ -112,6 +117,7 @@ def handle_schema(args):
         print("Error: decoder_schema.json not found in the package directory.", file=sys.stderr)
         sys.exit(1)
 
+
 def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
     """Generic function to get a yes/no confirmation from the user."""
     options = "[Y/n]" if default_yes else "[y/N]"
@@ -128,7 +134,8 @@ def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
 
 def get_list_from_user(prompt: str) -> list[str]:
     """Gets a comma-separated list of items from the user."""
-    response = input(f"{prompt} (comma-separated, press Enter to skip): ").strip()
+    response = input(
+        f"{prompt} (comma-separated, press Enter to skip): ").strip()
     if not response:
         return []
     return [item.strip() for item in response.split(',')]
@@ -157,20 +164,28 @@ def handle_init(args):
     print("The '.git' directory is always excluded by default.")
     config['aggregate']['exclude_dirs'] = ['.git']
 
-    use_gitignore = get_user_confirmation("Use the .gitignore file for exclusions?", default_yes=True)
+    use_gitignore = get_user_confirmation(
+        "Use the .gitignore file for exclusions?", default_yes=True)
     config['aggregate']['use_gitignore'] = use_gitignore
 
     if use_gitignore:
         if get_user_confirmation("Also exclude the .gitignore file itself from the context?", default_yes=True):
-            config['aggregate'].setdefault('exclude_files', []).append('.gitignore')
+            config['aggregate'].setdefault(
+                'exclude_files', []).append('.gitignore')
 
     if get_user_confirmation("Configure additional inclusions/exclusions?", default_yes=False):
-        config['aggregate'].setdefault('include_dirs', []).extend(get_list_from_user("Directories to always include:"))
-        config['aggregate'].setdefault('include_files', []).extend(get_list_from_user("Files/glob patterns to always include:"))
-        config['aggregate'].setdefault('include_ext', []).extend(get_list_from_user("File extensions to always include (e.g., .py, .ts):"))
-        config['aggregate'].setdefault('exclude_dirs', []).extend(get_list_from_user("Additional directories to exclude:"))
-        config['aggregate'].setdefault('exclude_files', []).extend(get_list_from_user("Additional files/glob patterns to exclude:"))
-        config['aggregate'].setdefault('exclude_exts', []).extend(get_list_from_user("File extensions to always exclude:"))
+        config['aggregate'].setdefault('include_dirs', []).extend(
+            get_list_from_user("Directories to always include:"))
+        config['aggregate'].setdefault('include_files', []).extend(
+            get_list_from_user("Files/glob patterns to always include:"))
+        config['aggregate'].setdefault('include_ext', []).extend(
+            get_list_from_user("File extensions to always include (e.g., .py, .ts):"))
+        config['aggregate'].setdefault('exclude_dirs', []).extend(
+            get_list_from_user("Additional directories to exclude:"))
+        config['aggregate'].setdefault('exclude_files', []).extend(
+            get_list_from_user("Additional files/glob patterns to exclude:"))
+        config['aggregate'].setdefault('exclude_exts', []).extend(
+            get_list_from_user("File extensions to always exclude:"))
 
     # --- Prepare & Apply Config ---
     print("\n--- LLM Interaction Settings ---")
@@ -179,7 +194,8 @@ def handle_init(args):
     print("LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.').")
     print("This can be changed in the config file later if needed.")
 
-    from_clipboard = get_user_confirmation("Read LLM output directly from the clipboard by default?", default_yes=False)
+    from_clipboard = get_user_confirmation(
+        "Read LLM output directly from the clipboard by default?", default_yes=False)
     config['prepare']['from_clipboard'] = from_clipboard
     if from_clipboard:
         print("Note: Using the clipboard in some environments (like devcontainers) might require extra setup.")
@@ -190,6 +206,7 @@ def handle_init(args):
         json.dump(config, f, indent=4)
 
     print(f'\nSuccessfully created configuration at "{config_file}".')
+
 
 def handle_aggregate(args):
     file_cfg = load_config(args.config).get('aggregate', {})
@@ -204,7 +221,7 @@ def handle_aggregate(args):
         directory=args.directory or file_cfg.get('directory', '.'),
         include_dirs=args.include_dir or file_cfg.get('include_dirs', []),
         include_ext=[e if e.startswith('.') else '.' +
-             e for e in args.include_ext or file_cfg.get('include_ext', [])],
+                     e for e in args.include_ext or file_cfg.get('include_ext', [])],
         include_files=args.include_file or file_cfg.get('include_files', []),
         exclude_dirs=args.exclude_dir or file_cfg.get('exclude_dirs', []),
         exclude_exts=[e if e.startswith(
@@ -239,14 +256,16 @@ def handle_revert(args):
     output_dir_cfg = file_cfg.get('apply', {}).get('output_dir')
     output_dir = args.output_dir or output_dir_cfg
     if not output_dir:
-        print("Error: Missing required configuration. Provide 'output_dir' via CLI or config.")
+        print(
+            "Error: Missing required configuration. Provide 'output_dir' via CLI or config.")
         return
-    
+
     output_dir_path = Path(output_dir)
     revert_file = output_dir_path / '.aicodec' / 'revert.json'
 
     if not revert_file.is_file():
-        print(f"Error: Revert file not found at '{revert_file}'. Run 'aicodec apply' first.")
+        print(
+            f"Error: Revert file not found at '{revert_file}'. Run 'aicodec apply' first.")
         return
 
     launch_review_server(output_dir_path, revert_file, mode='revert')
@@ -258,7 +277,7 @@ def handle_prepare(args):
         'changes', '.aicodec/changes.json')
     changes_path = Path(changes_path_str)
     from_clipboard = args.from_clipboard or file_cfg.get(
-        'from-clipboard', False)
+        'from-clipboard', True)
     if changes_path.exists() and changes_path.stat().st_size > 0:
         choice = input(
             f'\"{changes_path}\" already exists with content. Overwrite? [y/N] ').lower()
