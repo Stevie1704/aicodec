@@ -225,7 +225,7 @@
                 <div class="changes-header">
                     <h3>Changes</h3>
                     <div>
-                        <input type="checkbox" id="select-all-checkbox" checked> <label for="select-all-checkbox">Select
+                        <input type="checkbox" id="select-all-checkbox"> <label for="select-all-checkbox">Select
                             All</label>
                     </div>
                 </div>
@@ -243,7 +243,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/loader.min.js"></script>
     <script>
         let diffEditor;
-        let allChangesData = { summary: '', changes: [] };
+        let allChangesData = { summary: '', changes: [], mode: 'apply' };
         let currentModelListener = null;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -273,12 +273,13 @@
                 .then(data => {
                     allChangesData = {
                         summary: data.summary || 'No summary provided.',
-                        changes: data.changes || []
+                        changes: data.changes || [],
+                        mode: data.mode || 'apply'
                     };
                     document.getElementById('summary-text').textContent = allChangesData.summary;
                     renderChangesList(allChangesData.changes);
-                    updateUIText(data.mode);
-                    document.getElementById('save-button').disabled = (data.mode === 'revert');
+                    updateUIText(allChangesData.mode);
+                    document.getElementById('save-button').disabled = (allChangesData.mode === 'revert');
                 })
                 .catch(error => {
                     console.error('Error fetching changes:', error);
@@ -311,7 +312,10 @@
                 checkbox.type = 'checkbox';
                 checkbox.className = 'change-item-checkbox';
                 checkbox.checked = true;
-                checkbox.onchange = updateApplyButtonState;
+                checkbox.onchange = () => {
+                    updateApplyButtonState();
+                    updateSelectAllState();
+                };
                 li.appendChild(checkbox);
 
                 const filePath = document.createElement('span');
@@ -326,6 +330,7 @@
                 list.appendChild(li);
             });
             updateApplyButtonState();
+            updateSelectAllState();
         }
 
         function displayDiff(index) {
@@ -372,6 +377,18 @@
             updateApplyButtonState();
         }
 
+        function updateSelectAllState() {
+            const allCheckboxes = document.querySelectorAll('.change-item-checkbox');
+            const checkedCheckboxes = document.querySelectorAll('.change-item-checkbox:checked');
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+
+            if (allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length) {
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.checked = false;
+            }
+        }
+
         function updateApplyButtonState() {
             const anyChecked = document.querySelector('.change-item-checkbox:checked') !== null;
             document.getElementById('apply-button').disabled = !anyChecked;
@@ -409,13 +426,24 @@
                 })
                 .catch(error => {
                     console.error('Error saving changes:', error);
-                    alert('Failed to save changes.');
                     saveButton.textContent = 'Save All Changes';
                     saveButton.disabled = false;
+                    alert('Failed to save changes.');
                 });
         }
 
         function applyChanges() {
+            const allCheckboxes = document.querySelectorAll('.change-item-checkbox');
+            const checkedCheckboxes = document.querySelectorAll('.change-item-checkbox:checked');
+
+            // Warn user if they are applying a subset of changes.
+            if (allChangesData.mode === 'apply' && checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length) {
+                const warningMessage = 'You have not selected all available changes. Applying a subset will still create a single revert file for the entire session. Do you want to proceed with applying only the selected files?';
+                if (!confirm(warningMessage)) {
+                    return; // Abort if user cancels.
+                }
+            }
+
             const selectedChanges = [];
             document.querySelectorAll('#changes-list li').forEach((li) => {
                 if (li.querySelector('.change-item-checkbox').checked) {
@@ -441,16 +469,14 @@
                 .then(response => response.json())
                 .then(result => {
                     console.log('Apply result:', result);
-                    alert('Operation complete! See console for details.');
-                    applyButton.textContent = 'Revert Selected Changes' // Or apply
-                    updateUIText(allChangesData.mode);
+                    alert('Operation complete! Check the server console for details.');
                     // Refresh the list of changes after applying
                     fetchChanges();
                 })
                 .catch(error => {
                     console.error('Error applying changes:', error);
                     alert('Failed to apply changes.');
-                    applyButton.disabled = false;
+                applyButton.disabled = false;
                     updateUIText(allChangesData.mode);
                 });
         }
