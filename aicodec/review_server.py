@@ -30,7 +30,8 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     changes_data = json.load(f)
 
                 processed_changes = []
-                source_summary = changes_data.get("summary", "No summary provided.")
+                source_summary = changes_data.get(
+                    "summary", "No summary provided.")
                 source_changes = changes_data.get("changes", [])
 
                 for change in source_changes:
@@ -42,17 +43,19 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     proposed_content = change.get('content', '')
                     # This is the action from the source file.
                     action = change.get('action', '').upper()
-                    target_path = Path(self.output_dir).resolve().joinpath(relative_path)
+                    target_path = Path(
+                        self.output_dir).resolve().joinpath(relative_path)
 
                     original_content = ""
                     should_include = False
 
                     if target_path.exists():
                         try:
-                            original_content = target_path.read_text(encoding='utf-8')
+                            original_content = target_path.read_text(
+                                encoding='utf-8')
                         except Exception:
                             original_content = "<Cannot read binary file>"
-                        
+
                         # If the action from the file is CREATE, but the file exists on disk,
                         # it's effectively a REPLACE from the user's perspective.
                         if action == 'CREATE':
@@ -60,16 +63,18 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
                         # For REPLACE actions, only include them if content is different.
                         if action == 'REPLACE':
-                            hash_on_disk = hashlib.sha256(original_content.encode('utf-8')).hexdigest()
-                            hash_proposed = hashlib.sha256(proposed_content.encode('utf-8')).hexdigest()
+                            hash_on_disk = hashlib.sha256(
+                                original_content.encode('utf-8')).hexdigest()
+                            hash_proposed = hashlib.sha256(
+                                proposed_content.encode('utf-8')).hexdigest()
                             if hash_on_disk != hash_proposed:
                                 should_include = True
                         # Deletions are always included.
                         elif action == 'DELETE':
-                            proposed_content = "" # For a deletion, the right side of the diff is empty
+                            proposed_content = ""  # For a deletion, the right side of the diff is empty
                             should_include = True
 
-                    else: # File does not exist on disk
+                    else:  # File does not exist on disk
                         # If the action is to delete a non-existent file, skip it.
                         if action == 'DELETE':
                             continue
@@ -81,8 +86,10 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if should_include:
                         processed_changes.append({
                             "filePath": relative_path,
-                            "original_content": original_content, # Content on disk (left side of diff)
-                            "proposed_content": proposed_content, # Content from file (right side of diff)
+                            # Content on disk (left side of diff)
+                            "original_content": original_content,
+                            # Content from file (right side of diff)
+                            "proposed_content": proposed_content,
                             "action": action
                         })
 
@@ -125,7 +132,8 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({'status': 'SUCCESS'}).encode('utf-8'))
+                self.wfile.write(json.dumps(
+                    {'status': 'SUCCESS'}).encode('utf-8'))
 
             else:
                 self.send_error(404, "File Not Found")
@@ -146,11 +154,11 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Load existing revert data from file, handling both old and new formats."""
         if not revert_file_path.exists():
             return {"changes": [], "session_id": None, "session_start": None}
-        
+
         try:
             with open(revert_file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             # Handle legacy format (just changes array)
             if isinstance(data.get('changes'), list) and 'session_id' not in data:
                 return {
@@ -159,7 +167,7 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     "session_start": None,
                     "summary": data.get('summary', '')
                 }
-            
+
             return data
         except (json.JSONDecodeError, FileNotFoundError):
             return {"changes": [], "session_id": None, "session_start": None}
@@ -172,22 +180,22 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             file_path = change.get('filePath')
             if file_path:
                 existing_map[file_path] = change
-        
+
         merged_changes = existing_changes.copy()
-        
+
         for new_change in new_changes:
             file_path = new_change.get('filePath')
             if not file_path:
                 continue
-            
+
             if file_path in existing_map:
                 # File was already modified in this session
                 existing_change = existing_map[file_path]
-                
+
                 # The new change represents what we need to do to revert the current operation
                 # We need to update the existing revert entry to reflect the original state
                 # before any changes in this session
-                
+
                 if new_change['action'] == 'DELETE':
                     # Current operation created the file, so we still want to delete it
                     # Keep the existing change as-is since it represents the original state
@@ -205,23 +213,24 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                 # File is being modified for the first time in this session
                 merged_changes.append(new_change)
                 existing_map[file_path] = new_change
-        
+
         return merged_changes
 
     def _apply_changes(self, changes_list):
         results = []
         new_revert_changes = []
         output_path_abs = Path(self.output_dir).resolve()
-        
+
         # Load existing revert data
         revert_file_dir = output_path_abs / '.aicodec'
         revert_file_path = revert_file_dir / 'revert.json'
-        existing_revert_data = self._load_existing_revert_data(revert_file_path)
-        
+        existing_revert_data = self._load_existing_revert_data(
+            revert_file_path)
+
         # Check if this is a new session or continuation of existing session
         current_session_id = self.session_id
-        if (current_session_id != existing_revert_data.get('session_id') or 
-            self.ui_mode == 'revert'):
+        if (current_session_id != existing_revert_data.get('session_id') or
+                self.ui_mode == 'revert'):
             # New session or revert mode - start fresh
             is_new_session = True
             session_start_time = datetime.now().isoformat()
@@ -248,7 +257,8 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                     file_existed = target_path.exists()
                     if file_existed:
                         try:
-                            original_content = target_path.read_text(encoding='utf-8')
+                            original_content = target_path.read_text(
+                                encoding='utf-8')
                         except Exception:
                             pass  # Ignore read errors for binary files
 
@@ -260,28 +270,30 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                         revert_action = 'REPLACE' if file_existed else 'DELETE'
                         revert_content = original_content if file_existed else ''
                         new_revert_changes.append({
-                            'filePath': relative_path, 
-                            'action': revert_action, 
+                            'filePath': relative_path,
+                            'action': revert_action,
                             'content': revert_content
                         })
 
                 elif action.upper() == 'DELETE':
                     if target_path.exists():
-                        if self.ui_mode == 'apply': # We must capture content before deleting
-                           original_content = target_path.read_text(encoding='utf-8')
+                        if self.ui_mode == 'apply':  # We must capture content before deleting
+                            original_content = target_path.read_text(
+                                encoding='utf-8')
                         target_path.unlink()
                         if self.ui_mode == 'apply':
                             new_revert_changes.append({
-                                'filePath': relative_path, 
-                                'action': 'CREATE', 
+                                'filePath': relative_path,
+                                'action': 'CREATE',
                                 'content': original_content
                             })
                     else:
                         results.append(
                             {'filePath': relative_path, 'status': 'SKIPPED', 'reason': 'File not found for DELETE'})
-                        continue # Don't add to results or revert log
+                        continue  # Don't add to results or revert log
 
-                results.append({'filePath': relative_path, 'status': 'SUCCESS', 'action': action})
+                results.append({'filePath': relative_path,
+                               'status': 'SUCCESS', 'action': action})
 
             except Exception as e:
                 results.append({'filePath': relative_path,
@@ -290,7 +302,7 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         # --- Save the revert file if in 'apply' mode and changes were made ---
         if self.ui_mode == 'apply' and new_revert_changes:
             revert_file_dir.mkdir(exist_ok=True)
-            
+
             if is_new_session:
                 # Start new session
                 merged_revert_changes = new_revert_changes
@@ -298,12 +310,12 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             else:
                 # Merge with existing session changes
                 merged_revert_changes = self._merge_revert_changes(
-                    existing_revert_data.get('changes', []), 
+                    existing_revert_data.get('changes', []),
                     new_revert_changes
                 )
-                session_summary = existing_revert_data.get('summary', 
-                    "Session-based revert data for aicodec apply operations. This file accumulates all changes from a UI session.")
-            
+                session_summary = existing_revert_data.get('summary',
+                                                           "Session-based revert data for aicodec apply operations. This file accumulates all changes from a UI session.")
+
             revert_data = {
                 "summary": session_summary,
                 "changes": merged_revert_changes,
@@ -312,14 +324,16 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "last_updated": datetime.now().isoformat(),
                 "total_operations": len(merged_revert_changes)
             }
-            
+
             with open(revert_file_path, 'w', encoding='utf-8') as f:
                 json.dump(revert_data, f, indent=4)
-            
-            print(f"Session revert information updated: {len(new_revert_changes)} new change(s), {len(merged_revert_changes)} total in session")
+
+            print(
+                f"Session revert information updated: {len(new_revert_changes)} new change(s), {len(merged_revert_changes)} total in session")
             print(f"Revert data saved to {revert_file_path}")
 
         return results
+
 
 def launch_review_server(output_dir: Path, changes_file: Path, mode: Literal['apply', 'revert'] = 'apply'):
     if not changes_file.exists():
@@ -329,18 +343,20 @@ def launch_review_server(output_dir: Path, changes_file: Path, mode: Literal['ap
     ReviewHttpRequestHandler.output_dir = str(output_dir.resolve())
     ReviewHttpRequestHandler.changes_file_path = str(changes_file.resolve())
     ReviewHttpRequestHandler.ui_mode = mode
-    
+
     # Generate a session ID for this UI session
     if mode == 'apply':
         ReviewHttpRequestHandler.session_id = str(uuid.uuid4())
-        print(f"Starting new apply session: {ReviewHttpRequestHandler.session_id}")
+        print(
+            f"Starting new apply session: {ReviewHttpRequestHandler.session_id}")
     else:
         ReviewHttpRequestHandler.session_id = None
         print("Starting revert session")
 
-    review_ui_dir = Path(__file__).parent.parent / 'review-ui'
+    review_ui_dir = Path(__file__).parent / 'review-ui'
     if not review_ui_dir.is_dir():
-        print(f"Error: Could not find the 'review-ui' directory at '{review_ui_dir}'.")
+        print(
+            f"Error: Could not find the 'review-ui' directory at '{review_ui_dir}'.")
         return
 
     os.chdir(review_ui_dir)
