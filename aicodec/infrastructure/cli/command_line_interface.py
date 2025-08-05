@@ -1,4 +1,4 @@
-# aicodec/cli.py
+# aicodec/infrastructure/cli/command_line_interface.py
 import argparse
 import json
 import os
@@ -6,10 +6,13 @@ import sys
 from jsonschema import validate, ValidationError
 import pyperclip
 from pathlib import Path
-from aicodec.core.config import EncoderConfig, load_config
-from aicodec.services.encoder_service import EncoderService
-from aicodec.review_server import launch_review_server
-from aicodec.utils import open_file_in_editor
+
+from ...domain.models import AggregateConfig
+from ...application.services import AggregationService, ReviewService
+from ..web.server import launch_review_server
+from ..utils import open_file_in_editor
+from ..config import load_config as load_json_config
+from ..repositories.file_system_repository import FileSystemFileRepository, FileSystemChangeSetRepository
 
 
 def check_config_exists(config_path_str: str):
@@ -89,7 +92,6 @@ def main():
 
     args = parser.parse_args()
 
-    # For all commands except 'init' and 'schema', we need a config file.
     if args.command not in ['init', 'schema']:
         check_config_exists(args.config)
 
@@ -110,7 +112,9 @@ def main():
 def handle_schema(args):
     """Finds and prints the decoder_schema.json file content."""
     try:
-        schema_path = Path(__file__).parent / 'decoder_schema.json'
+        # The schema is now a resource within the package
+        schema_path = Path(__file__).parent.parent.parent / \
+            'decoder_schema.json'
         with open(schema_path, 'r', encoding='utf-8') as f:
             print(f.read())
     except FileNotFoundError:
@@ -158,7 +162,6 @@ def handle_init(args):
         "apply": {}
     }
 
-    # --- Aggregation Config ---
     print("--- Aggregation Settings ---")
     config['aggregate']['directory'] = '.'
     print("The '.git' directory is always excluded by default.")
@@ -187,7 +190,6 @@ def handle_init(args):
         config['aggregate'].setdefault('exclude_exts', []).extend(
             get_list_from_user("File extensions to always exclude:"))
 
-    # --- Prepare & Apply Config ---
     print("\n--- LLM Interaction Settings ---")
     config['prepare']['changes'] = '.aicodec/changes.json'
     config['apply']['output_dir'] = '.'
@@ -200,7 +202,6 @@ def handle_init(args):
     if from_clipboard:
         print("Note: Using the clipboard in some environments (like devcontainers) might require extra setup.")
 
-    # --- Save Config ---
     config_dir.mkdir(exist_ok=True)
     with open(config_file, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=4)
@@ -209,7 +210,7 @@ def handle_init(args):
 
 
 def handle_aggregate(args):
-    file_cfg = load_config(args.config).get('aggregate', {})
+    file_cfg = load_json_config(args.config).get('aggregate', {})
 
     use_gitignore_cfg = file_cfg.get('use_gitignore', True)
     if args.use_gitignore is not None:
@@ -217,8 +218,9 @@ def handle_aggregate(args):
     else:
         use_gitignore = use_gitignore_cfg
 
-    config = EncoderConfig(
-        directory=args.directory or file_cfg.get('directory', '.'),
+    config = AggregateConfig(
+        directory=Path(args.directory or file_cfg.get(
+            'directory', '.')).resolve(),
         include_dirs=args.include_dir or file_cfg.get('include_dirs', []),
         include_ext=[e if e.startswith('.') else '.' +
                      e for e in args.include_ext or file_cfg.get('include_ext', [])],
@@ -230,17 +232,17 @@ def handle_aggregate(args):
         use_gitignore=use_gitignore
     )
 
-    # If not using gitignore, we must have some inclusion rules.
     if not config.use_gitignore and not config.include_ext and not config.include_files and not config.include_dirs:
         print("Error: No files to aggregate. Please provide inclusions in your config or via arguments, or enable 'use_gitignore'.")
         return
 
-    service = EncoderService(config)
-    service.run(full_run=args.full)
+    repo = FileSystemFileRepository()
+    service = AggregationService(repo, config)
+    service.aggregate(full_run=args.full)
 
 
 def handle_apply(args):
-    file_cfg = load_config(args.config)
+    file_cfg = load_json_config(args.config)
     output_dir_cfg = file_cfg.get('apply', {}).get('output_dir')
     changes_file_cfg = file_cfg.get('prepare', {}).get('changes')
     output_dir = args.output_dir or output_dir_cfg
@@ -248,11 +250,15 @@ def handle_apply(args):
     if not all([output_dir, changes_file]):
         print("Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config.")
         return
-    launch_review_server(Path(output_dir), Path(changes_file), mode='apply')
+
+    repo = FileSystemChangeSetRepository()
+    service = ReviewService(repo, Path(output_dir).resolve(), Path(
+        changes_file).resolve(), mode='apply')
+    launch_review_server(service, mode='apply')
 
 
 def handle_revert(args):
-    file_cfg = load_config(args.config)
+    file_cfg = load_json_config(args.config)
     output_dir_cfg = file_cfg.get('apply', {}).get('output_dir')
     output_dir = args.output_dir or output_dir_cfg
     if not output_dir:
@@ -268,11 +274,13 @@ def handle_revert(args):
             f"Error: Revert file not found at '{revert_file}'. Run 'aicodec apply' first.")
         return
 
-    launch_review_server(output_dir_path, revert_file, mode='revert')
+    repo = FileSystemChangeSetRepository()
+    service = ReviewService(repo, output_dir_path, revert_file, mode='revert')
+    launch_review_server(service, mode='revert')
 
 
 def handle_prepare(args):
-    file_cfg = load_config(args.config).get('prepare', {})
+    file_cfg = load_json_config(args.config).get('prepare', {})
     changes_path_str = args.changes or file_cfg.get(
         'changes', '.aicodec/changes.json')
     changes_path = Path(changes_path_str)
@@ -292,8 +300,8 @@ def handle_prepare(args):
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        schema_path = os.path.join(script_dir, 'decoder_schema.json')
+        schema_path = Path(__file__).parent.parent.parent / \
+            'decoder_schema.json'
         try:
             with open(schema_path, 'r', encoding='utf-8') as f:
                 schema = json.load(f)

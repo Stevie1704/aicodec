@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+authors = [{ name = "Steffen Krakau" }]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -18,9 +18,11 @@ dependencies = ["jsonschema", "pyperclip", "pathspec"]
 [project.optional-dependencies]
 dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 
-# A single entry point for the application
 [project.scripts]
 aicodec_test = "aicodec.infrastructure.cli.command_line_interface:main"
 
-[tool.setuptools]
 [tool.setuptools.packages.find]
+where = ["aicodec"]
+
+[tool.setuptools.package-data]
+aicodec_test = ["decoder_schema.json", "infrastructure/web/ui/*"]

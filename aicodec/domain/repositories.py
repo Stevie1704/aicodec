@@ -1,0 +1,49 @@
+# aicodec/domain/repositories.py
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import List, Optional
+
+from .models import AggregateConfig, FileItem, ChangeSet, Change
+
+
+class IFileRepository(ABC):
+    """Interface for file discovery and content retrieval."""
+
+    @abstractmethod
+    def discover_files(self, config: AggregateConfig) -> List[FileItem]:
+        """Discovers all files to be included based on the configuration."""
+        pass
+
+    @abstractmethod
+    def load_hashes(self, path: Path) -> dict[str, str]:
+        """Loads previously stored file hashes."""
+        pass
+
+    @abstractmethod
+    def save_hashes(self, path: Path, hashes: dict[str, str]):
+        """Saves the current file hashes."""
+        pass
+
+
+class IChangeSetRepository(ABC):
+    """Interface for reading and writing change sets to the filesystem."""
+
+    @abstractmethod
+    def get_change_set(self, path: Path) -> ChangeSet:
+        """Loads a ChangeSet from a given path."""
+        pass
+
+    @abstractmethod
+    def save_change_set_from_dict(self, path: Path, data: dict):
+        """Saves a ChangeSet from a dictionary to a given path."""
+        pass
+
+    @abstractmethod
+    def get_original_content(self, path: Path) -> str:
+        """Gets the current content of a file on disk."""
+        pass
+
+    @abstractmethod
+    def apply_changes(self, changes: List[Change], output_dir: Path, mode: str, session_id: Optional[str]) -> list[dict]:
+        """Applies a list of changes to the filesystem and manages revert data."""
+        pass

@@ -195,7 +195,7 @@
         .changes-header {
             display: flex;
             justify-content: space-between;
-            align-items.center;
+            align-items: center;
             margin-bottom: 10px;
         }
 
@@ -343,9 +343,6 @@
 
             const change = allChangesData.changes[index];
 
-            // In our revert mode, the server prepares the diff correctly. 
-            // The 'original_content' is the current file on disk (what will be replaced).
-            // The 'proposed_content' is the content from revert.json (what it will become).
             const originalContent = change.original_content;
             const modifiedContent = change.proposed_content;
 
@@ -358,7 +355,6 @@
             });
 
             diffEditor.getOriginalEditor().updateOptions({ readOnly: true });
-            // Only allow editing in 'apply' mode.
             const isReadOnly = allChangesData.mode === 'revert';
             diffEditor.getModifiedEditor().updateOptions({ readOnly: isReadOnly });
 
@@ -436,11 +432,10 @@
             const allCheckboxes = document.querySelectorAll('.change-item-checkbox');
             const checkedCheckboxes = document.querySelectorAll('.change-item-checkbox:checked');
 
-            // Warn user if they are applying a subset of changes.
             if (allChangesData.mode === 'apply' && checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length) {
-                const warningMessage = 'You have not selected all available changes. Applying a subset will still create a single revert file for the entire session. Do you want to proceed with applying only the selected files?';
+                const warningMessage = 'You are applying a subset of the changes. This will create a revert file for only the applied changes. Proceed?';
                 if (!confirm(warningMessage)) {
-                    return; // Abort if user cancels.
+                    return;
                 }
             }
 
@@ -469,14 +464,13 @@
                 .then(response => response.json())
                 .then(result => {
                     console.log('Apply result:', result);
-                    alert('Operation complete! Check the server console for details.');
-                    // Refresh the list of changes after applying
-                    fetchChanges();
+                    alert('Operation complete! Check the server console for details. The page will now refresh.');
+                    window.location.reload();
                 })
                 .catch(error => {
                     console.error('Error applying changes:', error);
                     alert('Failed to apply changes.');
-                applyButton.disabled = false;
+                    applyButton.disabled = false;
                     updateUIText(allChangesData.mode);
                 });
         }

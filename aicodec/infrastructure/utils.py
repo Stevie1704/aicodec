@@ -1,4 +1,4 @@
-# aicodec/utils.py
+# aicodec/infrastructure/utils.py
 import os
 import sys
 import subprocess
