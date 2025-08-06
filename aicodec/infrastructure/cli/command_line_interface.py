@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import importlib.resources
 from jsonschema import validate, ValidationError
 import pyperclip
 from pathlib import Path
@@ -112,13 +113,10 @@ def main():
 def handle_schema(args):
     """Finds and prints the decoder_schema.json file content."""
     try:
-        # The schema is now a resource within the package
-        schema_path = Path(__file__).parent.parent.parent / \
-            'decoder_schema.json'
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            print(f.read())
+        schema_content = importlib.resources.read_text('aicodec', 'decoder_schema.json')
+        print(schema_content)
     except FileNotFoundError:
-        print("Error: decoder_schema.json not found in the package directory.", file=sys.stderr)
+        print("Error: decoder_schema.json not found. The package might be corrupted.", file=sys.stderr)
         sys.exit(1)
 
 
@@ -164,8 +162,8 @@ def handle_init(args):
 
     print("--- Aggregation Settings ---")
     config['aggregate']['directory'] = '.'
-    print("The '.git' directory is always excluded by default.")
-    config['aggregate']['exclude_dirs'] = ['.git']
+    print("The '.git' and '.aicodec', are always excluded by default.")
+    config['aggregate']['exclude_dirs'] = ['.git', '.aicodec']
 
     use_gitignore = get_user_confirmation(
         "Use the .gitignore file for exclusions?", default_yes=True)
@@ -266,12 +264,11 @@ def handle_revert(args):
             "Error: Missing required configuration. Provide 'output_dir' via CLI or config.")
         return
 
-    output_dir_path = Path(output_dir)
+    output_dir_path = Path(output_dir).resolve()
     revert_file = output_dir_path / '.aicodec' / 'revert.json'
 
     if not revert_file.is_file():
-        print(
-            f"Error: Revert file not found at '{revert_file}'. Run 'aicodec apply' first.")
+        print("Error: No revert data found. Run 'aicodec apply' first.")
         return
 
     repo = FileSystemChangeSetRepository()
@@ -286,10 +283,9 @@ def handle_prepare(args):
     changes_path = Path(changes_path_str)
     from_clipboard = args.from_clipboard or file_cfg.get(
         'from-clipboard', True)
+
     if changes_path.exists() and changes_path.stat().st_size > 0:
-        choice = input(
-            f'\"{changes_path}\" already exists with content. Overwrite? [y/N] ').lower()
-        if choice != 'y':
+        if not get_user_confirmation(f'The file "{changes_path}" already has content. Overwrite?', default_yes=False):
             print("Operation cancelled.")
             return
 
@@ -300,13 +296,11 @@ def handle_prepare(args):
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return
-        schema_path = Path(__file__).parent.parent.parent / \
-            'decoder_schema.json'
         try:
-            with open(schema_path, 'r', encoding='utf-8') as f:
-                schema = json.load(f)
-        except FileNotFoundError as e:
-            print(f"Error: Could not find a required file. {e}")
+            schema_content = importlib.resources.read_text('aicodec', 'decoder_schema.json')
+            schema = json.loads(schema_content)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error: Could not load the internal JSON schema. {e}")
             return
 
         try:
@@ -322,12 +316,11 @@ def handle_prepare(args):
             return
         changes_path.write_text(clipboard_content, encoding='utf-8')
         print(
-            f'Successfully wrote content from clipboard to \"{changes_path}\".')
+            f'Successfully wrote content from clipboard to "{changes_path}".')
     else:
-        with open(changes_path, 'w') as f:
-            pass
+        changes_path.touch()
         print(
-            f'Successfully created empty file at \"{changes_path}\". Opening in default editor...')
+            f'Successfully created empty file at "{changes_path}". Opening in default editor...')
         open_file_in_editor(changes_path)
 
 

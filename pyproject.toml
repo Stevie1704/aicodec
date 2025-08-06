@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aicodec_test"
+name = "aicodec"
 version = "1.0.0"
 description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
@@ -12,6 +12,10 @@ authors = [{ name = "Steffen Krakau" }]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 dependencies = ["jsonschema", "pyperclip", "pathspec"]
 
@@ -19,10 +23,11 @@ dependencies = ["jsonschema", "pyperclip", "pathspec"]
 dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
 
 [project.scripts]
-aicodec_test = "aicodec.infrastructure.cli.command_line_interface:main"
+aicodec = "aicodec.infrastructure.cli.command_line_interface:main"
 
 [tool.setuptools.packages.find]
-where = ["aicodec"]
+where = ["."]
+include = ["aicodec*"]
 
 [tool.setuptools.package-data]
-aicodec_test = ["decoder_schema.json", "infrastructure/web/ui/*"]
+aicodec = ["decoder_schema.json", "infrastructure/web/ui/*"]

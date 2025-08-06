@@ -429,16 +429,6 @@
         }
 
         function applyChanges() {
-            const allCheckboxes = document.querySelectorAll('.change-item-checkbox');
-            const checkedCheckboxes = document.querySelectorAll('.change-item-checkbox:checked');
-
-            if (allChangesData.mode === 'apply' && checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length) {
-                const warningMessage = 'You are applying a subset of the changes. This will create a revert file for only the applied changes. Proceed?';
-                if (!confirm(warningMessage)) {
-                    return;
-                }
-            }
-
             const selectedChanges = [];
             document.querySelectorAll('#changes-list li').forEach((li) => {
                 if (li.querySelector('.change-item-checkbox').checked) {

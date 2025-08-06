@@ -19,12 +19,21 @@ class FileSystemFileRepository(IFileRepository):
         file_items = []
         for file_path in discovered_paths:
             try:
+                # Simple binary file check to avoid reading large binary files into memory
                 with open(file_path, 'rb') as f:
                     if b'\0' in f.read(1024):
-                        continue  # Skip binary files
-
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
+                        print(f"Skipping binary file: {file_path}")
+                        continue
+                
+                # Try to read with strict UTF-8, fall back to replace on error
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='strict') as f:
+                        content = f.read()
+                except UnicodeDecodeError:
+                    relative_path_str = str(file_path.relative_to(config.directory))
+                    print(f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
+                    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                        content = f.read()
 
                 relative_path = str(file_path.relative_to(config.directory))
                 file_items.append(
@@ -59,6 +68,8 @@ class FileSystemFileRepository(IFileRepository):
                 os.path.normpath(d) for d in config.exclude_dirs}
             path_parts = {os.path.normpath(
                 p) for p in path.relative_to(config.directory).parts}
+            
+            # Efficiently check if any part of the path is in the exclusion set
             if not normalized_exclude_dirs.isdisjoint(path_parts) or \
                any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
                any(rel_path_str.endswith(ext) for ext in config.exclude_exts):
@@ -72,7 +83,7 @@ class FileSystemFileRepository(IFileRepository):
         if not config.use_gitignore:
             return None
         gitignore_path = config.directory / '.gitignore'
-        lines = ['.aicodec']
+        lines = ['.aicodec/'] # Always ignore the .aicodec directory
         if gitignore_path.is_file():
             with open(gitignore_path, 'r', encoding='utf-8') as f:
                 lines.extend(f.read().splitlines())
@@ -105,6 +116,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         return ChangeSet(changes=changes, summary=data.get('summary'))
 
     def save_change_set_from_dict(self, path: Path, data: dict):
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
 
@@ -123,6 +135,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
         for change in changes:
             target_path = output_path_abs.joinpath(change.file_path).resolve()
+            # Security: Prevent directory traversal attacks
             if output_path_abs not in target_path.parents and target_path != output_path_abs:
                 results.append({'filePath': change.file_path, 'status': 'FAILURE',
                                'reason': 'Directory traversal attempt blocked.'})
@@ -136,6 +149,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                         original_content_for_revert = target_path.read_text(
                             encoding='utf-8')
                     except Exception:
+                        # For binary files, we can't revert content but can revert the action
                         pass
 
                 if change.action in [ChangeAction.CREATE, ChangeAction.REPLACE]:
@@ -171,19 +185,29 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         return results
 
     def _save_revert_data(self, new_revert_changes: List[Change], output_dir: Path, session_id: Optional[str]):
-        revert_file_dir = output_dir / '.aicodec'
-        revert_file_path = revert_file_dir / 'revert.json'
-        revert_file_dir.mkdir(exist_ok=True)
+        if not session_id:
+            session_id = f"revert-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # For simplicity in this refactor, we are not merging sessions. Each 'apply' is a new revert file.
-        # A more advanced implementation would merge based on session_id.
+        revert_dir = output_dir / '.aicodec' / 'reverts'
+        revert_dir.mkdir(parents=True, exist_ok=True)
+        revert_file_path = revert_dir / f"{session_id}.revert.json"
+
+        revert_changes_as_dicts = []
+        for c in new_revert_changes:
+            revert_changes_as_dicts.append({
+                "filePath": c.file_path,
+                "action": c.action.value,
+                "content": c.content
+            })
+
         revert_data = {
-            "summary": "Revert data for the last apply operation.",
-            "changes": [c.__dict__ for c in new_revert_changes],
+            "summary": f"Revert data for apply session {session_id}.",
+            "changes": revert_changes_as_dicts,
             "session_id": session_id,
             "last_updated": datetime.now().isoformat()
         }
+
         with open(revert_file_path, 'w', encoding='utf-8') as f:
             json.dump(revert_data, f, indent=4)
-        print(
-            f"Revert data for {len(new_revert_changes)} change(s) saved to {revert_file_path}")
+
+        print(f"Revert data for {len(new_revert_changes)} change(s) saved to {revert_file_path}")
