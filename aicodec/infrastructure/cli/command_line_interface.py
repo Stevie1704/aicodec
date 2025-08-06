@@ -24,7 +24,7 @@ def check_config_exists(config_path_str: str):
         sys.exit(1)
 
 
-def main():
+def main():  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="A lightweight communication layer for developers to interact with LLMs."
     )
@@ -113,7 +113,8 @@ def main():
 def handle_schema(args):
     """Finds and prints the decoder_schema.json file content."""
     try:
-        schema_content = importlib.resources.read_text('aicodec', 'decoder_schema.json')
+        schema_content = importlib.resources.read_text(
+            'aicodec', 'decoder_schema.json')
         print(schema_content)
     except FileNotFoundError:
         print("Error: decoder_schema.json not found. The package might be corrupted.", file=sys.stderr)
@@ -281,8 +282,12 @@ def handle_prepare(args):
     changes_path_str = args.changes or file_cfg.get(
         'changes', '.aicodec/changes.json')
     changes_path = Path(changes_path_str)
-    from_clipboard = args.from_clipboard or file_cfg.get(
-        'from-clipboard', True)
+
+    # Prioritize CLI flag, then config file, then default to False
+    if args.from_clipboard:
+        from_clipboard = True
+    else:
+        from_clipboard = file_cfg.get('from_clipboard', False)
 
     if changes_path.exists() and changes_path.stat().st_size > 0:
         if not get_user_confirmation(f'The file "{changes_path}" already has content. Overwrite?', default_yes=False):
@@ -297,7 +302,8 @@ def handle_prepare(args):
             print("Error: Clipboard is empty.")
             return
         try:
-            schema_content = importlib.resources.read_text('aicodec', 'decoder_schema.json')
+            schema_content = importlib.resources.read_text(
+                'aicodec', 'decoder_schema.json')
             schema = json.loads(schema_content)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error: Could not load the internal JSON schema. {e}")

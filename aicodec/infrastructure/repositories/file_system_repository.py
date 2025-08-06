@@ -44,6 +44,12 @@ class FileSystemFileRepository(IFileRepository):
 
     def _discover_paths(self, config: AggregateConfig) -> list[Path]:
         all_files = {p for p in config.directory.rglob('*') if p.is_file()}
+        
+        # Bug Fix: Always exclude the .aicodec directory, regardless of gitignore settings.
+        # The tool should never aggregate its own internal files.
+        always_exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', ['.aicodec/'])
+        all_files = {p for p in all_files if not always_exclude_spec.match_file(str(p.relative_to(config.directory)))}
+
         gitignore_spec = self._load_gitignore_spec(config)
 
         explicit_includes = set()
@@ -83,7 +89,9 @@ class FileSystemFileRepository(IFileRepository):
         if not config.use_gitignore:
             return None
         gitignore_path = config.directory / '.gitignore'
-        lines = ['.aicodec/'] # Always ignore the .aicodec directory
+        # The .aicodec/ rule is now applied unconditionally in _discover_paths.
+        # It can be removed from here to avoid redundancy, but leaving it adds defense in depth.
+        lines = ['.aicodec/']
         if gitignore_path.is_file():
             with open(gitignore_path, 'r', encoding='utf-8') as f:
                 lines.extend(f.read().splitlines())
