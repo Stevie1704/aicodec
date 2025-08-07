@@ -10,26 +10,22 @@ from aicodec.application.services import ReviewService
 
 
 @pytest.fixture
-def mock_review_service(mocker, tmp_path):
-    service = mocker.Mock(spec=ReviewService)
-    # The mock service needs the 'output_dir' attribute for the launch_review_server function.
+def mock_review_service(tmp_path):
+    service = MagicMock(spec=ReviewService)
     service.output_dir = tmp_path
     return service
 
 
 @pytest.fixture
-def handler_factory(mock_review_service, mocker):
+def handler_factory(mock_review_service):
     def factory(path, post_data=b'{}', headers=None):
-        # This factory bypasses the real server's request parsing, which is not
-        # part of the unit under test, by patching the base class initializer.
         with patch.object(http.server.SimpleHTTPRequestHandler, '__init__', lambda x, *a, **k: None):
             handler = ReviewHttpRequestHandler(
                 review_service=mock_review_service,
                 session_id='test-session',
-                directory=None # Dummy value for init
+                directory=None
             )
         
-        # Manually set the attributes needed for the do_GET/do_POST methods.
         handler.path = path
         handler.headers = headers or {'Content-Length': str(len(post_data))}
         handler.rfile = io.BytesIO(post_data)
@@ -65,7 +61,6 @@ class TestReviewHttpRequestHandler:
         assert response_body == context_data
 
     def test_do_post_apply_api(self, handler_factory, mock_review_service):
-        # Fix: Ensure the mocked service method returns a JSON-serializable type.
         mock_review_service.apply_changes.return_value = []
         post_body = json.dumps([{'filePath': 'a.py'}]).encode('utf-8')
         handler = handler_factory('/api/apply', post_data=post_body)
@@ -100,11 +95,9 @@ class TestReviewHttpRequestHandler:
 @patch('aicodec.infrastructure.web.server.socketserver.TCPServer')
 @patch('aicodec.infrastructure.web.server.webbrowser.open_new_tab')
 def test_launch_server(mock_webbrowser, mock_server, mock_review_service, tmp_path):
-    # Make sure UI dir check passes
     ui_dir = tmp_path / 'aicodec' / 'infrastructure' / 'web' / 'ui'
     ui_dir.mkdir(parents=True)
     with patch('pathlib.Path.is_dir', return_value=True):
-         # Simulate KeyboardInterrupt to prevent infinite loop in test
         mock_server.return_value.__enter__.return_value.serve_forever.side_effect = KeyboardInterrupt()
         launch_review_server(mock_review_service, mode='apply')
         
@@ -115,15 +108,16 @@ def test_launch_server(mock_webbrowser, mock_server, mock_review_service, tmp_pa
 @patch('aicodec.infrastructure.web.server.socketserver.TCPServer')
 @patch('aicodec.infrastructure.web.server.webbrowser.open_new_tab')
 def test_launch_server_port_conflict(mock_webbrowser, mock_server, mock_review_service, tmp_path):
-    # Simulate OSError for port in use, then success on the next port
-    mock_server.side_effect = [OSError(98, 'Address already in use'), MagicMock()]
+    mock_server.side_effect = [
+        OSError(98, 'Address already in use'),
+        MagicMock()
+    ]
     ui_dir = tmp_path / 'aicodec' / 'infrastructure' / 'web' / 'ui'
     ui_dir.mkdir(parents=True)
     with patch('pathlib.Path.is_dir', return_value=True):
         mock_server.return_value.__enter__.return_value.serve_forever.side_effect = KeyboardInterrupt()
         launch_review_server(mock_review_service, mode='revert')
 
-    # Verify it tried port 8000, failed, then tried 8001
     assert mock_server.call_count == 2
     assert mock_server.call_args_list[0].args[0] == ('localhost', 8000)
     assert mock_server.call_args_list[1].args[0] == ('localhost', 8001)

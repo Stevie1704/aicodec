@@ -2,6 +2,7 @@
 import pytest
 import json
 import subprocess
+from unittest.mock import patch, MagicMock
 
 from aicodec.infrastructure.config import load_config
 from aicodec.infrastructure.utils import open_file_in_editor
@@ -33,34 +34,29 @@ class TestUtils:
 
     @pytest.mark.parametrize("platform, mock_function, expected_call", [
         ("win32", "os.startfile", ["test.txt"]),
-        ("darwin", "subprocess.run", [["open", "test.txt"]]),
-        ("linux", "subprocess.run", [["xdg-open", "test.txt"]]),
+        ("darwin", "subprocess.run", ["open", "test.txt"]),
+        ("linux", "subprocess.run", ["xdg-open", "test.txt"]),
     ])
-    def test_open_file_in_editor_platforms(self, mocker, platform, mock_function, expected_call):
-        mocker.patch("sys.platform", platform)
-        # Fix: Add create=True to prevent AttributeError when patching a platform-specific function.
-        mock_call = mocker.patch(
-            f"aicodec.infrastructure.utils.{mock_function}", create=True)
+    def test_open_file_in_editor_platforms(self, platform, mock_function, expected_call):
+        with patch("sys.platform", platform):
+            with patch(f"aicodec.infrastructure.utils.{mock_function}", create=True) as mock_call:
+                open_file_in_editor("test.txt")
 
-        open_file_in_editor("test.txt")
-
-        if "subprocess" in mock_function:
-            mock_call.assert_called_once_with(expected_call[0], check=True)
-        else:
-            mock_call.assert_called_once_with(expected_call[0])
+                if "subprocess" in mock_function:
+                    mock_call.assert_called_once_with(expected_call, check=True)
+                else:
+                    mock_call.assert_called_once_with(*expected_call)
 
     @pytest.mark.parametrize("error_type, error_args", [
         (FileNotFoundError, ["Test error"]),
-        # Fix: Provide the required 'cmd' and 'returncode' arguments for CalledProcessError.
         (subprocess.CalledProcessError, [1, "cmd", "Test error"]),
         (Exception, ["Test error"])
     ])
-    def test_open_file_in_editor_exceptions(self, mocker, capsys, error_type, error_args):
-        mocker.patch("sys.platform", "linux")
-        mocker.patch("subprocess.run", side_effect=error_type(*error_args))
+    def test_open_file_in_editor_exceptions(self, capsys, error_type, error_args):
+        with patch("sys.platform", "linux"):
+            with patch("subprocess.run", side_effect=error_type(*error_args)):
+                open_file_in_editor("test.txt")
 
-        open_file_in_editor("test.txt")
-
-        captured = capsys.readouterr()
-        assert "Could not open file" in captured.out or "An unexpected error occurred" in captured.out
-        assert "Please manually open the file" in captured.out
+                captured = capsys.readouterr()
+                assert "Could not open file" in captured.out or "An unexpected error occurred" in captured.out
+                assert "Please manually open the file" in captured.out

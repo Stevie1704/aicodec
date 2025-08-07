@@ -19,7 +19,6 @@ def project_structure(tmp_path):
     (project_dir / 'logs').mkdir()
     (project_dir / 'logs' / 'error.log').write_text('log message')
     (project_dir / 'binary.data').write_bytes(b'\x00\x01\x02')
-    # Invalid UTF-8
     (project_dir / 'bad_encoding.txt').write_bytes('Euro sign: \xa4'.encode('latin1'))
     (project_dir / '.gitignore').write_text('*.log\n/dist/\nbinary.data')
     return project_dir
@@ -37,8 +36,7 @@ class TestFileSystemFileRepository:
             directory=project_structure, use_gitignore=True)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
-        expected = {'main.py', 'Dockerfile', 'src/utils.js',
-                    '.gitignore', 'bad_encoding.txt'}
+        expected = {'main.py', 'Dockerfile', 'src/utils.js', '.gitignore', 'bad_encoding.txt'}
         assert relative_files == expected
 
     def test_discover_with_exclusions(self, project_structure, file_repo):
@@ -52,7 +50,7 @@ class TestFileSystemFileRepository:
         config = AggregateConfig(
             directory=project_structure,
             include_files=['dist/bundle.js'],
-            use_gitignore=True  # .gitignore excludes /dist/
+            use_gitignore=True
         )
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
@@ -69,7 +67,7 @@ class TestFileSystemFileRepository:
         assert "Could not decode bad_encoding.txt as UTF-8" in captured.out
         bad_file_content = next(
             f.content for f in files if f.file_path == 'bad_encoding.txt')
-        assert '' in bad_file_content  # Replacement character
+        assert '�' in bad_file_content
 
     def test_load_and_save_hashes(self, tmp_path, file_repo):
         hashes_file = tmp_path / 'hashes.json'
@@ -78,7 +76,6 @@ class TestFileSystemFileRepository:
         file_repo.save_hashes(hashes_file, hashes_data)
         assert hashes_file.exists()
         assert file_repo.load_hashes(hashes_file) == hashes_data
-        # Test malformed JSON load
         hashes_file.write_text("{")
         assert file_repo.load_hashes(hashes_file) == {}
 
@@ -118,7 +115,6 @@ class TestFileSystemChangeSetRepository:
             tmp_path / 'nonexistent.txt') == ''
 
     def test_apply_changes(self, change_repo, tmp_path):
-        # Setup initial state
         (tmp_path / 'existing.txt').write_text('Old Content')
         (tmp_path / 'to_delete.txt').write_text('Delete Me')
 
@@ -138,25 +134,22 @@ class TestFileSystemChangeSetRepository:
         results = change_repo.apply_changes(
             changes, tmp_path, 'apply', 'session-123')
 
-        # Verify file state
         assert (tmp_path / 'new_file.txt').read_text() == 'Hello'
         assert (tmp_path / 'existing.txt').read_text() == 'New Content'
         assert not (tmp_path / 'to_delete.txt').exists()
         assert not (tmp_path / '../traversal.txt').exists()
 
-        # Verify results log
         assert len(results) == 5
         assert results[0]['status'] == 'SUCCESS'
         assert results[3]['status'] == 'FAILURE'
         assert 'Directory traversal' in results[3]['reason']
         assert results[4]['status'] == 'SKIPPED'
 
-        # Verify revert data
         revert_file = tmp_path / '.aicodec' / 'reverts' / 'session-123.revert.json'
         assert revert_file.exists()
         with revert_file.open('r') as f:
             revert_data = json.load(f)
-        assert len(revert_data['changes']) == 3  # create, replace, delete
+        assert len(revert_data['changes']) == 3
         revert_actions = {c['filePath']: c['action']
                           for c in revert_data['changes']}
         assert revert_actions['new_file.txt'] == 'DELETE'

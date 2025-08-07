@@ -2,6 +2,7 @@
 import pytest
 import json
 import hashlib
+from unittest.mock import Mock, patch
 
 from aicodec.application.services import AggregationService, ReviewService
 from aicodec.domain.models import AggregateConfig, FileItem, ChangeSet, Change, ChangeAction
@@ -9,13 +10,13 @@ from aicodec.domain.repositories import IFileRepository, IChangeSetRepository
 
 
 @pytest.fixture
-def mock_file_repo(mocker):
-    return mocker.Mock(spec=IFileRepository)
+def mock_file_repo():
+    return Mock(spec=IFileRepository)
 
 
 @pytest.fixture
-def mock_change_repo(mocker):
-    return mocker.Mock(spec=IChangeSetRepository)
+def mock_change_repo():
+    return Mock(spec=IChangeSetRepository)
 
 
 @pytest.fixture
@@ -35,17 +36,14 @@ class TestAggregationService:
 
     def test_aggregate_full_run(self, mock_file_repo, temp_config):
         mock_file_repo.load_hashes.return_value = {'a.py': 'old_hash'}
-        # Fix: discover_files must return an iterable, even if empty.
         mock_file_repo.discover_files.return_value = []
         service = AggregationService(mock_file_repo, temp_config)
         service.aggregate(full_run=True)
-        # With full_run=True, load_hashes should not be called
         mock_file_repo.load_hashes.assert_not_called()
 
     def test_aggregate_no_changes_detected(self, mock_file_repo, temp_config, capsys):
         file_content = 'content'
         files = [FileItem('a.py', file_content)]
-        # Fix: Use the correct hash for the content.
         correct_hash = hashlib.sha256(file_content.encode('utf-8')).hexdigest()
         hashes = {'a.py': correct_hash}
 
@@ -55,7 +53,6 @@ class TestAggregationService:
         service.aggregate()
         captured = capsys.readouterr()
         assert "No changes detected" in captured.out
-        # Hashes should still be saved even if no content is written
         mock_file_repo.save_hashes.assert_called_once()
 
     def test_aggregate_with_changes(self, mock_file_repo, temp_config, capsys):
@@ -71,13 +68,28 @@ class TestAggregationService:
         assert output_file.exists()
         with open(output_file, 'r') as f:
             data = json.load(f)
-        assert len(data) == 2  # both files are considered changes
+        assert len(data) == 2
         assert data[0]['filePath'] == 'a.py'
         assert data[1]['filePath'] == 'b.py'
 
         captured = capsys.readouterr()
         assert "Successfully aggregated 2 changed file(s)" in captured.out
         mock_file_repo.save_hashes.assert_called_once()
+
+    def test_aggregate_with_token_count(self, mock_file_repo, temp_config, capsys):
+        with patch('aicodec.application.services.tiktoken.get_encoding') as mock_get_encoding:
+            mock_encoding = Mock()
+            mock_encoding.encode.return_value = [1, 2, 3]
+            mock_get_encoding.return_value = mock_encoding
+            files = [FileItem('a.py', 'new_content')]
+            mock_file_repo.discover_files.return_value = files
+            mock_file_repo.load_hashes.return_value = {}
+
+            service = AggregationService(mock_file_repo, temp_config)
+            service.aggregate(count_tokens=True)
+
+            captured = capsys.readouterr()
+            assert "(Token count: 3)" in captured.out
 
 
 class TestReviewService:
@@ -104,16 +116,12 @@ class TestReviewService:
 
     @pytest.mark.parametrize("change_action, file_exists, original_content, proposed_content, expected_action, should_include", [
         (ChangeAction.CREATE, False, "", "new", 'CREATE', True),
-        (ChangeAction.CREATE, True, "old", "new",
-         'REPLACE', True),  # Effective action is REPLACE
+        (ChangeAction.CREATE, True, "old", "new", 'REPLACE', True),
         (ChangeAction.DELETE, True, "old", "", 'DELETE', True),
-        # Cannot delete non-existent
         (ChangeAction.DELETE, False, "", "", None, False),
-        (ChangeAction.REPLACE, False, "", "new",
-         'CREATE', True),  # Effective action is CREATE
+        (ChangeAction.REPLACE, False, "", "new", 'CREATE', True),
         (ChangeAction.REPLACE, True, "old", "new", 'REPLACE', True),
-        (ChangeAction.REPLACE, True, "old", "old",
-         None, False),  # No change in content
+        (ChangeAction.REPLACE, True, "old", "old", None, False),
     ])
     def test_determine_effective_action(self, review_service, change_action, file_exists, original_content, proposed_content, expected_action, should_include):
         change = Change('a.py', change_action, proposed_content)
@@ -128,7 +136,6 @@ class TestReviewService:
         session_id = 'test-session'
         review_service.apply_changes(changes_data, session_id)
 
-        # Verify that the repository method is called with the correct Change object
         mock_change_repo.apply_changes.assert_called_once()
         call_args = mock_change_repo.apply_changes.call_args[0]
         assert len(call_args[0]) == 1
