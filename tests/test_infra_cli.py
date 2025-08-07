@@ -106,12 +106,12 @@ def test_handle_aggregate(mock_services, temp_config_file):
         config=str(temp_config_file),
         directory=None, include_dir=[], include_ext=[], include_file=[],
         exclude_dir=[], exclude_ext=[], exclude_file=[],
-        full=True, use_gitignore=None
+        full=True, use_gitignore=None, count_tokens=True
     )
     cli.handle_aggregate(args)
     cli.AggregationService.assert_called_once()
     service_instance = cli.AggregationService.return_value
-    service_instance.aggregate.assert_called_once_with(full_run=True)
+    service_instance.aggregate.assert_called_once_with(full_run=True, count_tokens=True)
 
 
 def test_handle_aggregate_no_inclusions_error(tmp_path, monkeypatch, capsys):
@@ -123,7 +123,7 @@ def test_handle_aggregate_no_inclusions_error(tmp_path, monkeypatch, capsys):
     # This config, combined with no include args and use_gitignore=False, should result in no files being found.
     config_path.write_text(json.dumps({'aggregate': {'use_gitignore': False}}))
     args = MagicMock(config=str(config_path), use_gitignore=False, include_ext=[], include_files=[
-    ], include_dirs=[], directory=None, exclude_dir=[], exclude_ext=[], exclude_file=[], full=False)
+    ], include_dirs=[], directory=None, exclude_dir=[], exclude_ext=[], exclude_file=[], full=False, count_tokens=False)
 
     cli.handle_aggregate(args)
     captured = capsys.readouterr()

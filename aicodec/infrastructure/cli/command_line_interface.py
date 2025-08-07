@@ -57,6 +57,8 @@ def main():  # pragma: no cover
     agg_parser.add_argument('--exclude-file', action='append', default=[])
     agg_parser.add_argument('--full', action='store_true',
                             help="Perform a full aggregation, ignoring previous hashes.")
+    agg_parser.add_argument('--count-tokens', action='store_true',
+                            help="Count and display the number of tokens in the aggregated output.")
     gitignore_group = agg_parser.add_mutually_exclusive_group()
     gitignore_group.add_argument('--use-gitignore', action='store_true', dest='use_gitignore', default=None,
                                  help="Explicitly use .gitignore for exclusions (default). Overrides config.")
@@ -237,7 +239,7 @@ def handle_aggregate(args):
 
     repo = FileSystemFileRepository()
     service = AggregationService(repo, config)
-    service.aggregate(full_run=args.full)
+    service.aggregate(full_run=args.full, count_tokens=args.count_tokens)
 
 
 def handle_apply(args):

@@ -79,6 +79,18 @@ class TestAggregationService:
         assert "Successfully aggregated 2 changed file(s)" in captured.out
         mock_file_repo.save_hashes.assert_called_once()
 
+    def test_aggregate_with_token_count(self, mock_file_repo, temp_config, capsys, mocker):
+        mocker.patch('aicodec.application.services.tiktoken.get_encoding')
+        files = [FileItem('a.py', 'new_content')]
+        mock_file_repo.discover_files.return_value = files
+        mock_file_repo.load_hashes.return_value = {}
+
+        service = AggregationService(mock_file_repo, temp_config)
+        service.aggregate(count_tokens=True)
+
+        captured = capsys.readouterr()
+        assert "(Token count:" in captured.out
+
 
 class TestReviewService:
 

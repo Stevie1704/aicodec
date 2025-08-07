@@ -3,6 +3,7 @@ import json
 import hashlib
 from pathlib import Path
 from typing import Optional
+import tiktoken
 
 from ..domain.models import AggregateConfig, Change
 from ..domain.repositories import IFileRepository, IChangeSetRepository
@@ -18,7 +19,7 @@ class AggregationService:
         self.output_file = self.output_dir / 'context.json'
         self.hashes_file = self.output_dir / 'hashes.json'
 
-    def aggregate(self, full_run: bool = False):
+    def aggregate(self, full_run: bool = False, count_tokens: bool = False):
         """Main execution method to aggregate files."""
         previous_hashes = {} if full_run else self.file_repo.load_hashes(
             self.hashes_file)
@@ -49,12 +50,24 @@ class AggregationService:
             return
 
         self.output_dir.mkdir(exist_ok=True)
+        json_output = json.dumps(aggregated_content, indent=2)
         with open(self.output_file, 'w', encoding='utf-8') as f:
-            json.dump(aggregated_content, f, indent=2)
+            f.write(json_output)
 
         self.file_repo.save_hashes(self.hashes_file, current_hashes)
+
+        token_count_msg = ""
+        if count_tokens:
+            try:
+                # Using cl100k_base encoding, used by gpt-4, gpt-3.5-turbo, text-embedding-ada-002
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_count = len(encoding.encode(json_output))
+                token_count_msg = f" (Token count: {token_count})"
+            except Exception as e:
+                token_count_msg = f" (Token counting failed: {e})"
+        
         print(
-            f"Successfully aggregated {len(aggregated_content)} changed file(s) into '{self.output_file}'."
+            f"Successfully aggregated {len(aggregated_content)} changed file(s) into '{self.output_file}'.{token_count_msg}"
         )
 
 
