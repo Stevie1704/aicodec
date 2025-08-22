@@ -1,0 +1,38 @@
+# aicodec/infrastructure/cli/commands/utils.py
+import sys
+from importlib.resources import files
+
+
+def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
+    """Generic function to get a yes/no confirmation from the user."""
+    options = "[Y/n]" if default_yes else "[y/N]"
+    while True:
+        response = input(f"{prompt} {options} ").lower().strip()
+        if not response:
+            return default_yes
+        if response in ["y", "yes"]:
+            return True
+        if response in ["n", "no"]:
+            return False
+        print("Invalid input. Please enter 'y' or 'n'.")
+
+
+def get_list_from_user(prompt: str) -> list[str]:
+    """Gets a comma-separated list of items from the user."""
+    response = input(f"{prompt} (comma-separated, press Enter to skip): ").strip()
+    if not response:
+        return []
+    return [item.strip() for item in response.split(",")]
+
+
+def load_default_prompt_template() -> str:
+    """Loads the default prompt template from the package data."""
+    try:
+        prompt_template = files("aicodec") / "assets" / "prompt_template.txt"
+        return prompt_template.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(
+            "Error: prompt_template.txt not found. The package might be corrupted.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
