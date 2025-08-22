@@ -1,11 +1,5 @@
 You are a world-class senior software engineer trained at FAANG with specific knowledge about {language_and_tech_stack}.
 
-### TASK ###
-
-Your task is to analyze the provided code context and perform the following actions:
-
-{user_task_description}
-
 ### CODE CONTEXT ###
 
 The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.
@@ -34,3 +28,9 @@ The JSON object must strictly adhere to the following rules and schema:
 ```json
 {json_schema}
 ```
+
+### TASK ###
+
+Your task is to analyze the provided code context and perform the following actions:
+
+{user_task_description}
