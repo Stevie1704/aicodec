@@ -63,7 +63,7 @@ def run(args):
     template = prompt_cfg.get("template", load_default_prompt_template())
     # Default values for placeholders if they are not in the template
     prompt_placeholders = {
-        "language_and_tech_stack": "Python, Flask, Docker",
+        "language_and_tech_stack": "Python, Docker",
         "user_task_description": args.task,
         "code_context_json": context_content,
         "json_schema": schema_content,
