@@ -19,7 +19,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
 ]
-dependencies = ["jsonschema", "pyperclip", "pathspec", "tiktoken", "requests"]
+dependencies = [
+    "jsonschema",
+    "pyperclip",
+    "pathspec",
+    "tiktoken",
+    "requests",
+    "json-repair",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]

@@ -1,5 +1,6 @@
 # aicodec/infrastructure/cli/commands/prompt.py
 import sys
+import os
 from pathlib import Path
 from importlib.resources import files
 import pyperclip
@@ -73,8 +74,12 @@ def run(args):
     clipboard = prompt_cfg.get("clipboard", False) or args.clipboard
 
     if clipboard:
-        pyperclip.copy(prompt)
-        print("Prompt successfully copied to clipboard.")
+        if os.environ.get('AICODEC_TEST_MODE'):
+            os.environ['AICODEC_TEST_CLIPBOARD'] = prompt
+            print("Prompt successfully copied to test clipboard.")
+        else:
+            pyperclip.copy(prompt)
+            print("Prompt successfully copied to clipboard.")
     else:
         output_file = args.output_file or prompt_cfg.get(
             "output_file", ".aicodec/prompt.txt"

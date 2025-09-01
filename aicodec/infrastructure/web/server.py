@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Literal, Optional
 from functools import partial
+import os
 
 from ...application.services import ReviewService
 
@@ -71,6 +72,9 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def launch_review_server(review_service: ReviewService, mode: Literal['apply', 'revert'] = 'apply'):
+    if os.environ.get('AICODEC_TEST_MODE'):
+        print("Test mode: skipping server launch")
+        return
     session_id = None
     if mode == 'apply':
         session_id = str(uuid.uuid4())

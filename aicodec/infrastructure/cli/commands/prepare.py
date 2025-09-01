@@ -1,6 +1,7 @@
 # aicodec/infrastructure/cli/commands/prepare.py
 import json
 import sys
+import os
 from pathlib import Path
 from importlib.resources import files
 from jsonschema import validate, ValidationError
@@ -58,7 +59,10 @@ def run(args):
     changes_path.parent.mkdir(parents=True, exist_ok=True)
 
     if from_clipboard:
-        clipboard_content = pyperclip.paste()
+        if os.environ.get('AICODEC_TEST_MODE'):
+            clipboard_content = os.environ.get('AICODEC_TEST_CLIPBOARD', '')
+        else:
+            clipboard_content = pyperclip.paste()
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return
