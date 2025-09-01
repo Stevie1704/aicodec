@@ -37,6 +37,13 @@ def register_subparser(subparsers):
         action="store_true",
         help="Copy the generated prompt to the clipboard instead of opening a file.",
     )
+    group = prompt_parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--no-code",
+        action="store_true",
+        dest="exclude_code",
+        help="Exclude code context from the prompt (overrides config).",
+    )
     prompt_parser.set_defaults(func=run)
 
 
@@ -45,15 +52,32 @@ def run(args):
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
 
+    if args.exclude_code:
+        include_code_context = False
+    else:
+        include_code_context = prompt_cfg.get("include_code", True)
+
     context_file = Path(".aicodec") / "context.json"
-    if not context_file.is_file():
-        print(
-            f"Error: Context file '{context_file}' not found. Run 'aicodec aggregate' first."
-        )
-        sys.exit(1)
+    code_context_section = ""
+    if include_code_context:
+        if not context_file.is_file():
+            print(
+                f"Error: Context file '{context_file}' not found. Run 'aicodec aggregate' first."
+            )
+            sys.exit(1)
+
+        try:
+            context_content = context_file.read_text(encoding="utf-8")
+            code_context_section = (
+                "### CODE CONTEXT ###\n\n"
+                "The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.\n\n"
+                f"```json\n{context_content}\n```\n"
+            )
+        except FileNotFoundError as e:
+            print(f"Error reading required file: {e}", file=sys.stderr)
+            sys.exit(1)
 
     try:
-        context_content = context_file.read_text(encoding="utf-8")
         schema_path = files("aicodec") / "assets" / "decoder_schema.json"
         schema_content = schema_path.read_text(encoding="utf-8")
     except FileNotFoundError as e:
@@ -65,7 +89,7 @@ def run(args):
     prompt_placeholders = {
         "language_and_tech_stack": "Python, Docker",
         "user_task_description": args.task,
-        "code_context_json": context_content,
+        "code_context_section": code_context_section,
         "json_schema": schema_content,
     }
 

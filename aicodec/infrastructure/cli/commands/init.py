@@ -86,6 +86,11 @@ def run(args):
             "Note: Using the clipboard in some environments (like devcontainers) might require extra setup."
         )
 
+    include_code = get_user_confirmation(
+        "Should the prompt include the code context by default?", default_yes=True
+    )
+    config["prompt"]["include_code"] = include_code
+
     config_dir.mkdir(exist_ok=True)
     with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)

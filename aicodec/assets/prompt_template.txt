@@ -1,13 +1,6 @@
-You are a world-class senior software engineer trained at FAANG with proficiency in {language_and_tech_stack}.
+You are a world-class senior software engineer trained at FAANG with specific knowledge about {language_and_tech_stack}.
 
-### CODE CONTEXT ###
-
-The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.
-
-```json
-{code_context_json}
-```
-
+{code_context_section}
 ### OUTPUT INSTRUCTIONS ###
 
 Your response MUST be a single, raw JSON object. Do not include any conversational text, explanations, or markdown formatting before or after the JSON object.

@@ -11,7 +11,8 @@ def register_subparser(subparsers):
     agg_parser = subparsers.add_parser(
         "aggregate", help="Aggregate project files into a JSON context."
     )
-    agg_parser.add_argument("-c", "--config", type=str, default=".aicodec/config.json")
+    agg_parser.add_argument("-c", "--config", type=str,
+                            default=".aicodec/config.json")
     agg_parser.add_argument(
         "-d", "--directory", type=str, help="The root directory to scan."
     )
@@ -70,7 +71,8 @@ def run(args):
         use_gitignore = use_gitignore_cfg
 
     config = AggregateConfig(
-        directory=Path(args.directory or file_cfg.get("directory", ".")).resolve(),
+        directory=Path(args.directory or file_cfg.get(
+            "directory", ".")).resolve(),
         include_dirs=args.include_dir or file_cfg.get("include_dirs", []),
         include_ext=[
             e if e.startswith(".") else "." + e
