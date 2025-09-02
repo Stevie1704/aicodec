@@ -36,7 +36,7 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
  	mock_load_template.return_value = "dummy template"
 
  	user_inputs = [
- 	 	'y', 'y', 'y', 'src,lib', '*.ts', '.ts,.js',
+ 	 	'y', 'y', 'y', 'y', 'src,lib', '*.ts', '.ts,.js',
  	 	'node_modules', '*.log', '.log', 'Python', 'n', 'y'
  	]
  	with patch('builtins.input', side_effect=user_inputs):
@@ -54,6 +54,10 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
  	assert config['prompt']['template'] == "dummy template"
  	assert config['prompt']['tech-stack'] == 'Python'
  	assert config['prompt']['include_code'] is True
+
+ 	gitignore_file = tmp_path / '.gitignore'
+ 	assert gitignore_file.exists()
+ 	assert '.aicodec/' in gitignore_file.read_text()
 
 
 def test_check_config_exists_fail(capsys):
@@ -194,7 +198,7 @@ def test_prepare_run_from_clipboard_success(temp_config_file):
  	 	 	 	mock_aicodec = MagicMock()
  	 	 	 	mock_aicodec.__truediv__.return_value = mock_assets
  	 	 	 	mock_files.return_value = mock_aicodec
- 	 	 	 	valid_json = '{"changes": [{"filePath": "a.py", "action": "CREATE", "content": ""}]}'
+ 	 	 	 	valid_json = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": ""}]}'
  	 	 	 	mock_pyperclip.paste.return_value = valid_json
 
  	 	 	 	args = MagicMock(config=str(temp_config_file),

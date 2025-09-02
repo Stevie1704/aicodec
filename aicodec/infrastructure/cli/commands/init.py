@@ -40,6 +40,29 @@ def run(args):
 
  	if use_gitignore:
  	 	if get_user_confirmation(
+ 	 	 	"Update .gitignore to exclude the '.aicodec/' directory?",
+ 	 	 	default_yes=True,
+ 	 	):
+ 	 	 	gitignore_path = Path(".gitignore")
+ 	 	 	aicodec_entry = ".aicodec/"
+ 	 	 	try:
+ 	 	 	 	if gitignore_path.is_file():
+ 	 	 	 	 	content = gitignore_path.read_text("utf-8")
+ 	 	 	 	 	if aicodec_entry not in content.splitlines():
+ 	 	 	 	 	 	with gitignore_path.open("a", encoding="utf-8") as f:
+ 	 	 	 	 	 	 	if content and not content.endswith("\n"):
+ 	 	 	 	 	 	 	 	f.write("\n")
+ 	 	 	 	 	 	 	f.write(f"{aicodec_entry}\n")
+ 	 	 	 	 	 	print(f"Added '{aicodec_entry}' to '.gitignore'.")
+ 	 	 	 	 	else:
+ 	 	 	 	 	 	print(f"'.gitignore' already contains '{aicodec_entry}'. No changes made.")
+ 	 	 	 	else:
+ 	 	 	 	 	gitignore_path.write_text(f"{aicodec_entry}\n", encoding="utf-8")
+ 	 	 	 	 	print(f"Created '.gitignore' and added '{aicodec_entry}'.")
+ 	 	 	except Exception as e:
+ 	 	 	 	print(f"Warning: Could not update .gitignore: {e}")
+
+ 	 	if get_user_confirmation(
  	 	 	"Also exclude the .gitignore file itself from the context?",
  	 	 	default_yes=True,
  	 	):

@@ -146,7 +146,7 @@ def test_init_command_basic(tmp_path, monkeypatch):
  	"""Test basic init command with default options."""
  	monkeypatch.chdir(tmp_path)
 
- 	inputs = 'y\ny\nn\n\nn\ny\n'
+ 	inputs = 'y\ny\ny\nn\n\nn\ny\n'
  	with patch('aicodec.infrastructure.cli.commands.utils.load_default_prompt_template', return_value="template"):
  	 	result = run_aicodec_command(["init"], cwd=tmp_path, input_text=inputs)
 
@@ -159,6 +159,10 @@ def test_init_command_basic(tmp_path, monkeypatch):
  	config = json.loads(config_file.read_text())
  	assert config["aggregate"]["use_gitignore"] is True
  	assert ".gitignore" in config["aggregate"]["exclude_files"]
+
+ 	gitignore_file = tmp_path / '.gitignore'
+ 	assert gitignore_file.exists()
+ 	assert ".aicodec/" in gitignore_file.read_text()
 
 
 def test_init_command_overwrite_existing(tmp_path, monkeypatch):
@@ -186,7 +190,7 @@ def test_init_command_with_additional_options(tmp_path, monkeypatch):
  	"""Test init command with additional inclusions/exclusions."""
  	monkeypatch.chdir(tmp_path)
 
- 	inputs = 'y\ny\ny\nsrc,lib\n*.py,*.js\n.py,.js,.json\nbuild,temp\n*.tmp,*.bak\n.log,.tmp\nPython\ny\ny\n'
+ 	inputs = 'y\ny\ny\ny\nsrc,lib\n*.py,*.js\n.py,.js,.json\nbuild,temp\n*.tmp,*.bak\n.log,.tmp\nPython\ny\ny\n'
  	with patch('aicodec.infrastructure.cli.commands.utils.load_default_prompt_template', return_value="template"):
  	 	result = run_aicodec_command(["init"], cwd=tmp_path, input_text=inputs)
 
@@ -205,6 +209,10 @@ def test_init_command_with_additional_options(tmp_path, monkeypatch):
  	assert config["prepare"]["from_clipboard"] is True
  	assert config["prompt"]["tech-stack"] == "Python"
  	assert config["prompt"]["include_code"] is True
+
+ 	gitignore_file = tmp_path / '.gitignore'
+ 	assert gitignore_file.exists()
+ 	assert ".aicodec/" in gitignore_file.read_text()
 
 
 # SCHEMA COMMAND TESTS
@@ -482,7 +490,7 @@ def test_prepare_command_clipboard_invalid_json(sample_project, aicodec_config, 
  	], env_extra={'AICODEC_TEST_CLIPBOARD': 'invalid json'})
 
  	assert result.returncode == 0
- 	assert " Clipboard content does not match the expected schema" in result.stdout
+ 	assert "Clipboard content is not valid JSON" in result.stdout
 
 
 def test_prepare_command_overwrite_existing(sample_project, aicodec_config, monkeypatch):
