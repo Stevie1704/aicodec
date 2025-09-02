@@ -28,6 +28,12 @@ def register_subparser(subparsers):
         help="The specific task for the LLM to perform.",
     )
     prompt_parser.add_argument(
+        "--tech-stack",
+        type=str,
+        default="[REPLACE THIS WITH YOUR tech-stack]",
+        help="The specific tech stack for the LLM to consider.",
+    )
+    prompt_parser.add_argument(
         "--output-file",
         type=Path,
         help="Path to save the generated prompt file (overrides config).",
@@ -51,8 +57,8 @@ def run(args):
     """Handles the generation of a prompt file."""
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
-
-    if args.exclude_code:
+    exclude_code = prompt_cfg.get("no-code", False) or args.exclude_code
+    if exclude_code:
         include_code_context = False
     else:
         include_code_context = prompt_cfg.get("include_code", True)
@@ -84,10 +90,11 @@ def run(args):
         print(f"Error reading required file: {e}", file=sys.stderr)
         sys.exit(1)
 
+    tech_stack = prompt_cfg.get("tech-stack", False) or args.tech_stack
     template = prompt_cfg.get("template", load_default_prompt_template())
     # Default values for placeholders if they are not in the template
     prompt_placeholders = {
-        "language_and_tech_stack": "Python, Docker",
+        "language_and_tech_stack": tech_stack,
         "user_task_description": args.task,
         "code_context_section": code_context_section,
         "json_schema": schema_content,

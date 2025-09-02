@@ -25,3 +25,5 @@
 .aicodec
 lcov.info
 coverage.lcov
+
+rebuild.sh
