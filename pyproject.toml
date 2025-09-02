@@ -10,6 +10,10 @@ readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Steffen Krakau" }]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Utilities",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -18,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
-]
+    ]
 dependencies = [
     "jsonschema",
     "pyperclip",
@@ -28,8 +32,12 @@ dependencies = [
     "json-repair",
 ]
 
+[project.urls]
+"Homepage" = "https://github.com/Stevie1704/aicodec"
+"Bug Tracker" = "https://github.com/Stevie1704/aicodec/issues"
+
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html", "requests"]
+dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html"]
 
 [project.scripts]
 aicodec = "aicodec.infrastructure.cli.command_line_interface:main"
@@ -42,7 +50,7 @@ include = ["aicodec*"]
 aicodec = [
     "assets/decoder_schema.json",
     "assets/prompt_template.txt",
-    "infrastructure/web/ui/*",
+    "infrastructure/web/ui/**",
 ]
 
 [tool.pytest.ini_options]
