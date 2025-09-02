@@ -39,12 +39,10 @@ AI Codec solves these problems by treating LLM-generated changes as a formal, re
 
 ## Installation
 
-Currently aicodec is not available on PyPi (hopfully soon).
-
-To install AI Codec, clone the repo and run the following command inside the folder (next to pyproject.toml) using pip:
+Aicodec is available on PyPi.
 
 ```bash
-pip install .
+pip install aicodec 
 ```
 
 This will make the `aicodec` command available in your terminal.
@@ -73,21 +71,25 @@ aicodec aggregate
 
 This command scans your project based on your configuration and creates a `context.json` file. This file contains the content of all relevant files, which you can now provide to your LLM.
 
-### Step 3: Generating Changes with an LLM
+### Step 3: Generating the Prompt
 
-Copy the contents of `context.json` and paste it into your LLM of choice. Ask it to perform refactoring, add features, or fix bugs. 
-
-**Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.** To get the required schema, run the following command in your terminal:
+Run the `prompt` command to generate a ready-to-use prompt file that includes your aggregated context:
 
 ```bash
-aicodec schema
+aicodec prompt
 ```
 
-You can directly pipe this output to your clip by e.g. using `aicodec schema | pbcopy` on macOS, `| clip` on Windows, or `| xclip` on Linux.
+This will create a `prompt.txt` file in your `.aicodec` directory (configurable). You can customize the task with `--task "your description"` or copy directly to clipboard with `--clipboard`.
+
+### Step 4: Generating Changes with an LLM
+
+Copy the contents of `prompt.txt` (if not already in your clipboard) and paste it into your LLM of choice. Ask it to perform refactoring, add features, or fix bugs. 
+
+**Crucially, you must instruct the LLM to format its response as a JSON object that adheres to the tool's schema.**
 
 You can then provide this schema to the LLM along with your project context and prompt.
 
-### Step 4: Preparing to Apply Changes
+### Step 5: Preparing to Apply Changes
 
 Once you have the JSON output from the LLM, copy it to your clipboard.
 
@@ -100,7 +102,7 @@ aicodec prepare --from-clipboard
 This validates the JSON from your clipboard and saves it to `.aicodec/changes.json`, getting it ready for review.
 You can also configure it as default flag in your config by adding under "prepare" the "from-clipboar": true option.
 
-### Step 5: Reviewing and Applying Changes
+### Step 6: Reviewing and Applying Changes
 
 This is the most important step. Run the `apply` command to launch the web-based review UI:
 
@@ -115,7 +117,7 @@ Your browser will open a local web page showing a diff of all proposed changes. 
 
 Once you are satisfied, click **"Apply Selected Changes"**. The tool will modify your local files and create a `.aicodec/revert.json` file as a safety net.
 
-### Step 6: Reverting Changes (The "Oops" Button)
+### Step 7: Reverting Changes (The "Oops" Button)
 
 If you are unhappy with the result of an `apply` operation, you can easily undo it.
 
@@ -124,3 +126,13 @@ aicodec revert
 ```
 
 This command opens the same review UI, but this time it shows the changes required to restore your files to their state before the last `apply` operation.
+
+## Additional commands
+### Get schema
+To get the required schema, which the llm needs to follow, run the following command in your terminal:
+
+```bash
+aicodec schema
+```
+
+You can directly pipe this output to your clip by e.g. using `aicodec schema | pbcopy` on macOS, `| clip` on Windows, or `| xclip` on Linux.
