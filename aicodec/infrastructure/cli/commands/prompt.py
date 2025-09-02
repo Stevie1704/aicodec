@@ -57,8 +57,8 @@ def run(args):
     """Handles the generation of a prompt file."""
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
-    exclude_code = prompt_cfg.get("no-code", False) or args.exclude_code
-    if exclude_code:
+
+    if args.exclude_code:
         include_code_context = False
     else:
         include_code_context = prompt_cfg.get("include_code", True)

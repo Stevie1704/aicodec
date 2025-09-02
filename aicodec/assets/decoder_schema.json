@@ -1,25 +1,29 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "LLM Code Change Proposal",
-    "description": "A schema for validating a JSON structure that describes code modifications proposed by an LLM.",
     "type": "object",
+    "additionalProperties": false,
     "properties": {
         "summary": {
-            "description": "A brief, human-readable summary of the changes being proposed.",
-            "type": "string"
+            "description": "Brief summary of proposed changes.",
+            "type": "string",
+            "minLength": 1
         },
         "changes": {
-            "description": "A list of specific file changes to be applied.",
+            "description": "List of file changes to apply in order.",
             "type": "array",
+            "minItems": 1,
             "items": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                     "filePath": {
-                        "description": "The relative path to the file that should be modified.",
-                        "type": "string"
+                        "description": "POSIX-style relative path from repo root (no leading './').",
+                        "type": "string",
+                        "pattern": "^(?!\\./).+"
                     },
                     "action": {
-                        "description": "The operation to perform on the file.",
+                        "description": "Operation to perform.",
                         "type": "string",
                         "enum": [
                             "REPLACE",
@@ -28,19 +32,65 @@
                         ]
                     },
                     "content": {
-                        "description": "The new, full content of the file. Can be empty for DELETE actions.",
+                        "description": "Full file content for CREATE/REPLACE; empty string for DELETE.",
                         "type": "string"
+                    },
+                    "encoding": {
+                        "description": "Optional encoding for binary assets; omit for text. Use 'base64' when set.",
+                        "type": "string",
+                        "enum": [
+                            "base64"
+                        ]
                     }
                 },
                 "required": [
                     "filePath",
                     "action",
                     "content"
+                ],
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {
+                                "action": {
+                                    "const": "DELETE"
+                                }
+                            }
+                        },
+                        "then": {
+                            "properties": {
+                                "content": {
+                                    "maxLength": 0
+                                },
+                                "encoding": false
+                            }
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "action": {
+                                    "enum": [
+                                        "CREATE",
+                                        "REPLACE"
+                                    ]
+                                }
+                            }
+                        },
+                        "then": {
+                            "properties": {
+                                "content": {
+                                    "minLength": 1
+                                }
+                            }
+                        }
+                    }
                 ]
             }
         }
     },
     "required": [
+        "summary",
         "changes"
     ]
 }

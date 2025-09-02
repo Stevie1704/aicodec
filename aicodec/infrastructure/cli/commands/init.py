@@ -6,93 +6,97 @@ from .utils import get_user_confirmation, get_list_from_user, load_default_promp
 
 
 def register_subparser(subparsers):
-    init_parser = subparsers.add_parser(
-        "init", help="Initialize a new aicodec project configuration."
-    )
-    init_parser.set_defaults(func=run)
+ 	init_parser = subparsers.add_parser(
+ 	 	"init", help="Initialize a new aicodec project configuration."
+ 	)
+ 	init_parser.set_defaults(func=run)
 
 
 def run(args):
-    """Handles the interactive project initialization."""
-    print("Initializing aicodec configuration...\n")
-    config_dir = Path(".aicodec")
-    config_file = config_dir / "config.json"
+ 	"""Handles the interactive project initialization."""
+ 	print("Initializing aicodec configuration...\n")
+ 	config_dir = Path(".aicodec")
+ 	config_file = config_dir / "config.json"
 
-    if config_file.exists():
-        if not get_user_confirmation(
-            f'Configuration file "{config_file}" already exists. Overwrite?',
-            default_yes=False,
-        ):
-            print("Initialization cancelled.")
-            return
+ 	if config_file.exists():
+ 	 	if not get_user_confirmation(
+ 	 	 	f'Configuration file "{config_file}" already exists. Overwrite?',
+ 	 	 	default_yes=False,
+ 	 	):
+ 	 	 	print("Initialization cancelled.")
+ 	 	 	return
 
-    config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
+ 	config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
 
-    print("--- Aggregation Settings ---")
-    config["aggregate"]["directory"] = "."
-    print("The '.git' and '.aicodec', are always excluded by default.")
-    config["aggregate"]["exclude_dirs"] = [".git", ".aicodec"]
+ 	print("--- Aggregation Settings ---")
+ 	config["aggregate"]["directory"] = "."
+ 	print("The '.git' and '.aicodec', are always excluded by default.")
+ 	config["aggregate"]["exclude_dirs"] = [".git", ".aicodec"]
 
-    use_gitignore = get_user_confirmation(
-        "Use the .gitignore file for exclusions?", default_yes=True
-    )
-    config["aggregate"]["use_gitignore"] = use_gitignore
+ 	use_gitignore = get_user_confirmation(
+ 	 	"Use the .gitignore file for exclusions?", default_yes=True
+ 	)
+ 	config["aggregate"]["use_gitignore"] = use_gitignore
 
-    if use_gitignore:
-        if get_user_confirmation(
-            "Also exclude the .gitignore file itself from the context?",
-            default_yes=True,
-        ):
-            config["aggregate"].setdefault("exclude_files", []).append(".gitignore")
+ 	if use_gitignore:
+ 	 	if get_user_confirmation(
+ 	 	 	"Also exclude the .gitignore file itself from the context?",
+ 	 	 	default_yes=True,
+ 	 	):
+ 	 	 	config["aggregate"].setdefault("exclude_files", []).append(".gitignore")
 
-    if get_user_confirmation(
-        "Configure additional inclusions/exclusions?", default_yes=False
-    ):
-        config["aggregate"].setdefault("include_dirs", []).extend(
-            get_list_from_user("Directories to always include:")
-        )
-        config["aggregate"].setdefault("include_files", []).extend(
-            get_list_from_user("Files/glob patterns to always include:")
-        )
-        config["aggregate"].setdefault("include_ext", []).extend(
-            get_list_from_user("File extensions to always include (e.g., .py, .ts):")
-        )
-        config["aggregate"].setdefault("exclude_dirs", []).extend(
-            get_list_from_user("Additional directories to exclude:")
-        )
-        config["aggregate"].setdefault("exclude_files", []).extend(
-            get_list_from_user("Additional files/glob patterns to exclude:")
-        )
-        config["aggregate"].setdefault("exclude_exts", []).extend(
-            get_list_from_user("File extensions to always exclude:")
-        )
+ 	if get_user_confirmation(
+ 	 	"Configure additional inclusions/exclusions?", default_yes=False
+ 	):
+ 	 	config["aggregate"].setdefault("include_dirs", []).extend(
+ 	 	 	get_list_from_user("Directories to always include:")
+ 	 	)
+ 	 	config["aggregate"].setdefault("include_files", []).extend(
+ 	 	 	get_list_from_user("Files/glob patterns to always include:")
+ 	 	)
+ 	 	config["aggregate"].setdefault("include_ext", []).extend(
+ 	 	 	get_list_from_user("File extensions to always include (e.g., .py, .ts):")
+ 	 	)
+ 	 	config["aggregate"].setdefault("exclude_dirs", []).extend(
+ 	 	 	get_list_from_user("Additional directories to exclude:")
+ 	 	)
+ 	 	config["aggregate"].setdefault("exclude_files", []).extend(
+ 	 	 	get_list_from_user("Additional files/glob patterns to exclude:")
+ 	 	)
+ 	 	config["aggregate"].setdefault("exclude_exts", []).extend(
+ 	 	 	get_list_from_user("File extensions to always exclude:")
+ 	 	)
 
-    print("\n--- LLM Interaction Settings ---")
-    config["prepare"]["changes"] = ".aicodec/changes.json"
-    config["apply"]["output_dir"] = "."
-    config["prompt"]["output_file"] = ".aicodec/prompt.txt"
-    config["prompt"]["template"] = load_default_prompt_template()
-    print(
-        "LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.')."
-    )
-    print("A default prompt file will be generated at '.aicodec/prompt.txt'.")
+ 	print("\n--- LLM Interaction Settings ---")
+ 	config["prepare"]["changes"] = ".aicodec/changes.json"
+ 	config["apply"]["output_dir"] = "."
+ 	config["prompt"]["output_file"] = ".aicodec/prompt.txt"
+ 	config["prompt"]["template"] = load_default_prompt_template()
+ 	print(
+ 	 	"LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.')."
+ 	)
+ 	print("A default prompt file will be generated at '.aicodec/prompt.txt'.")
 
-    from_clipboard = get_user_confirmation(
-        "Read LLM output directly from the clipboard by default?", default_yes=False
-    )
-    config["prepare"]["from_clipboard"] = from_clipboard
-    if from_clipboard:
-        print(
-            "Note: Using the clipboard in some environments (like devcontainers) might require extra setup."
-        )
+ 	tech_stack = input("What is your primary language or tech stack? (e.g., Python, TypeScript/React) [optional]: ").strip()
+ 	if tech_stack:
+ 	 	config["prompt"]["tech-stack"] = tech_stack
 
-    include_code = get_user_confirmation(
-        "Should the prompt include the code context by default?", default_yes=True
-    )
-    config["prompt"]["include_code"] = include_code
+ 	from_clipboard = get_user_confirmation(
+ 	 	"Read LLM output directly from the clipboard by default?", default_yes=False
+ 	)
+ 	config["prepare"]["from_clipboard"] = from_clipboard
+ 	if from_clipboard:
+ 	 	print(
+ 	 	 	"Note: Using the clipboard in some environments (like devcontainers) might require extra setup."
+ 	 	)
 
-    config_dir.mkdir(exist_ok=True)
-    with open(config_file, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=4)
+ 	include_code = get_user_confirmation(
+ 	 	"Should the prompt include the code context by default?", default_yes=True
+ 	)
+ 	config["prompt"]["include_code"] = include_code
 
-    print(f'\nSuccessfully created configuration at "{config_file}".')
+ 	config_dir.mkdir(exist_ok=True)
+ 	with open(config_file, "w", encoding="utf-8") as f:
+ 	 	json.dump(config, f, indent=4)
+
+ 	print(f'\nSuccessfully created configuration at "{config_file}".')
