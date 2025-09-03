@@ -159,9 +159,12 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                         # For binary files, we can't revert content but can revert the action
                         pass
 
+                modify = mode != 'dry-run'
+
                 if change.action in [ChangeAction.CREATE, ChangeAction.REPLACE]:
-                    target_path.parent.mkdir(parents=True, exist_ok=True)
-                    target_path.write_text(change.content, encoding='utf-8')
+                    if modify:
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        target_path.write_text(change.content, encoding='utf-8')
                     if mode == 'apply':
                         revert_action = 'REPLACE' if file_existed else 'DELETE'
                         new_revert_changes.append(Change(file_path=change.file_path, action=ChangeAction(
@@ -169,7 +172,8 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
                 elif change.action == ChangeAction.DELETE:
                     if file_existed:
-                        target_path.unlink()
+                        if modify:
+                            target_path.unlink()
                         if mode == 'apply':
                             new_revert_changes.append(Change(
                                 file_path=change.file_path, action=ChangeAction.CREATE, content=original_content_for_revert))
