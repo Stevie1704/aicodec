@@ -22,14 +22,14 @@ def mock_change_repo():
 @pytest.fixture
 def temp_config(tmp_path):
     (tmp_path / '.aicodec').mkdir()
-    return AggregateConfig(directory=tmp_path)
+    return AggregateConfig(directory=tmp_path, project_root=tmp_path)
 
 
 class TestAggregationService:
 
     def test_aggregate_no_files_found(self, mock_file_repo, temp_config, capsys):
         mock_file_repo.discover_files.return_value = []
-        service = AggregationService(mock_file_repo, temp_config)
+        service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
         service.aggregate()
         captured = capsys.readouterr()
         assert "No files found to aggregate" in captured.out
@@ -37,7 +37,7 @@ class TestAggregationService:
     def test_aggregate_full_run(self, mock_file_repo, temp_config):
         mock_file_repo.load_hashes.return_value = {'a.py': 'old_hash'}
         mock_file_repo.discover_files.return_value = []
-        service = AggregationService(mock_file_repo, temp_config)
+        service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
         service.aggregate(full_run=True)
         mock_file_repo.load_hashes.assert_not_called()
 
@@ -49,7 +49,7 @@ class TestAggregationService:
 
         mock_file_repo.discover_files.return_value = files
         mock_file_repo.load_hashes.return_value = hashes
-        service = AggregationService(mock_file_repo, temp_config)
+        service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
         service.aggregate()
         captured = capsys.readouterr()
         assert "No changes detected" in captured.out
@@ -61,7 +61,7 @@ class TestAggregationService:
         mock_file_repo.discover_files.return_value = files
         mock_file_repo.load_hashes.return_value = prev_hashes
 
-        service = AggregationService(mock_file_repo, temp_config)
+        service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
         service.aggregate()
 
         output_file = temp_config.directory / '.aicodec' / 'context.json'
@@ -85,7 +85,7 @@ class TestAggregationService:
             mock_file_repo.discover_files.return_value = files
             mock_file_repo.load_hashes.return_value = {}
 
-            service = AggregationService(mock_file_repo, temp_config)
+            service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
             service.aggregate(count_tokens=True)
 
             captured = capsys.readouterr()

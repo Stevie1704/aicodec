@@ -12,10 +12,11 @@ from ..domain.repositories import IFileRepository, IChangeSetRepository
 class AggregationService:
     """Orchestrates the file aggregation use case."""
 
-    def __init__(self, file_repo: IFileRepository, config: AggregateConfig):
+    def __init__(self, file_repo: IFileRepository, config: AggregateConfig, project_root: Path):
         self.file_repo = file_repo
         self.config = config
-        self.output_dir = self.config.directory / '.aicodec'
+        self.project_root = project_root
+        self.output_dir = self.project_root / '.aicodec'
         self.output_file = self.output_dir / 'context.json'
         self.hashes_file = self.output_dir / 'hashes.json'
 
@@ -46,7 +47,7 @@ class AggregationService:
 
         if not aggregated_content:
             print("No changes detected in the specified files since last run.")
-            self.file_repo.save_hashes(self.hashes_file, current_hashes)
+            self.file_repo.save_hashes(self.hashes_file, {**previous_hashes, **current_hashes})
             return
 
         self.output_dir.mkdir(exist_ok=True)
@@ -54,7 +55,7 @@ class AggregationService:
         with open(self.output_file, 'w', encoding='utf-8') as f:
             f.write(json_output)
 
-        self.file_repo.save_hashes(self.hashes_file, current_hashes)
+        self.file_repo.save_hashes(self.hashes_file, {**previous_hashes, **current_hashes})
 
         token_count_msg = ""
         if count_tokens:

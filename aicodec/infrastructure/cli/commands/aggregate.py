@@ -70,9 +70,10 @@ def run(args):
     else:
         use_gitignore = use_gitignore_cfg
 
+    project_root = Path.cwd().resolve()
+    scan_dir = project_root / Path(args.directory or file_cfg.get("directory", ".")).resolve()
     config = AggregateConfig(
-        directory=Path(args.directory or file_cfg.get(
-            "directory", ".")).resolve(),
+        directory=scan_dir,
         include_dirs=args.include_dir or file_cfg.get("include_dirs", []),
         include_ext=[
             e if e.startswith(".") else "." + e
@@ -86,6 +87,7 @@ def run(args):
         ],
         exclude_files=args.exclude_file or file_cfg.get("exclude_files", []),
         use_gitignore=use_gitignore,
+        project_root=project_root,
     )
 
     if (
@@ -100,5 +102,5 @@ def run(args):
         return
 
     repo = FileSystemFileRepository()
-    service = AggregationService(repo, config)
+    service = AggregationService(repo, config, project_root=project_root)
     service.aggregate(full_run=args.full, count_tokens=args.count_tokens)

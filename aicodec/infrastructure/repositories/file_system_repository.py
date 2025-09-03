@@ -30,12 +30,12 @@ class FileSystemFileRepository(IFileRepository):
                     with open(file_path, 'r', encoding='utf-8', errors='strict') as f:
                         content = f.read()
                 except UnicodeDecodeError:
-                    relative_path_str = str(file_path.relative_to(config.directory))
+                    relative_path_str = str(file_path.relative_to(config.project_root))
                     print(f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
                     with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                         content = f.read()
 
-                relative_path = str(file_path.relative_to(config.directory))
+                relative_path = str(file_path.relative_to(config.project_root))
                 file_items.append(
                     FileItem(file_path=relative_path, content=content))
             except Exception as e:
@@ -43,19 +43,20 @@ class FileSystemFileRepository(IFileRepository):
         return file_items
 
     def _discover_paths(self, config: AggregateConfig) -> list[Path]:
+        project_root = config.project_root
         all_files = {p for p in config.directory.rglob('*') if p.is_file()}
         
         # Bug Fix: Always exclude the .aicodec directory, regardless of gitignore settings.
         # The tool should never aggregate its own internal files.
-        always_exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', ['.aicodec/'])
-        all_files = {p for p in all_files if not always_exclude_spec.match_file(str(p.relative_to(config.directory)))}
+        always_exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', ['**/.aicodec/*'])
+        all_files = {p for p in all_files if not always_exclude_spec.match_file(str(p.relative_to(project_root)))}
 
         gitignore_spec = self._load_gitignore_spec(config)
 
         explicit_includes = set()
         if config.include_dirs or config.include_ext or config.include_files:
             for path in all_files:
-                rel_path_str = str(path.relative_to(config.directory))
+                rel_path_str = str(path.relative_to(project_root))
                 if any(rel_path_str.startswith(d) for d in config.include_dirs) or \
                    any(path.name.endswith(ext) for ext in config.include_ext) or \
                    any(fnmatch.fnmatch(rel_path_str, p) for p in config.include_files):
@@ -63,17 +64,17 @@ class FileSystemFileRepository(IFileRepository):
 
         if config.use_gitignore and gitignore_spec:
             base_files = {p for p in all_files if not gitignore_spec.match_file(
-                str(p.relative_to(config.directory)))}
+                str(p.relative_to(project_root)))}
         else:
             base_files = all_files
 
         files_to_exclude = set()
         for path in base_files:
-            rel_path_str = str(path.relative_to(config.directory))
+            rel_path_str = str(path.relative_to(project_root))
             normalized_exclude_dirs = {
                 os.path.normpath(d) for d in config.exclude_dirs}
             path_parts = {os.path.normpath(
-                p) for p in path.relative_to(config.directory).parts}
+                p) for p in path.relative_to(project_root).parts}
             
             # Efficiently check if any part of the path is in the exclusion set
             if not normalized_exclude_dirs.isdisjoint(path_parts) or \
@@ -88,10 +89,8 @@ class FileSystemFileRepository(IFileRepository):
     def _load_gitignore_spec(self, config: AggregateConfig) -> Optional[pathspec.PathSpec]:
         if not config.use_gitignore:
             return None
-        gitignore_path = config.directory / '.gitignore'
-        # The .aicodec/ rule is now applied unconditionally in _discover_paths.
-        # It can be removed from here to avoid redundancy, but leaving it adds defense in depth.
-        lines = ['.aicodec/']
+        gitignore_path = config.project_root / '.gitignore'
+        lines = []
         if gitignore_path.is_file():
             with open(gitignore_path, 'r', encoding='utf-8') as f:
                 lines.extend(f.read().splitlines())

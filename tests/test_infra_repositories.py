@@ -33,7 +33,7 @@ class TestFileSystemFileRepository:
 
     def test_discover_with_gitignore(self, project_structure, file_repo):
         config = AggregateConfig(
-            directory=project_structure, use_gitignore=True)
+            directory=project_structure, use_gitignore=True, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         expected = {'main.py', 'Dockerfile', 'src/utils.js', '.gitignore', 'bad_encoding.txt'}
@@ -41,7 +41,7 @@ class TestFileSystemFileRepository:
 
     def test_discover_with_exclusions(self, project_structure, file_repo):
         config = AggregateConfig(directory=project_structure, exclude_dirs=[
-                                 'src'], exclude_exts=['.js'], use_gitignore=False)
+                                 'src'], exclude_exts=['.js'], use_gitignore=False, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert 'src/utils.js' not in relative_files
@@ -50,7 +50,8 @@ class TestFileSystemFileRepository:
         config = AggregateConfig(
             directory=project_structure,
             include_files=['dist/bundle.js'],
-            use_gitignore=True
+            use_gitignore=True,
+            project_root=project_structure
         )
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
@@ -58,7 +59,7 @@ class TestFileSystemFileRepository:
 
     def test_discover_skip_binary_and_handle_bad_encoding(self, project_structure, file_repo, capsys):
         config = AggregateConfig(
-            directory=project_structure, use_gitignore=False)
+            directory=project_structure, use_gitignore=False, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert 'binary.data' not in relative_files
@@ -78,6 +79,31 @@ class TestFileSystemFileRepository:
         assert file_repo.load_hashes(hashes_file) == hashes_data
         hashes_file.write_text("{")
         assert file_repo.load_hashes(hashes_file) == {}
+
+    def test_discover_with_subdir(self, project_structure, file_repo):
+        # Add *.js to gitignore to test exclusion
+        gitignore = project_structure / '.gitignore'
+        gitignore_text = gitignore.read_text() + '\n*.js'
+        gitignore.write_text(gitignore_text)
+
+        config = AggregateConfig(
+            directory=project_structure / 'src',
+            project_root=project_structure,
+            use_gitignore=True
+        )
+        files = file_repo.discover_files(config)
+        relative_files = {item.file_path for item in files}
+        assert relative_files == set()  # utils.js excluded by gitignore
+
+        # Test without gitignore
+        config = AggregateConfig(
+            directory=project_structure / 'src',
+            project_root=project_structure,
+            use_gitignore=False
+        )
+        files = file_repo.discover_files(config)
+        relative_files = {item.file_path for item in files}
+        assert relative_files == {'src/utils.js'}
 
 
 class TestFileSystemChangeSetRepository:
