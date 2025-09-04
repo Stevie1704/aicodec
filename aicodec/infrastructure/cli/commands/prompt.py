@@ -90,7 +90,7 @@ def run(args):
         print(f"Error reading required file: {e}", file=sys.stderr)
         sys.exit(1)
 
-    tech_stack = prompt_cfg.get("tech-stack", False) or args.tech_stack
+    tech_stack = prompt_cfg.get("tech_stack", False) or args.tech_stack
     template = prompt_cfg.get("template", load_default_prompt_template())
     # Default values for placeholders if they are not in the template
     prompt_placeholders = {

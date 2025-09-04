@@ -24,14 +24,16 @@ class FileSystemFileRepository(IFileRepository):
                     if b'\0' in f.read(1024):
                         print(f"Skipping binary file: {file_path}")
                         continue
-                
+
                 # Try to read with strict UTF-8, fall back to replace on error
                 try:
                     with open(file_path, 'r', encoding='utf-8', errors='strict') as f:
                         content = f.read()
                 except UnicodeDecodeError:
-                    relative_path_str = str(file_path.relative_to(config.project_root))
-                    print(f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
+                    relative_path_str = str(
+                        file_path.relative_to(config.project_root))
+                    print(
+                        f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
                     with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                         content = f.read()
 
@@ -45,11 +47,13 @@ class FileSystemFileRepository(IFileRepository):
     def _discover_paths(self, config: AggregateConfig) -> list[Path]:
         project_root = config.project_root
         all_files = {p for p in config.directory.rglob('*') if p.is_file()}
-        
+
         # Bug Fix: Always exclude the .aicodec directory, regardless of gitignore settings.
         # The tool should never aggregate its own internal files.
-        always_exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', ['**/.aicodec/*'])
-        all_files = {p for p in all_files if not always_exclude_spec.match_file(str(p.relative_to(project_root)))}
+        always_exclude_spec = pathspec.PathSpec.from_lines(
+            'gitwildmatch', ['**/.aicodec/*'])
+        all_files = {p for p in all_files if not always_exclude_spec.match_file(
+            str(p.relative_to(project_root)))}
 
         gitignore_spec = self._load_gitignore_spec(config)
 
@@ -75,7 +79,7 @@ class FileSystemFileRepository(IFileRepository):
                 os.path.normpath(d) for d in config.exclude_dirs}
             path_parts = {os.path.normpath(
                 p) for p in path.relative_to(project_root).parts}
-            
+
             # Efficiently check if any part of the path is in the exclusion set
             if not normalized_exclude_dirs.isdisjoint(path_parts) or \
                any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
@@ -159,12 +163,9 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                         # For binary files, we can't revert content but can revert the action
                         pass
 
-                modify = mode != 'dry-run'
-
                 if change.action in [ChangeAction.CREATE, ChangeAction.REPLACE]:
-                    if modify:
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text(change.content, encoding='utf-8')
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    target_path.write_text(change.content, encoding='utf-8')
                     if mode == 'apply':
                         revert_action = 'REPLACE' if file_existed else 'DELETE'
                         new_revert_changes.append(Change(file_path=change.file_path, action=ChangeAction(
@@ -172,8 +173,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
                 elif change.action == ChangeAction.DELETE:
                     if file_existed:
-                        if modify:
-                            target_path.unlink()
+                        target_path.unlink()
                         if mode == 'apply':
                             new_revert_changes.append(Change(
                                 file_path=change.file_path, action=ChangeAction.CREATE, content=original_content_for_revert))
@@ -199,9 +199,9 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         if not session_id:
             session_id = f"revert-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        revert_dir = output_dir / '.aicodec' / 'reverts'
+        revert_dir = output_dir / '.aicodec'
         revert_dir.mkdir(parents=True, exist_ok=True)
-        revert_file_path = revert_dir / f"{session_id}.revert.json"
+        revert_file_path = revert_dir / "revert.json"
 
         revert_changes_as_dicts = []
         for c in new_revert_changes:
@@ -221,4 +221,5 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         with open(revert_file_path, 'w', encoding='utf-8') as f:
             json.dump(revert_data, f, indent=4)
 
-        print(f"Revert data for {len(new_revert_changes)} change(s) saved to {revert_file_path}")
+        print(
+            f"Revert data for {len(new_revert_changes)} change(s) saved to {revert_file_path}")

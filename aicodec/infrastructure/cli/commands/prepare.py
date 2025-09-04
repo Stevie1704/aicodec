@@ -39,14 +39,15 @@ def register_subparser(subparsers):
 
 def run(args):
     file_cfg = load_json_config(args.config).get("prepare", {})
-    changes_path_str = args.changes or file_cfg.get("changes", ".aicodec/changes.json")
+    changes_path_str = args.changes or file_cfg.get(
+        "changes", ".aicodec/changes.json")
     changes_path = Path(changes_path_str)
 
     # Prioritize CLI flag, then config file, then default to False
     if args.from_clipboard:
         from_clipboard = True
     else:
-        from_clipboard = file_cfg.get("from-clipboard", False)
+        from_clipboard = file_cfg.get("from_clipboard", False)
 
     if changes_path.exists() and changes_path.stat().st_size > 0:
         if not get_user_confirmation(
@@ -88,7 +89,8 @@ def run(args):
             )
             return
         changes_path.write_text(clipboard_content, encoding="utf-8")
-        print(f'Successfully wrote content from clipboard to "{changes_path}".')
+        print(
+            f'Successfully wrote content from clipboard to "{changes_path}".')
     else:
         changes_path.touch()
         print(
