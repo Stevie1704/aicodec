@@ -32,6 +32,11 @@ def run(args):
  	config["aggregate"]["directory"] = "."
  	print("The '.git' and '.aicodec', are always excluded by default.")
  	config["aggregate"]["exclude_dirs"] = [".git", ".aicodec"]
+ 	config["aggregate"]["include_dirs"] = []
+ 	config["aggregate"]["include_ext"] = []
+ 	config["aggregate"]["include_files"] = []
+ 	config["aggregate"]["exclude_exts"] = []
+ 	config["aggregate"]["exclude_files"] = []
 
  	use_gitignore = get_user_confirmation(
  	 	"Use the .gitignore file for exclusions?", default_yes=True
@@ -66,27 +71,27 @@ def run(args):
  	 	 	"Also exclude the .gitignore file itself from the context?",
  	 	 	default_yes=True,
  	 	):
- 	 	 	config["aggregate"].setdefault("exclude_files", []).append(".gitignore")
+ 	 	 	config["aggregate"]["exclude_files"].append(".gitignore")
 
  	if get_user_confirmation(
  	 	"Configure additional inclusions/exclusions?", default_yes=False
  	):
- 	 	config["aggregate"].setdefault("include_dirs", []).extend(
+ 	 	config["aggregate"]["include_dirs"].extend(
  	 	 	get_list_from_user("Directories to always include:")
  	 	)
- 	 	config["aggregate"].setdefault("include_files", []).extend(
+ 	 	config["aggregate"]["include_files"].extend(
  	 	 	get_list_from_user("Files/glob patterns to always include:")
  	 	)
- 	 	config["aggregate"].setdefault("include_ext", []).extend(
+ 	 	config["aggregate"]["include_ext"].extend(
  	 	 	get_list_from_user("File extensions to always include (e.g., .py, .ts):")
  	 	)
- 	 	config["aggregate"].setdefault("exclude_dirs", []).extend(
+ 	 	config["aggregate"]["exclude_dirs"].extend(
  	 	 	get_list_from_user("Additional directories to exclude:")
  	 	)
- 	 	config["aggregate"].setdefault("exclude_files", []).extend(
+ 	 	config["aggregate"]["exclude_files"].extend(
  	 	 	get_list_from_user("Additional files/glob patterns to exclude:")
  	 	)
- 	 	config["aggregate"].setdefault("exclude_exts", []).extend(
+ 	 	config["aggregate"]["exclude_exts"].extend(
  	 	 	get_list_from_user("File extensions to always exclude:")
  	 	)
 
@@ -117,6 +122,11 @@ def run(args):
  	 	"Should the prompt include the code context by default?", default_yes=True
  	)
  	config["prompt"]["include_code"] = include_code
+
+ 	prompt_clipboard = get_user_confirmation(
+ 	 	"Copy generated prompt directly to the clipboard by default (instead of writing to file)?", default_yes=False
+ 	)
+ 	config["prompt"]["clipboard"] = prompt_clipboard
 
  	config_dir.mkdir(exist_ok=True)
  	with open(config_file, "w", encoding="utf-8") as f:

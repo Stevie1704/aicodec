@@ -1,7 +1,7 @@
 # tests/test_infra_cli.py
 import pytest
 import json
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 from aicodec.infrastructure.cli.command_line_interface import check_config_exists
@@ -37,7 +37,7 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
 
  	user_inputs = [
  	 	'y', 'y', 'y', 'y', 'src,lib', '*.ts', '.ts,.js',
- 	 	'node_modules', '*.log', '.log', 'Python', 'n', 'y'
+ 	 	'node_modules', '*.log', '.log', 'Python', 'n', 'y', 'n'
  	]
  	with patch('builtins.input', side_effect=user_inputs):
  	 	monkeypatch.chdir(tmp_path)
@@ -54,10 +54,36 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
  	assert config['prompt']['template'] == "dummy template"
  	assert config['prompt']['tech-stack'] == 'Python'
  	assert config['prompt']['include_code'] is True
+ 	assert config['prompt']['clipboard'] is False
 
  	gitignore_file = tmp_path / '.gitignore'
  	assert gitignore_file.exists()
  	assert '.aicodec/' in gitignore_file.read_text()
+
+
+@patch('aicodec.infrastructure.cli.commands.init.load_default_prompt_template')
+def test_init_run_interactive_skip_additional(mock_load_template, tmp_path, monkeypatch):
+ 	mock_load_template.return_value = "dummy template"
+
+ 	user_inputs = [
+ 	 	'y', 'y', 'y', 'n', 'Python', 'n', 'y', 'n'
+ 	]
+ 	with patch('builtins.input', side_effect=user_inputs):
+ 	 	monkeypatch.chdir(tmp_path)
+ 	 	init.run(MagicMock())
+
+ 	config_file = tmp_path / '.aicodec' / 'config.json'
+ 	assert config_file.exists()
+ 	config = json.loads(config_file.read_text())
+
+ 	assert config['aggregate']['include_dirs'] == []
+ 	assert config['aggregate']['include_ext'] == []
+ 	assert config['aggregate']['include_files'] == []
+ 	assert config['aggregate']['exclude_exts'] == []
+ 	assert config['aggregate']['exclude_files'] == ['.gitignore']
+ 	assert config['prompt']['tech-stack'] == 'Python'
+ 	assert config['prompt']['include_code'] is True
+ 	assert config['prompt']['clipboard'] is False
 
 
 def test_check_config_exists_fail(capsys):

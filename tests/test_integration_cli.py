@@ -146,7 +146,7 @@ def test_init_command_basic(tmp_path, monkeypatch):
  	"""Test basic init command with default options."""
  	monkeypatch.chdir(tmp_path)
 
- 	inputs = 'y\ny\ny\nn\n\nn\ny\n'
+ 	inputs = 'y\ny\ny\nn\n\n\nn\ny\nn\n'
  	with patch('aicodec.infrastructure.cli.commands.utils.load_default_prompt_template', return_value="template"):
  	 	result = run_aicodec_command(["init"], cwd=tmp_path, input_text=inputs)
 
@@ -159,6 +159,13 @@ def test_init_command_basic(tmp_path, monkeypatch):
  	config = json.loads(config_file.read_text())
  	assert config["aggregate"]["use_gitignore"] is True
  	assert ".gitignore" in config["aggregate"]["exclude_files"]
+ 	assert config["aggregate"]["include_dirs"] == []
+ 	assert config["aggregate"]["include_ext"] == []
+ 	assert config["aggregate"]["include_files"] == []
+ 	assert config["aggregate"]["exclude_exts"] == []
+ 	assert config["prepare"]["from_clipboard"] is False
+ 	assert config["prompt"]["include_code"] is True
+ 	assert config["prompt"]["clipboard"] is False
 
  	gitignore_file = tmp_path / '.gitignore'
  	assert gitignore_file.exists()
@@ -190,7 +197,7 @@ def test_init_command_with_additional_options(tmp_path, monkeypatch):
  	"""Test init command with additional inclusions/exclusions."""
  	monkeypatch.chdir(tmp_path)
 
- 	inputs = 'y\ny\ny\ny\nsrc,lib\n*.py,*.js\n.py,.js,.json\nbuild,temp\n*.tmp,*.bak\n.log,.tmp\nPython\ny\ny\n'
+ 	inputs = 'y\ny\ny\ny\nsrc,lib\n*.py,*.js\n.py,.js,.json\nbuild,temp\n*.tmp,*.bak\n.log,.tmp\nPython\ny\ny\nn\n'
  	with patch('aicodec.infrastructure.cli.commands.utils.load_default_prompt_template', return_value="template"):
  	 	result = run_aicodec_command(["init"], cwd=tmp_path, input_text=inputs)
 
@@ -209,6 +216,7 @@ def test_init_command_with_additional_options(tmp_path, monkeypatch):
  	assert config["prepare"]["from_clipboard"] is True
  	assert config["prompt"]["tech-stack"] == "Python"
  	assert config["prompt"]["include_code"] is True
+ 	assert config["prompt"]["clipboard"] is False
 
  	gitignore_file = tmp_path / '.gitignore'
  	assert gitignore_file.exists()
