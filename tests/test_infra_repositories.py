@@ -36,7 +36,8 @@ class TestFileSystemFileRepository:
             directory=project_structure, use_gitignore=True, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
-        expected = {'main.py', 'Dockerfile', 'src/utils.js', '.gitignore', 'bad_encoding.txt'}
+        expected = {'main.py', 'Dockerfile', 'src/utils.js',
+                    '.gitignore', 'bad_encoding.txt'}
         assert relative_files == expected
 
     def test_discover_with_exclusions(self, project_structure, file_repo):
@@ -171,7 +172,7 @@ class TestFileSystemChangeSetRepository:
         assert 'Directory traversal' in results[3]['reason']
         assert results[4]['status'] == 'SKIPPED'
 
-        revert_file = tmp_path / '.aicodec' / 'reverts' / 'session-123.revert.json'
+        revert_file = tmp_path / '.aicodec' / 'revert.json'
         assert revert_file.exists()
         with revert_file.open('r') as f:
             revert_data = json.load(f)

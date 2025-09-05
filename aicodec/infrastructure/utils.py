@@ -6,8 +6,6 @@ import subprocess
 
 def open_file_in_editor(path):
     """Opens the given file path in the system's default application."""
-    if os.environ.get('AICODEC_NO_EDITOR'):
-        return
     try:
         if sys.platform == "win32":
             os.startfile(path)

@@ -30,7 +30,7 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/context':
             self._handle_get_context()
             return
-        
+
         # The base handler will serve files from the directory passed in __init__
         return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
@@ -40,7 +40,8 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             post_data = json.loads(self.rfile.read(content_length))
 
             if self.path == '/api/apply':
-                results = self.review_service.apply_changes(post_data, self.session_id)
+                results = self.review_service.apply_changes(
+                    post_data, self.session_id)
                 self._send_json_response(results)
             elif self.path == '/api/save':
                 self.review_service.save_editable_changes(post_data)
@@ -61,7 +62,8 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     def _send_json_response(self, data, status_code=200):
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Cache-Control', 'no-cache') # Prevent caching of API responses
+        # Prevent caching of API responses
+        self.send_header('Cache-Control', 'no-cache')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
@@ -72,9 +74,6 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def launch_review_server(review_service: ReviewService, mode: Literal['apply', 'revert'] = 'apply'):
-    if os.environ.get('AICODEC_TEST_MODE'):
-        print("Test mode: skipping server launch")
-        return
     session_id = None
     if mode == 'apply':
         session_id = str(uuid.uuid4())
@@ -85,7 +84,8 @@ def launch_review_server(review_service: ReviewService, mode: Literal['apply', '
     web_dir = Path(__file__).parent
     ui_dir = web_dir / 'ui'
     if not ui_dir.is_dir():
-        print(f"Error: Could not find the 'ui' directory at '{ui_dir}'. Package might be broken.")
+        print(
+            f"Error: Could not find the 'ui' directory at '{ui_dir}'. Package might be broken.")
         return
 
     # Use functools.partial to create a handler instance with our service and session data,
@@ -94,7 +94,8 @@ def launch_review_server(review_service: ReviewService, mode: Literal['apply', '
         ReviewHttpRequestHandler,
         review_service=review_service,
         session_id=session_id,
-        directory=str(web_dir) # Serve files relative to the server.py location
+        # Serve files relative to the server.py location
+        directory=str(web_dir)
     )
 
     port = PORT
@@ -103,13 +104,15 @@ def launch_review_server(review_service: ReviewService, mode: Literal['apply', '
             # Use 'localhost' to ensure the server is only accessible locally
             with socketserver.TCPServer(("localhost", port), Handler) as httpd:
                 url = f"http://localhost:{port}"
-                print(f"Serving at {url} for target directory {review_service.output_dir.resolve()}")
+                print(
+                    f"Serving at {url} for target directory {review_service.output_dir.resolve()}")
                 print("Press Ctrl+C to stop the server.")
                 webbrowser.open_new_tab(url)
                 httpd.serve_forever()
-            break 
+            break
         except OSError as e:
-            if e.errno == 98 or e.errno == 48: # Address already in use (Linux/Windows)
+            # Address already in use (Linux/Windows)
+            if e.errno == 98 or e.errno == 48:
                 print(f"Port {port} is in use, trying next one...")
                 port += 1
             else:
