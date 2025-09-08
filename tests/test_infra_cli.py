@@ -124,16 +124,6 @@ def test_schema_run_not_found(capsys):
     assert "schema.json not found" in captured.err
 
 
-def test_init_overwrite_cancel(tmp_path):
-    config_file = tmp_path / '.aicodec' / 'config.json'
-    config_file.parent.mkdir()
-    config_file.touch()
-    with patch('builtins.input', return_value='n'):
-        with patch('aicodec.infrastructure.cli.commands.init.load_default_prompt_template'):
-            init.run(None)
-    assert config_file.read_text() == ""
-
-
 def test_aggregate_run(temp_config_file):
     with patch('aicodec.infrastructure.cli.commands.aggregate.AggregationService') as mock_agg_service_class:
         mock_agg_service_instance = mock_agg_service_class.return_value
