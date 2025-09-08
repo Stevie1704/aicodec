@@ -1,7 +1,7 @@
 # aicodec/domain/repositories.py
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from .models import AggregateConfig, FileItem, ChangeSet, Change
 
@@ -15,12 +15,12 @@ class IFileRepository(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def load_hashes(self, path: Path) -> dict[str, str]:
+    def load_hashes(self, path: Path) -> Dict[str, str]:
         """Loads previously stored file hashes."""
         pass  # pragma: no cover
 
     @abstractmethod
-    def save_hashes(self, path: Path, hashes: dict[str, str]):
+    def save_hashes(self, path: Path, hashes: Dict[str, str]) -> None:
         """Saves the current file hashes."""
         pass  # pragma: no cover
 
@@ -34,7 +34,7 @@ class IChangeSetRepository(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def save_change_set_from_dict(self, path: Path, data: dict):
+    def save_change_set_from_dict(self, path: Path, data: dict) -> None:
         """Saves a ChangeSet from a dictionary to a given path."""
         pass  # pragma: no cover
 
@@ -44,6 +44,6 @@ class IChangeSetRepository(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def apply_changes(self, changes: List[Change], output_dir: Path, mode: str, session_id: Optional[str]) -> list[dict]:
+    def apply_changes(self, changes: List[Change], output_dir: Path, mode: str, session_id: Optional[str]) -> List[Dict]:
         """Applies a list of changes to the filesystem and manages revert data."""
         pass  # pragma: no cover

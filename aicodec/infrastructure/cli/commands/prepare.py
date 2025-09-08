@@ -5,13 +5,14 @@ from pathlib import Path
 from importlib.resources import files
 from jsonschema import validate, ValidationError
 import pyperclip
+from typing import Any
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor
 from .utils import get_user_confirmation
 
 
-def register_subparser(subparsers):
+def register_subparser(subparsers: Any) -> None:
     prep_parser = subparsers.add_parser(
         "prepare",
         help="Prepare the changes file, either by opening an editor or from clipboard.",
@@ -36,7 +37,7 @@ def register_subparser(subparsers):
     prep_parser.set_defaults(func=run)
 
 
-def run(args):
+def run(args: Any) -> None:
     file_cfg = load_json_config(args.config).get("prepare", {})
     changes_path_str = args.changes or file_cfg.get(
         "changes", ".aicodec/changes.json")

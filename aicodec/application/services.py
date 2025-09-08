@@ -2,10 +2,10 @@
 import json
 import hashlib
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, List, Dict
 import tiktoken
 
-from ..domain.models import AggregateConfig, Change
+from ..domain.models import AggregateConfig, Change, ChangeAction
 from ..domain.repositories import IFileRepository, IChangeSetRepository
 
 
@@ -20,7 +20,7 @@ class AggregationService:
         self.output_file = self.output_dir / 'context.json'
         self.hashes_file = self.output_dir / 'hashes.json'
 
-    def aggregate(self, full_run: bool = False, count_tokens: bool = False):
+    def aggregate(self, full_run: bool = False, count_tokens: bool = False) -> None:
         """Main execution method to aggregate files."""
         previous_hashes = {} if full_run else self.file_repo.load_hashes(
             self.hashes_file)
@@ -81,7 +81,7 @@ class ReviewService:
         self.changes_file = changes_file
         self.mode = mode
 
-    def get_review_context(self) -> dict:
+    def get_review_context(self) -> Dict:
         """Prepares the data required for the review UI."""
         change_set = self.change_repo.get_change_set(self.changes_file)
         processed_changes = []
@@ -110,7 +110,7 @@ class ReviewService:
             'mode': self.mode
         }
 
-    def _determine_effective_action(self, change: Change, file_exists: bool, original_content: str) -> tuple[Optional[str], bool]:
+    def _determine_effective_action(self, change: Change, file_exists: bool, original_content: str) -> Tuple[Optional[str], bool]:
         """Determines the actual operation based on file state."""
         action = change.action.value
 
@@ -132,12 +132,12 @@ class ReviewService:
             # Any action on a non-existent file is a CREATE
             return 'CREATE', True
 
-    def apply_changes(self, changes_to_apply_data: list[dict], session_id: Optional[str]) -> list[dict]:
+    def apply_changes(self, changes_to_apply_data: List[Dict], session_id: Optional[str]) -> List[Dict]:
         """Applies a list of changes to the filesystem."""
         changes_to_apply = [Change.from_dict(c) for c in changes_to_apply_data]
         return self.change_repo.apply_changes(changes_to_apply, self.output_dir, self.mode, session_id)
 
-    def save_editable_changes(self, change_set_data: dict):
+    def save_editable_changes(self, change_set_data: Dict) -> None:
         """Saves changes from the UI back to the changes file."""
         self.change_repo.save_change_set_from_dict(
             self.changes_file, change_set_data)

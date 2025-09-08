@@ -1,18 +1,19 @@
 # aicodec/infrastructure/cli/commands/init.py
 import json
 from pathlib import Path
+from typing import Any
 
 from .utils import get_user_confirmation, get_list_from_user, load_default_prompt_template
 
 
-def register_subparser(subparsers):
+def register_subparser(subparsers: Any) -> None:
     init_parser = subparsers.add_parser(
         "init", help="Initialize a new aicodec project configuration."
     )
     init_parser.set_defaults(func=run)
 
 
-def run(args):
+def run(args: Any) -> None:
     """Handles the interactive project initialization."""
     print("Initializing aicodec configuration...\n")
     config_dir = Path(".aicodec")

@@ -26,7 +26,7 @@ class Change:
     content: str
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> "Change":
         return cls(
             file_path=data['filePath'],
             action=ChangeAction(data['action'].upper()),

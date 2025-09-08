@@ -14,7 +14,7 @@ from .commands import (
 )
 
 
-def check_config_exists(config_path_str: str):
+def check_config_exists(config_path_str: str) -> None:
     """Checks if the config file exists and exits if it doesn't."""
     config_path = Path(config_path_str)
     if not config_path.is_file():
@@ -24,7 +24,7 @@ def check_config_exists(config_path_str: str):
         sys.exit(1)
 
 
-def main():  # pragma: no cover
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="A lightweight communication layer for developers to interact with LLMs."
     )

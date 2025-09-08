@@ -1,6 +1,6 @@
 # aicodec/infrastructure/cli/commands/prompt.py
 import sys
-import os
+from typing import Any
 from pathlib import Path
 from importlib.resources import files
 import pyperclip
@@ -10,7 +10,7 @@ from ...utils import open_file_in_editor
 from .utils import load_default_prompt_template
 
 
-def register_subparser(subparsers):
+def register_subparser(subparsers: Any) -> None:
     prompt_parser = subparsers.add_parser(
         "prompt", help="Generate a prompt file with the aggregated context and schema."
     )
@@ -53,7 +53,7 @@ def register_subparser(subparsers):
     prompt_parser.set_defaults(func=run)
 
 
-def run(args):
+def run(args: Any) -> None:
     """Handles the generation of a prompt file."""
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})

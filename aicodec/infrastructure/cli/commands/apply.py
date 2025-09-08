@@ -1,5 +1,6 @@
 # aicodec/infrastructure/cli/commands/apply.py
 from pathlib import Path
+from typing import Any
 
 from ....application.services import ReviewService
 from ...repositories.file_system_repository import FileSystemChangeSetRepository
@@ -7,7 +8,7 @@ from ...config import load_config as load_json_config
 from ...web.server import launch_review_server
 
 
-def register_subparser(subparsers):
+def register_subparser(subparsers: Any) -> None:
     apply_parser = subparsers.add_parser(
         "apply", help="Review and apply changes from an LLM."
     )
@@ -32,7 +33,7 @@ def register_subparser(subparsers):
     apply_parser.set_defaults(func=run)
 
 
-def run(args):
+def run(args: Any) -> None:
     file_cfg = load_json_config(args.config)
     output_dir_cfg = file_cfg.get("apply", {}).get("output_dir")
     changes_file_cfg = file_cfg.get("prepare", {}).get("changes")

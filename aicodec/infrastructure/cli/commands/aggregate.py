@@ -1,5 +1,6 @@
 # aicodec/infrastructure/cli/commands/aggregate.py
 from pathlib import Path
+from typing import Any
 
 from ....domain.models import AggregateConfig
 from ....application.services import AggregationService
@@ -7,7 +8,7 @@ from ...repositories.file_system_repository import FileSystemFileRepository
 from ...config import load_config as load_json_config
 
 
-def register_subparser(subparsers):
+def register_subparser(subparsers: Any) -> None:
     agg_parser = subparsers.add_parser(
         "aggregate", help="Aggregate project files into a JSON context."
     )
@@ -61,7 +62,7 @@ def register_subparser(subparsers):
     agg_parser.set_defaults(func=run)
 
 
-def run(args):
+def run(args: Any) -> None:
     file_cfg = load_json_config(args.config).get("aggregate", {})
 
     use_gitignore_cfg = file_cfg.get("use_gitignore", True)

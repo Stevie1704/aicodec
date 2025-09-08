@@ -4,7 +4,7 @@ import webbrowser
 import json
 import uuid
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, List, Any, Callable, Tuple
 from functools import partial
 import os
 
@@ -16,13 +16,13 @@ PORT = 8000
 class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Stateless HTTP Handler for the review UI."""
 
-    def __init__(self, *args, review_service: ReviewService, session_id: Optional[str], **kwargs):
+    def __init__(self, *args: Any, review_service: ReviewService, session_id: Optional[str], **kwargs: Any):
         self.review_service = review_service
         self.session_id = session_id
         # The 'directory' kwarg tells SimpleHTTPRequestHandler where to serve files from.
         super().__init__(*args, **kwargs)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path == '/':
             self.path = 'ui/index.html'
 
@@ -33,7 +33,7 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         # The base handler will serve files from the directory passed in __init__
         return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         try:
             content_length = int(self.headers['Content-Length'])
             post_data = json.loads(self.rfile.read(content_length))
@@ -51,14 +51,14 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_server_error(e)
 
-    def _handle_get_context(self):
+    def _handle_get_context(self) -> None:
         try:
             response_data = self.review_service.get_review_context()
             self._send_json_response(response_data)
         except Exception as e:
             self._send_server_error(e)
 
-    def _send_json_response(self, data, status_code=200):
+    def _send_json_response(self, data: Any, status_code: int = 200) -> None:
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
         # Prevent caching of API responses
@@ -66,13 +66,13 @@ class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
-    def _send_server_error(self, e):
+    def _send_server_error(self, e: Exception) -> None:
         self.log_error("Server error: %s", e)
         error_response = {'status': 'SERVER_ERROR', 'reason': str(e)}
         self._send_json_response(error_response, 500)
 
 
-def launch_review_server(review_service: ReviewService, mode: Literal['apply', 'revert'] = 'apply'):
+def launch_review_server(review_service: ReviewService, mode: Literal['apply', 'revert'] = 'apply') -> None:
     session_id = None
     if mode == 'apply':
         session_id = str(uuid.uuid4())
