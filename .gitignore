@@ -26,4 +26,6 @@
 lcov.info
 coverage.lcov
 
+.mypy_cache
+
 rebuild.sh

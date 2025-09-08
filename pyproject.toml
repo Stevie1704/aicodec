@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "1.2.3"
+version = "1.2.4"
 description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
-    ]
+]
 dependencies = [
     "jsonschema",
     "pyperclip",
@@ -35,7 +35,17 @@ dependencies = [
 "Bug Tracker" = "https://github.com/Stevie1704/aicodec/issues"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "pytest-cov", "pytest-html"]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+    "pytest-html",
+    "mypy",
+    "ruff",
+    "bandit",
+    "pre-commit",
+    "codespell"
+]
 
 [project.scripts]
 aicodec = "aicodec.infrastructure.cli.command_line_interface:main"
@@ -49,7 +59,34 @@ aicodec = [
     "assets/decoder_schema.json",
     "assets/prompt_template.txt",
     "infrastructure/web/ui/**",
+    "py.typed",
 ]
 
 [tool.pytest.ini_options]
 addopts = "--cov=aicodec --cov-report=lcov:lcov.info --cov-report=html"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E203", "E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.mypy]
+python_version = "3.10"
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+strict_equality = true
+ignore_missing_imports = true
+
+[tool.bandit]
+skips = ["B101"]
