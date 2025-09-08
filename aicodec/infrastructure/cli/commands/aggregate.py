@@ -2,10 +2,10 @@
 from pathlib import Path
 from typing import Any
 
-from ....domain.models import AggregateConfig
 from ....application.services import AggregationService
-from ...repositories.file_system_repository import FileSystemFileRepository
+from ....domain.models import AggregateConfig
 from ...config import load_config as load_json_config
+from ...repositories.file_system_repository import FileSystemFileRepository
 
 
 def register_subparser(subparsers: Any) -> None:

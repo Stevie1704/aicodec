@@ -1,20 +1,20 @@
 # aicodec/infrastructure/repositories/file_system_repository.py
-import os
-import json
 import fnmatch
-from pathlib import Path
-from typing import List, Optional, Dict
-import pathspec
+import json
+import os
 from datetime import datetime
+from pathlib import Path
 
-from ...domain.repositories import IFileRepository, IChangeSetRepository
-from ...domain.models import AggregateConfig, FileItem, ChangeSet, Change, ChangeAction
+import pathspec
+
+from ...domain.models import AggregateConfig, Change, ChangeAction, ChangeSet, FileItem
+from ...domain.repositories import IChangeSetRepository, IFileRepository
 
 
 class FileSystemFileRepository(IFileRepository):
     """Manages file discovery and hashing on the local filesystem."""
 
-    def discover_files(self, config: AggregateConfig) -> List[FileItem]:
+    def discover_files(self, config: AggregateConfig) -> list[FileItem]:
         discovered_paths = self._discover_paths(config)
         file_items = []
         for file_path in discovered_paths:
@@ -27,14 +27,14 @@ class FileSystemFileRepository(IFileRepository):
 
                 # Try to read with strict UTF-8, fall back to replace on error
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='strict') as f:
+                    with open(file_path, encoding='utf-8', errors='strict') as f:
                         content = f.read()
                 except UnicodeDecodeError:
                     relative_path_str = str(
                         file_path.relative_to(config.project_root))
                     print(
                         f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
-                    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    with open(file_path, encoding='utf-8', errors='replace') as f:
                         content = f.read()
 
                 relative_path = str(file_path.relative_to(config.project_root))
@@ -90,26 +90,26 @@ class FileSystemFileRepository(IFileRepository):
         final_files_set = included_by_default | explicit_includes
         return sorted(list(final_files_set))
 
-    def _load_gitignore_spec(self, config: AggregateConfig) -> Optional[pathspec.PathSpec]:
+    def _load_gitignore_spec(self, config: AggregateConfig) -> pathspec.PathSpec | None:
         if not config.use_gitignore:
             return None
         gitignore_path = config.project_root / '.gitignore'
         lines = []
         if gitignore_path.is_file():
-            with open(gitignore_path, 'r', encoding='utf-8') as f:
+            with open(gitignore_path, encoding='utf-8') as f:
                 lines.extend(f.read().splitlines())
         return pathspec.PathSpec.from_lines('gitwildmatch', lines)
 
-    def load_hashes(self, path: Path) -> Dict[str, str]:
+    def load_hashes(self, path: Path) -> dict[str, str]:
         if path.is_file():
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, encoding='utf-8') as f:
                 try:
                     return json.load(f)
                 except json.JSONDecodeError:
                     return {}
         return {}
 
-    def save_hashes(self, path: Path, hashes: Dict[str, str]) -> None:
+    def save_hashes(self, path: Path, hashes: dict[str, str]) -> None:
         path.parent.mkdir(exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(hashes, f, indent=2)
@@ -121,12 +121,12 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
     def get_change_set(self, path: Path) -> ChangeSet:
         if not path.is_file():
             return ChangeSet(changes=[], summary="")
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             data = json.load(f)
         changes = [Change.from_dict(c) for c in data.get('changes', [])]
         return ChangeSet(changes=changes, summary=data.get('summary'))
 
-    def save_change_set_from_dict(self, path: Path, data: Dict) -> None:
+    def save_change_set_from_dict(self, path: Path, data: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
@@ -139,7 +139,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                 return "<Cannot read binary file>"
         return ""
 
-    def apply_changes(self, changes: List[Change], output_dir: Path, mode: str, session_id: Optional[str]) -> List[Dict]:
+    def apply_changes(self, changes: list[Change], output_dir: Path, mode: str, session_id: str | None) -> list[dict]:
         results = []
         new_revert_changes = []
         output_path_abs = output_dir.resolve()
@@ -195,7 +195,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
         return results
 
-    def _save_revert_data(self, new_revert_changes: List[Change], output_dir: Path, session_id: Optional[str]) -> None:
+    def _save_revert_data(self, new_revert_changes: list[Change], output_dir: Path, session_id: str | None) -> None:
         if not session_id:
             session_id = f"revert-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 

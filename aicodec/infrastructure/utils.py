@@ -1,12 +1,11 @@
 # aicodec/infrastructure/utils.py
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
-from typing import Union
 
 
-def open_file_in_editor(path: Union[str, Path]) -> None:
+def open_file_in_editor(path: str | Path) -> None:
     """Opens the given file path in the system's default application."""
     try:
         if sys.platform == "win32":

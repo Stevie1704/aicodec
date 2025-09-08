@@ -1,8 +1,9 @@
 # aicodec/infrastructure/cli/commands/prompt.py
 import sys
-from typing import Any
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
+from typing import Any
+
 import pyperclip
 
 from ...config import load_config as load_json_config

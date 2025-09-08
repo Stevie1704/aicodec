@@ -4,13 +4,13 @@ import sys
 from pathlib import Path
 
 from .commands import (
-    init,
-    schema,
     aggregate,
-    prompt,
     apply,
-    revert,
+    init,
     prepare,
+    prompt,
+    revert,
+    schema,
 )
 
 

@@ -1,11 +1,11 @@
 import json
-import sys
 import os
-from pathlib import Path
 from importlib.resources import files
-from jsonschema import validate, ValidationError
-import pyperclip
+from pathlib import Path
 from typing import Any
+
+import pyperclip
+from jsonschema import ValidationError, validate
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor

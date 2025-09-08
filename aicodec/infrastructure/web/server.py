@@ -1,12 +1,11 @@
 import http.server
-import socketserver
-import webbrowser
 import json
+import socketserver
 import uuid
-from pathlib import Path
-from typing import Literal, Optional, Dict, List, Any, Callable, Tuple
+import webbrowser
 from functools import partial
-import os
+from pathlib import Path
+from typing import Any, Literal
 
 from ...application.services import ReviewService
 
@@ -16,7 +15,7 @@ PORT = 8000
 class ReviewHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Stateless HTTP Handler for the review UI."""
 
-    def __init__(self, *args: Any, review_service: ReviewService, session_id: Optional[str], **kwargs: Any):
+    def __init__(self, *args: Any, review_service: ReviewService, session_id: str | None, **kwargs: Any):
         self.review_service = review_service
         self.session_id = session_id
         # The 'directory' kwarg tells SimpleHTTPRequestHandler where to serve files from.

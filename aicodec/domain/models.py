@@ -1,6 +1,5 @@
 # aicodec/domain/models.py
 from dataclasses import dataclass, field
-from typing import List, Optional
 from enum import Enum
 from pathlib import Path
 
@@ -37,8 +36,8 @@ class Change:
 @dataclass
 class ChangeSet:
     """Container for a set of changes with metadata."""
-    changes: List[Change]
-    summary: Optional[str] = None
+    changes: list[Change]
+    summary: str | None = None
 
 
 @dataclass

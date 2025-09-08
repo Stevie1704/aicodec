@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .utils import get_user_confirmation, get_list_from_user, load_default_prompt_template
+from .utils import get_list_from_user, get_user_confirmation, load_default_prompt_template
 
 
 def register_subparser(subparsers: Any) -> None:
