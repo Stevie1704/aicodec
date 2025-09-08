@@ -1,4 +1,3 @@
-# aicodec/infrastructure/cli/commands/prepare.py
 import json
 import sys
 import os
@@ -60,10 +59,15 @@ def run(args):
     changes_path.parent.mkdir(parents=True, exist_ok=True)
 
     if from_clipboard:
-        if os.environ.get('AICODEC_TEST_MODE'):
-            clipboard_content = os.environ.get('AICODEC_TEST_CLIPBOARD', '')
-        else:
-            clipboard_content = pyperclip.paste()
+        try:
+            if os.environ.get('AICODEC_TEST_MODE'):
+                clipboard_content = os.environ.get('AICODEC_TEST_CLIPBOARD', '')
+            else:
+                clipboard_content = pyperclip.paste()
+        except pyperclip.PyperclipException as e:
+            print(f"Error: Clipboard access failed: {e}")
+            return
+
         if not clipboard_content:
             print("Error: Clipboard is empty.")
             return

@@ -1,4 +1,3 @@
-# aicodec/infrastructure/web/server.py
 import http.server
 import socketserver
 import webbrowser
@@ -111,8 +110,8 @@ def launch_review_server(review_service: ReviewService, mode: Literal['apply', '
                 httpd.serve_forever()
             break
         except OSError as e:
-            # Address already in use (Linux/Windows)
-            if e.errno == 98 or e.errno == 48:
+            # Address already in use (Linux/macOS/Windows)
+            if e.errno in (98, 48, 10048):
                 print(f"Port {port} is in use, trying next one...")
                 port += 1
             else:
