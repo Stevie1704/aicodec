@@ -18,9 +18,9 @@
                 "additionalProperties": false,
                 "properties": {
                     "filePath": {
-                        "description": "POSIX-style relative path from repo root (no leading './').",
+                        "description": "POSIX-style relative path from repo root (no leading './'), no absolute paths, and no '..' segments.",
                         "type": "string",
-                        "pattern": "^(?!\\./).+"
+                        "pattern": "^(?!\\./)(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
                     },
                     "action": {
                         "description": "Operation to perform.",
@@ -34,13 +34,6 @@
                     "content": {
                         "description": "Full file content for CREATE/REPLACE; empty string for DELETE.",
                         "type": "string"
-                    },
-                    "encoding": {
-                        "description": "Optional encoding for binary assets; omit for text. Use 'base64' when set.",
-                        "type": "string",
-                        "enum": [
-                            "base64"
-                        ]
                     }
                 },
                 "required": [
@@ -61,8 +54,7 @@
                             "properties": {
                                 "content": {
                                     "maxLength": 0
-                                },
-                                "encoding": false
+                                }
                             }
                         }
                     },

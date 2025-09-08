@@ -18,7 +18,6 @@ The JSON object must strictly adhere to the following rules and schema:
 4. **Full Content**:
    * For `CREATE` and `REPLACE` actions, the `content` field must contain the **entire** new content of the file, not just a diff or snippet.
    * For text files, include literal text properly escaped for JSON.
-   * For binary files, base64-encode content and set `"encoding": "base64"`.
 5. **Deletion**: For `DELETE` actions, set the `content` field to an empty string and omit `encoding`.
 6. **File Paths**: Use the exact relative `filePath` values as provided in the code context. Use POSIX-style paths (e.g. `src/app.py`) with no leading `./`.
 7. **Output Validity**: The JSON must parse without errors, contain no trailing commas, and use straight double quotes only.
