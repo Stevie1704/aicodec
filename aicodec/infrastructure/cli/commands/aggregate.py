@@ -72,7 +72,11 @@ def run(args: Any) -> None:
         use_gitignore = use_gitignore_cfg
 
     project_root = Path.cwd().resolve()
-    scan_dir = project_root / Path(args.directory or file_cfg.get("directory", ".")).resolve()
+    scan_dir = project_root / \
+        Path(args.directory or file_cfg.get("directory", ".")).resolve()
+    exclude_dirs = args.exclude_dir or file_cfg.get("exclude_dirs", [])
+    # Always exclude .aicodec and .git directories
+    exclude_dirs.extend([".aicodec", ".git"])
     config = AggregateConfig(
         directory=scan_dir,
         include_dirs=args.include_dir or file_cfg.get("include_dirs", []),
@@ -81,7 +85,7 @@ def run(args: Any) -> None:
             for e in args.include_ext or file_cfg.get("include_ext", [])
         ],
         include_files=args.include_file or file_cfg.get("include_files", []),
-        exclude_dirs=args.exclude_dir or file_cfg.get("exclude_dirs", []),
+        exclude_dirs=exclude_dirs,
         exclude_exts=[
             e if e.startswith(".") else "." + e
             for e in args.exclude_ext or file_cfg.get("exclude_exts", [])

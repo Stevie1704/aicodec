@@ -37,7 +37,8 @@ def test_aggregate_run_no_gitignore(sample_project, aicodec_config_file, monkeyp
 
     args = Namespace(
         config=str(aicodec_config_file), directory=None,
-        include_dir=[], include_ext=[], include_file=["**/*"],  # Add inclusion to run aggregation
+        include_dir=[], include_ext=[], include_file=[
+            "**/*"],  # Add inclusion to run aggregation
         exclude_dir=[], exclude_ext=[], exclude_file=[],
         full=False, use_gitignore=False, count_tokens=False
     )
@@ -94,3 +95,48 @@ def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, 
     aggregate.run(args)
     captured = capsys.readouterr()
     assert "No changes detected" in captured.out
+
+
+def test_aggregate_exclude_nested_dir(sample_project, aicodec_config_file, monkeypatch):
+    """Test aggregate excludes nested directories with --exclude-dir."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file), directory=None,
+        include_dir=[], include_ext=[], include_file=[],
+        exclude_dir=["ex/dir"], exclude_ext=[], exclude_file=[],
+        full=True, use_gitignore=None, count_tokens=False
+    )
+
+    aggregate.run(args)
+
+    context_file = sample_project / ".aicodec" / "context.json"
+    data = json.loads(context_file.read_text())
+    filepaths = {item['filePath'] for item in data}
+
+    assert "ex/dir/nested.py" not in filepaths
+    assert "ex/dirt.py" in filepaths  # Ensure similar-named files aren't excluded
+    # Ensure .gitignore still works
+    assert "app.log" not in filepaths
+    assert "dist/bundle.js" not in filepaths
+
+
+def test_aggregate_include_nested_dir(sample_project, aicodec_config_file, monkeypatch):
+    """Test aggregate includes nested directories with --include-dir, without over-including similar-named files."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file), directory=None,
+        include_dir=["node_modules/submodule"], include_ext=[], include_file=[],
+        exclude_dir=[], exclude_ext=[], exclude_file=[],
+        full=True, use_gitignore=None, count_tokens=False
+    )
+
+    aggregate.run(args)
+
+    context_file = sample_project / ".aicodec" / "context.json"
+    data = json.loads(context_file.read_text())
+    filepaths = {item['filePath'] for item in data}
+
+    assert "node_modules/submodule/subpackage.js" in filepaths
+    assert "node_modules/package.js" not in filepaths

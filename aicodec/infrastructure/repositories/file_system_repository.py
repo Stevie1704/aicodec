@@ -56,12 +56,14 @@ class FileSystemFileRepository(IFileRepository):
             str(p.relative_to(project_root)))}
 
         gitignore_spec = self._load_gitignore_spec(config)
-
+        normalized_include_dirs = {
+            os.path.normpath(d) for d in config.include_dirs}
         explicit_includes = set()
         if config.include_dirs or config.include_ext or config.include_files:
             for path in all_files:
-                rel_path_str = str(path.relative_to(project_root))
-                if any(rel_path_str.startswith(d) for d in config.include_dirs) or \
+                rel_path = path.relative_to(project_root)
+                rel_path_str = str(rel_path)
+                if self._file_inside_directory(rel_path, normalized_include_dirs) or \
                    any(path.name.endswith(ext) for ext in config.include_ext) or \
                    any(fnmatch.fnmatch(rel_path_str, p) for p in config.include_files):
                     explicit_includes.add(path)
@@ -77,11 +79,10 @@ class FileSystemFileRepository(IFileRepository):
             rel_path_str = str(path.relative_to(project_root))
             normalized_exclude_dirs = {
                 os.path.normpath(d) for d in config.exclude_dirs}
-            path_parts = {os.path.normpath(
-                p) for p in path.relative_to(project_root).parts}
+            relative_path = path.relative_to(project_root)
 
             # Efficiently check if any part of the path is in the exclusion set
-            if not normalized_exclude_dirs.isdisjoint(path_parts) or \
+            if self._file_inside_directory(relative_path, normalized_exclude_dirs) or \
                any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
                any(rel_path_str.endswith(ext) for ext in config.exclude_exts):
                 files_to_exclude.add(path)
@@ -108,6 +109,11 @@ class FileSystemFileRepository(IFileRepository):
                 except json.JSONDecodeError:
                     return {}
         return {}
+
+    @staticmethod
+    def _file_inside_directory(file_path: Path, directories: set[Path]) -> bool:
+        """Check if a file is inside any of the specified directories."""
+        return any(file_path.is_relative_to(d) for d in directories)
 
     def save_hashes(self, path: Path, hashes: dict[str, str]) -> None:
         path.parent.mkdir(exist_ok=True)

@@ -26,9 +26,10 @@ def sample_project(tmp_path):
     (tests_dir / "test_main.py").write_text("def test_example(): assert True")
 
     # Create files to exclude
-    node_modules = project_dir / "node_modules"
-    node_modules.mkdir()
-    (node_modules / "package.js").write_text("// node module")
+    node_modules = project_dir / "node_modules" / "submodule"
+    node_modules.mkdir(parents=True, exist_ok=True)
+    (node_modules / "subpackage.js").write_text("// node module")
+    (project_dir / "node_modules" / "package.js").write_text("// package file")
 
     dist_dir = project_dir / "dist"
     dist_dir.mkdir()
@@ -37,6 +38,12 @@ def sample_project(tmp_path):
     # Create log files
     (project_dir / "app.log").write_text("log entry")
     (project_dir / "error.log").write_text("error entry")
+
+    # Create nested directories for testing
+    ex_dir = project_dir / "ex" / "dir"
+    ex_dir.mkdir(parents=True, exist_ok=True)
+    (ex_dir / "nested.py").write_text("def nested(): pass")
+    (project_dir / "ex" / "dirt.py").write_text("def dirt(): pass")
 
     # Create .gitignore
     gitignore_content = """
