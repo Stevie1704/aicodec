@@ -31,13 +31,10 @@ def temp_config_file(tmp_path):
     return config_file
 
 
-@patch('aicodec.infrastructure.cli.commands.init.load_default_prompt_template')
-def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
-    mock_load_template.return_value = "dummy template"
-
+def test_init_run_interactive(tmp_path, monkeypatch):
     user_inputs = [
         'y', 'y', 'y', 'y', 'src,lib', '*.ts', '.ts,.js',
-        'node_modules', '*.log', '.log', 'Python', 'n', 'y', 'n'
+        'node_modules', '*.log', '.log', 'n', 'Python', 'n', 'y', 'n'
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
@@ -51,7 +48,7 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
     assert '.gitignore' in config['aggregate']['exclude_files']
     assert 'src' in config['aggregate']['include_dirs']
     assert 'node_modules' in config['aggregate']['exclude_dirs']
-    assert config['prompt']['template'] == "dummy template"
+    assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
     assert config['prompt']['clipboard'] is False
@@ -61,12 +58,9 @@ def test_init_run_interactive(mock_load_template, tmp_path, monkeypatch):
     assert '.aicodec/' in gitignore_file.read_text()
 
 
-@patch('aicodec.infrastructure.cli.commands.init.load_default_prompt_template')
-def test_init_run_interactive_skip_additional(mock_load_template, tmp_path, monkeypatch):
-    mock_load_template.return_value = "dummy template"
-
+def test_init_run_interactive_skip_additional(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'n', 'Python', 'n', 'y', 'n'
+        'y', 'y', 'y', 'n', 'y', 'Python', 'n', 'y', 'n'
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
@@ -81,6 +75,7 @@ def test_init_run_interactive_skip_additional(mock_load_template, tmp_path, monk
     assert config['aggregate']['include_files'] == []
     assert config['aggregate']['exclude_exts'] == []
     assert config['aggregate']['exclude_files'] == ['.gitignore']
+    assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
     assert config['prompt']['clipboard'] is False

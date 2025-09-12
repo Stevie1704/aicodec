@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .utils import get_list_from_user, get_user_confirmation, load_default_prompt_template
+from .utils import get_list_from_user, get_user_confirmation
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -103,12 +103,15 @@ def run(args: Any) -> None:
     config["prepare"]["changes"] = ".aicodec/changes.json"
     config["apply"]["output_dir"] = "."
     config["prompt"]["output_file"] = ".aicodec/prompt.txt"
-    config["prompt"]["template"] = load_default_prompt_template()
     print(
         "LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.')."
     )
     print("A default prompt file will be generated at '.aicodec/prompt.txt'.")
 
+    minimal = get_user_confirmation(
+        "Use a minimal prompt template to reduce context size (might influence results)?", default_yes=False
+    )
+    config["prompt"]["minimal"] = minimal
     tech_stack = input(
         "What is your primary language or tech stack? (e.g., Python, TypeScript/React) [optional]: ").strip()
     if tech_stack:

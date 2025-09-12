@@ -6,28 +6,23 @@ import pytest
 from aicodec.infrastructure.cli.commands import init
 
 
-@pytest.fixture(autouse=True)
-def mock_load_template():
-    with patch('aicodec.infrastructure.cli.commands.init.load_default_prompt_template', return_value="dummy template") as mock:
-        yield mock
-
-
 def test_init_run_defaults(tmp_path, monkeypatch):
     """Test `init` with default 'yes' for most prompts and skipping advanced config."""
     monkeypatch.chdir(tmp_path)
 
-    # Responses: 
+    # Responses:
     # Overwrite? (not asked)
     # Use gitignore? (Y)
     # Update .gitignore? (Y)
     # Exclude .gitignore? (Y)
     # Configure additional? (n)
+    # Use minimal prompt? (n)
     # Tech stack? (Python)
     # From clipboard default? (n)
     # Include code? (Y)
     # Prompt clipboard? (n)
-    user_inputs = ['y', 'y', 'y', 'n', 'Python', 'n', 'y', 'n']
-    
+    user_inputs = ['y', 'y', 'y', 'n', 'n', 'Python', 'n', 'y', 'n']
+
     with patch('builtins.input', side_effect=user_inputs):
         init.run(MagicMock())
 
@@ -37,6 +32,7 @@ def test_init_run_defaults(tmp_path, monkeypatch):
 
     assert config['aggregate']['use_gitignore'] is True
     assert '.gitignore' in config['aggregate']['exclude_files']
+    assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prepare']['from_clipboard'] is False
     assert config['prompt']['include_code'] is True
@@ -53,7 +49,7 @@ def test_init_run_overwrite_cancel(tmp_path, monkeypatch):
     config_dir.mkdir()
     config_file = config_dir / 'config.json'
     config_file.write_text('{"original": true}')
-    
+
     with patch('builtins.input', return_value='n'):
         init.run(MagicMock())
 
@@ -73,6 +69,7 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
         'node_modules, build',  # exclude_dirs
         '*.log',  # exclude_files
         '.tmp',  # exclude_exts
+        'y',  # Use minimal prompt?
         'TypeScript/React',  # Tech stack
         'y',  # from_clipboard
         'y',  # include_code
@@ -92,6 +89,7 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     assert 'node_modules' in agg_config['exclude_dirs']
     assert '*.log' in agg_config['exclude_files']
     assert agg_config['exclude_exts'] == ['.tmp']
+    assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'TypeScript/React'
     assert config['prepare']['from_clipboard'] is True
     assert config['prompt']['clipboard'] is True

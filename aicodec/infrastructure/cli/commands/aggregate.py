@@ -95,17 +95,6 @@ def run(args: Any) -> None:
         project_root=project_root,
     )
 
-    if (
-        not config.use_gitignore
-        and not config.include_ext
-        and not config.include_files
-        and not config.include_dirs
-    ):
-        print(
-            "Error: No files to aggregate. Please provide inclusions in your config or via arguments, or enable 'use_gitignore'."
-        )
-        return
-
     repo = FileSystemFileRepository()
     service = AggregationService(repo, config, project_root=project_root)
     service.aggregate(full_run=args.full, count_tokens=args.count_tokens)

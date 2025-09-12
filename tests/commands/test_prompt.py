@@ -12,7 +12,8 @@ def setup_context_file(sample_project):
     context_dir = sample_project / ".aicodec"
     context_dir.mkdir(exist_ok=True)
     context_file = context_dir / "context.json"
-    context_file.write_text(json.dumps([{"filePath": "main.py", "content": "print"}]))
+    context_file.write_text(json.dumps(
+        [{"filePath": "main.py", "content": "print"}]))
     return context_file
 
 
@@ -23,6 +24,7 @@ def test_prompt_run_basic(sample_project, aicodec_config_file, setup_context_fil
     args = Namespace(
         config=str(aicodec_config_file),
         task="My test task",
+        minimal=False,
         tech_stack=None,
         output_file=None,
         clipboard=False,
@@ -37,7 +39,8 @@ def test_prompt_run_basic(sample_project, aicodec_config_file, setup_context_fil
     assert prompt_file.exists()
     content = prompt_file.read_text()
     assert "My test task" in content
-    assert "CODE CONTEXT" in content  # Code is included by default
+    assert "<code_context>" in content  # Code is included by default
+    assert "<coding_standard>" in content  # full context is included
 
 
 def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
@@ -47,6 +50,7 @@ def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_cont
     args = Namespace(
         config=str(aicodec_config_file),
         task="Clipboard task",
+        minimal=True,
         tech_stack="Python",
         output_file=None,
         clipboard=True,
@@ -59,6 +63,7 @@ def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_cont
         call_content = mock_copy.call_args[0][0]
         assert "Clipboard task" in call_content
         assert "Python" in call_content
+        assert "<coding_standard>" not in call_content  # full context is not included
 
 
 def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
@@ -68,6 +73,7 @@ def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_f
     args = Namespace(
         config=str(aicodec_config_file),
         task="No code task",
+        minimal=False,
         tech_stack=None,
         output_file=None,
         clipboard=False,
@@ -80,7 +86,8 @@ def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_f
     prompt_file = sample_project / ".aicodec" / "prompt.txt"
     content = prompt_file.read_text()
     assert "No code task" in content
-    assert "CODE CONTEXT" not in content
+    assert "<code_context>" not in content
+    assert "<coding_standard>" in content
 
 
 def test_prompt_run_missing_context(sample_project, aicodec_config_file, monkeypatch, capsys):

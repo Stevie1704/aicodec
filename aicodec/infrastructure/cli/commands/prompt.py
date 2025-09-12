@@ -29,6 +29,11 @@ def register_subparser(subparsers: Any) -> None:
         help="The specific task for the LLM to perform.",
     )
     prompt_parser.add_argument(
+        "--minimal",
+        action="store_true",
+        help="Use minimal prompt template.",
+    )
+    prompt_parser.add_argument(
         "--tech-stack",
         type=str,
         default="[REPLACE THIS WITH YOUR tech-stack]",
@@ -76,9 +81,10 @@ def run(args: Any) -> None:
         try:
             context_content = context_file.read_text(encoding="utf-8")
             code_context_section = (
-                "### CODE CONTEXT ###\n\n"
+                "<code_context>\n"
                 "The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.\n\n"
                 f"```json\n{context_content}\n```\n"
+                "</code_context>\n"
             )
         except FileNotFoundError as e:
             print(f"Error reading required file: {e}", file=sys.stderr)
@@ -92,7 +98,9 @@ def run(args: Any) -> None:
         sys.exit(1)
 
     tech_stack = prompt_cfg.get("tech_stack", False) or args.tech_stack
-    template = prompt_cfg.get("template", load_default_prompt_template())
+    minimal_prompt = args.minimal or prompt_cfg.get("minimal", False)
+    template = prompt_cfg.get(
+        "template", load_default_prompt_template(minimal_prompt))
     # Default values for placeholders if they are not in the template
     prompt_placeholders = {
         "language_and_tech_stack": tech_stack,

@@ -37,8 +37,7 @@ def test_aggregate_run_no_gitignore(sample_project, aicodec_config_file, monkeyp
 
     args = Namespace(
         config=str(aicodec_config_file), directory=None,
-        include_dir=[], include_ext=[], include_file=[
-            "**/*"],  # Add inclusion to run aggregation
+        include_dir=[], include_ext=[], include_file=[],
         exclude_dir=[], exclude_ext=[], exclude_file=[],
         full=False, use_gitignore=False, count_tokens=False
     )
