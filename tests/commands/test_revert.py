@@ -2,6 +2,7 @@
 import json
 from argparse import Namespace
 from unittest.mock import patch
+
 import pytest
 
 from aicodec.infrastructure.cli.commands import revert

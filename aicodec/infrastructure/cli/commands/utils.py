@@ -1,6 +1,8 @@
 # aicodec/infrastructure/cli/commands/utils.py
+import json
 import sys
 from importlib.resources import files
+from pathlib import Path
 
 
 def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
@@ -37,7 +39,21 @@ def load_default_prompt_template(minimal: bool) -> str:
         return prompt_template.read_text(encoding="utf-8")
     except FileNotFoundError:
         print(
-            "Error: prompt_template.txt not found. The package might be corrupted.",
+            "Error: prompt template not found. The package might be corrupted.",
             file=sys.stderr,
         )
+        sys.exit(1)
+
+
+def parse_json_file(file_path: Path) -> str:
+    """Reads and returns the content of a JSON file as a formatted string."""
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        return json.dumps(json.loads(content), separators=(',', ':'))
+    except FileNotFoundError:
+        print(f"Error: JSON file '{file_path}' not found.", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(
+            f"Error: Failed to parse JSON file '{file_path}': {e}", file=sys.stderr)
         sys.exit(1)

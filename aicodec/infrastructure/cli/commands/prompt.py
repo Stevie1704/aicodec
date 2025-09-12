@@ -8,7 +8,7 @@ import pyperclip
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor
-from .utils import load_default_prompt_template
+from .utils import load_default_prompt_template, parse_json_file
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -79,7 +79,7 @@ def run(args: Any) -> None:
             sys.exit(1)
 
         try:
-            context_content = context_file.read_text(encoding="utf-8")
+            context_content = parse_json_file(context_file)
             code_context_section = (
                 "<code_context>\n"
                 "The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.\n\n"
@@ -90,12 +90,8 @@ def run(args: Any) -> None:
             print(f"Error reading required file: {e}", file=sys.stderr)
             sys.exit(1)
 
-    try:
-        schema_path = files("aicodec") / "assets" / "decoder_schema.json"
-        schema_content = schema_path.read_text(encoding="utf-8")
-    except FileNotFoundError as e:
-        print(f"Error reading required file: {e}", file=sys.stderr)
-        sys.exit(1)
+    schema_path = files("aicodec") / "assets" / "decoder_schema.json"
+    schema_content = parse_json_file(schema_path)
 
     tech_stack = prompt_cfg.get("tech_stack", False) or args.tech_stack
     minimal_prompt = args.minimal or prompt_cfg.get("minimal", False)

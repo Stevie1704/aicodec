@@ -1,8 +1,8 @@
 # tests/test_infra_cli.py
-import pytest
 import json
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from aicodec.infrastructure.cli.command_line_interface import check_config_exists
 from aicodec.infrastructure.cli.commands import (
@@ -167,11 +167,13 @@ def test_prompt_run_to_clipboard(temp_config_file):
             with patch('pathlib.Path.read_text', return_value='[]'):
                 with patch('aicodec.infrastructure.cli.commands.prompt.files'):
                     with patch('aicodec.infrastructure.cli.commands.prompt.load_default_prompt_template', return_value='template'):
-                        args = MagicMock(config=str(
-                            temp_config_file), task='test task', output_file=None, clipboard=True)
-                        prompt.run(args)
+                        with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', return_value='{"schema":true}'):
+                            args = MagicMock(config=str(
+                                temp_config_file), task='test task', output_file=None, clipboard=True)
+                            prompt.run(args)
 
-                        mock_pyperclip.copy.assert_called_once_with('template')
+                            mock_pyperclip.copy.assert_called_once_with(
+                                'template')
 
 
 def test_apply_run(temp_config_file):

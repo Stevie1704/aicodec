@@ -1,9 +1,13 @@
 # tests/test_infra_repositories.py
-import pytest
 import json
 
+import pytest
+
 from aicodec.domain.models import AggregateConfig, Change, ChangeAction, ChangeSet
-from aicodec.infrastructure.repositories.file_system_repository import FileSystemFileRepository, FileSystemChangeSetRepository
+from aicodec.infrastructure.repositories.file_system_repository import (
+    FileSystemChangeSetRepository,
+    FileSystemFileRepository,
+)
 
 
 @pytest.fixture

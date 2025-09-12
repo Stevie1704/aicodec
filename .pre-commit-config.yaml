@@ -8,4 +8,4 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: ["-r", "aicodec"]
+        args: ["-r", "aicodec", "-ll"]

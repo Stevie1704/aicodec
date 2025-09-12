@@ -1,12 +1,13 @@
 # tests/test_application_services.py
-import pytest
-import json
 import hashlib
+import json
 from unittest.mock import Mock, patch
 
+import pytest
+
 from aicodec.application.services import AggregationService, ReviewService
-from aicodec.domain.models import AggregateConfig, FileItem, ChangeSet, Change, ChangeAction
-from aicodec.domain.repositories import IFileRepository, IChangeSetRepository
+from aicodec.domain.models import AggregateConfig, Change, ChangeAction, ChangeSet, FileItem
+from aicodec.domain.repositories import IChangeSetRepository, IFileRepository
 
 
 @pytest.fixture
@@ -66,7 +67,7 @@ class TestAggregationService:
 
         output_file = temp_config.directory / '.aicodec' / 'context.json'
         assert output_file.exists()
-        with open(output_file, 'r') as f:
+        with open(output_file) as f:
             data = json.load(f)
         assert len(data) == 2
         assert data[0]['filePath'] == 'a.py'

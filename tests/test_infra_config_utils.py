@@ -1,8 +1,9 @@
 # tests/test_infra_config_utils.py
-import pytest
 import json
 import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 from aicodec.infrastructure.config import load_config
 from aicodec.infrastructure.utils import open_file_in_editor

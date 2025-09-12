@@ -1,6 +1,7 @@
 # tests/commands/test_schema.py
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from aicodec.infrastructure.cli.commands import schema

@@ -1,7 +1,6 @@
 # tests/commands/test_init.py
 import json
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
 
 from aicodec.infrastructure.cli.commands import init
 

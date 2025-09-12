@@ -1,7 +1,10 @@
 # tests/test_domain_models.py
-import pytest
-from aicodec.domain.models import Change, ChangeAction, AggregateConfig, FileItem, ChangeSet
 from pathlib import Path
+
+import pytest
+
+from aicodec.domain.models import AggregateConfig, Change, ChangeAction, ChangeSet, FileItem
+
 
 def test_change_from_dict_full():
     """Tests creating a Change object from a standard dictionary."""

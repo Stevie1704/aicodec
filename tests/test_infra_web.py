@@ -1,12 +1,13 @@
 # tests/test_infra_web.py
-import pytest
-import json
-import io
 import http.server
-from unittest.mock import patch, MagicMock, ANY
+import io
+import json
+from unittest.mock import ANY, MagicMock, patch
 
-from aicodec.infrastructure.web.server import ReviewHttpRequestHandler, launch_review_server
+import pytest
+
 from aicodec.application.services import ReviewService
+from aicodec.infrastructure.web.server import ReviewHttpRequestHandler, launch_review_server
 
 
 @pytest.fixture

@@ -1,8 +1,7 @@
-import json
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import MagicMock, patch
 
-from aicodec.infrastructure.web.server import launch_review_server
 from aicodec.application.services import ReviewService
+from aicodec.infrastructure.web.server import launch_review_server
 
 
 @patch('aicodec.infrastructure.web.server.socketserver.TCPServer')
