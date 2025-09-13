@@ -1,11 +1,16 @@
-from unittest.mock import MagicMock
-import pytest
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
 
 # Import the function to be tested
-from aicodec.infrastructure.cli.commands.utils import parse_json_file, get_user_confirmation, load_default_prompt_template, get_list_from_user
-
+from aicodec.infrastructure.cli.commands.utils import (
+    get_list_from_user,
+    get_user_confirmation,
+    load_default_prompt_template,
+    parse_json_file,
+)
 
 # Import the functions to be tested
 

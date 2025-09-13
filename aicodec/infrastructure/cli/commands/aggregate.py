@@ -15,26 +15,43 @@ def register_subparser(subparsers: Any) -> None:
     agg_parser.add_argument("-c", "--config", type=str,
                             default=".aicodec/config.json")
     agg_parser.add_argument(
-        "-d", "--directory", type=str, help="The root directory to scan."
+        "-d", "--directory",
+        type=str,
+        help="The root directory to scan."
     )
     agg_parser.add_argument(
-        "--include-dir",
+        "--include-dirs",
         action="append",
         default=[],
         help="Specific directories to include, overriding exclusions.",
     )
     agg_parser.add_argument(
-        "--include-ext", action="append", default=[], help="File extensions to include."
+        "--include-exts",
+        action="append",
+        default=[],
+        help="File extensions to include."
     )
     agg_parser.add_argument(
-        "--include-file",
+        "--include-files",
         action="append",
         default=[],
         help="Specific files or glob patterns to include.",
     )
-    agg_parser.add_argument("--exclude-dir", action="append", default=[])
-    agg_parser.add_argument("--exclude-ext", action="append", default=[])
-    agg_parser.add_argument("--exclude-file", action="append", default=[])
+    agg_parser.add_argument("--exclude-dirs",
+                            action="append",
+                            default=[],
+                            help="Specific directories to exclude."
+                            )
+    agg_parser.add_argument("--exclude-exts",
+                            action="append",
+                            default=[],
+                            help="File extensions to exclude."
+                            )
+    agg_parser.add_argument("--exclude-files",
+                            action="append",
+                            default=[],
+                            help="Specific files or glob patterns to exclude."
+                            )
     agg_parser.add_argument(
         "--full",
         action="store_true",
@@ -74,23 +91,23 @@ def run(args: Any) -> None:
     project_root = Path.cwd().resolve()
     scan_dir = project_root / \
         Path(args.directory or file_cfg.get("directory", ".")).resolve()
-    exclude_dirs = args.exclude_dir or file_cfg.get("exclude_dirs", [])
+    exclude_dirs = args.exclude_dirs + file_cfg.get("exclude_dirs", [])
     # Always exclude .aicodec and .git directories
     exclude_dirs.extend([".aicodec", ".git"])
     config = AggregateConfig(
         directory=scan_dir,
-        include_dirs=args.include_dir or file_cfg.get("include_dirs", []),
+        include_dirs=args.include_dirs or file_cfg.get("include_dirs", []),
         include_ext=[
             e if e.startswith(".") else "." + e
-            for e in args.include_ext or file_cfg.get("include_ext", [])
+            for e in args.include_exts or file_cfg.get("include_exts", [])
         ],
-        include_files=args.include_file or file_cfg.get("include_files", []),
+        include_files=args.include_files or file_cfg.get("include_files", []),
         exclude_dirs=exclude_dirs,
         exclude_exts=[
             e if e.startswith(".") else "." + e
-            for e in args.exclude_ext or file_cfg.get("exclude_exts", [])
+            for e in args.exclude_exts or file_cfg.get("exclude_exts", [])
         ],
-        exclude_files=args.exclude_file or file_cfg.get("exclude_files", []),
+        exclude_files=args.exclude_files or file_cfg.get("exclude_files", []),
         use_gitignore=use_gitignore,
         project_root=project_root,
     )

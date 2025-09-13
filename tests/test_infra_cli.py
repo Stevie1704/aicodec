@@ -135,7 +135,7 @@ def test_aggregate_run(temp_config_file):
 
 
 def test_prompt_run(temp_config_file):
-    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor') as mock_open:
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
         with patch('aicodec.infrastructure.cli.commands.prompt.files') as mock_files:
             with patch('aicodec.infrastructure.cli.commands.prompt.load_default_prompt_template') as mock_template:
                 mock_schema_path = MagicMock()
