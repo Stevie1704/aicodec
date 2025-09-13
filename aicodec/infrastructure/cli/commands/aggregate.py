@@ -22,36 +22,45 @@ def register_subparser(subparsers: Any) -> None:
     agg_parser.add_argument(
         "--include-dirs",
         action="append",
+        nargs="+",
         default=[],
         help="Specific directories to include, overriding exclusions.",
     )
     agg_parser.add_argument(
         "--include-exts",
         action="append",
+        nargs="+",
         default=[],
         help="File extensions to include."
     )
     agg_parser.add_argument(
         "--include-files",
-        action="append",
+        action="extend",
+        nargs="+",
         default=[],
         help="Specific files or glob patterns to include.",
     )
-    agg_parser.add_argument("--exclude-dirs",
-                            action="append",
-                            default=[],
-                            help="Specific directories to exclude."
-                            )
-    agg_parser.add_argument("--exclude-exts",
-                            action="append",
-                            default=[],
-                            help="File extensions to exclude."
-                            )
-    agg_parser.add_argument("--exclude-files",
-                            action="append",
-                            default=[],
-                            help="Specific files or glob patterns to exclude."
-                            )
+    agg_parser.add_argument(
+        "--exclude-dirs",
+        action="extend",
+        nargs="+",
+        default=[],
+        help="Specific directories to exclude."
+    )
+    agg_parser.add_argument(
+        "--exclude-exts",
+        action="extend",
+        nargs="+",
+        default=[],
+        help="File extensions to exclude."
+    )
+    agg_parser.add_argument(
+        "--exclude-files",
+        action="extend",
+        nargs="+",
+        default=[],
+        help="Specific files or glob patterns to exclude."
+    )
     agg_parser.add_argument(
         "--full",
         action="store_true",
