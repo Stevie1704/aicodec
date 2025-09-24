@@ -112,7 +112,7 @@ A valid response for our task would look like this:
 Now, feed the LLM's response into `aicodec`. Since we configured "from clipboard" as the default, this is simple:
 
 ```bash
-aicodec prepare --from-clipboard
+aicodec prepare
 ```
 
 This command validates the JSON from your clipboard against the schema and saves it to `.aicodec/changes.json`.
