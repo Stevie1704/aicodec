@@ -45,7 +45,9 @@ dev = [
     "ruff",
     "bandit",
     "pre-commit",
-    "codespell"
+    "codespell",
+    "mkdocs",
+    "mkdocs-material"
 ]
 
 [project.scripts]

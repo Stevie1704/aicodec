@@ -1,0 +1,34 @@
+site_name: AI Codec Documentation
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+repo_url: https://github.com/Stevie1704/aicodec
+repo_name: Stevie1704/aicodec
+
+nav:
+  - 'Overview': 'index.md'
+  - 'Getting Started': 'getting-started.md'
+  - 'Configuration': 'configuration.md'
+  - 'Guides':
+    - 'Best Practices': 'guides/best-practices.md'
+    - 'Git Integration': 'guides/git-integration.md'
+  - 'Command Reference':
+    - 'init': 'commands/init.md'
+    - 'aggregate': 'commands/aggregate.md'
+    - 'prompt': 'commands/prompt.md'
+    - 'prepare': 'commands/prepare.md'
+    - 'apply': 'commands/apply.md'
+    - 'revert': 'commands/revert.md'
+    - 'schema': 'commands/schema.md'
