@@ -37,7 +37,7 @@ class TestFileSystemFileRepository:
 
     def test_discover_with_gitignore(self, project_structure, file_repo):
         config = AggregateConfig(
-            directory=project_structure, use_gitignore=True, project_root=project_structure)
+            directories=[project_structure], use_gitignore=True, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         expected = {'main.py', 'Dockerfile', 'src/utils.js',
@@ -45,15 +45,15 @@ class TestFileSystemFileRepository:
         assert relative_files == expected
 
     def test_discover_with_exclusions(self, project_structure, file_repo):
-        config = AggregateConfig(directory=project_structure, exclude_dirs=[
-                                 'src'], exclude_exts=['.js'], use_gitignore=False, project_root=project_structure)
+        config = AggregateConfig(directories=[project_structure], exclude_dirs=[
+            'src'], exclude_exts=['.js'], use_gitignore=False, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert 'src/utils.js' not in relative_files
 
     def test_discover_inclusion_overrides_exclusion(self, project_structure, file_repo):
         config = AggregateConfig(
-            directory=project_structure,
+            directories=[project_structure],
             include_files=['dist/bundle.js'],
             use_gitignore=True,
             project_root=project_structure
@@ -64,7 +64,7 @@ class TestFileSystemFileRepository:
 
     def test_discover_skip_binary_and_handle_bad_encoding(self, project_structure, file_repo, capsys):
         config = AggregateConfig(
-            directory=project_structure, use_gitignore=False, project_root=project_structure)
+            directories=[project_structure], use_gitignore=False, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert 'binary.data' not in relative_files
@@ -73,7 +73,7 @@ class TestFileSystemFileRepository:
         assert "Could not decode bad_encoding.txt as UTF-8" in captured.out
         bad_file_content = next(
             f.content for f in files if f.file_path == 'bad_encoding.txt')
-        assert '�' in bad_file_content
+        assert '\ufffd' in bad_file_content
 
     def test_load_and_save_hashes(self, tmp_path, file_repo):
         hashes_file = tmp_path / 'hashes.json'
@@ -92,7 +92,7 @@ class TestFileSystemFileRepository:
         gitignore.write_text(gitignore_text)
 
         config = AggregateConfig(
-            directory=project_structure / 'src',
+            directories=[project_structure / 'src'],
             project_root=project_structure,
             use_gitignore=True
         )
@@ -102,7 +102,7 @@ class TestFileSystemFileRepository:
 
         # Test without gitignore
         config = AggregateConfig(
-            directory=project_structure / 'src',
+            directories=[project_structure / 'src'],
             project_root=project_structure,
             use_gitignore=False
         )

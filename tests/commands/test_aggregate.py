@@ -11,7 +11,7 @@ def test_aggregate_run_basic(sample_project, aicodec_config_file, monkeypatch):
 
     args = Namespace(
         config=str(aicodec_config_file),
-        directory=None,
+        directories=None,
         include_dirs=[], include_exts=[], include_files=[],
         exclude_dirs=[], exclude_exts=[], exclude_files=[],
         full=False, use_gitignore=None, count_tokens=False
@@ -36,7 +36,7 @@ def test_aggregate_run_no_gitignore(sample_project, aicodec_config_file, monkeyp
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
-        config=str(aicodec_config_file), directory=None,
+        config=str(aicodec_config_file), directories=None,
         include_dirs=[], include_exts=[], include_files=[],
         exclude_dirs=[], exclude_exts=[], exclude_files=[],
         full=False, use_gitignore=False, count_tokens=False
@@ -58,7 +58,7 @@ def test_aggregate_run_with_overrides(sample_project, aicodec_config_file, monke
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
-        config=str(aicodec_config_file), directory=None,
+        config=str(aicodec_config_file), directories=None,
         include_dirs=["dist"], include_exts=[".log"], include_files=[],
         exclude_dirs=["src"], exclude_exts=[".md"], exclude_files=[],
         full=True, use_gitignore=None, count_tokens=True
@@ -81,7 +81,7 @@ def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, 
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
-        config=str(aicodec_config_file), directory=None,
+        config=str(aicodec_config_file), directories=None,
         include_dirs=[], include_exts=[], include_files=[],
         exclude_dirs=[], exclude_exts=[], exclude_files=[],
         full=False, use_gitignore=None, count_tokens=False
@@ -101,7 +101,7 @@ def test_aggregate_exclude_nested_dir(sample_project, aicodec_config_file, monke
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
-        config=str(aicodec_config_file), directory=None,
+        config=str(aicodec_config_file), directories=None,
         include_dirs=[], include_exts=[], include_files=[],
         exclude_dirs=["ex/dir"], exclude_exts=[], exclude_files=[],
         full=True, use_gitignore=None, count_tokens=False
@@ -125,7 +125,7 @@ def test_aggregate_include_nested_dir(sample_project, aicodec_config_file, monke
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
-        config=str(aicodec_config_file), directory=None,
+        config=str(aicodec_config_file), directories=None,
         include_dirs=["node_modules/submodule"], include_exts=[], include_files=[],
         exclude_dirs=[], exclude_exts=[], exclude_files=[],
         full=True, use_gitignore=None, count_tokens=False

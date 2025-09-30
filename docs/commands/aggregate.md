@@ -12,6 +12,9 @@ aicodec aggregate
 
 # Run a full aggregation, ignoring the cache
 aicodec aggregate --full
+
+# Run aggregation on specific directories
+aicodec aggregate -d src/api tests/api
 ```
 
 ## Options
@@ -19,7 +22,7 @@ aicodec aggregate --full
 All command-line options override the settings in your `.aicodec/config.json` file.
 
 -   **`-c, --config <PATH>`**: Specifies the path to the configuration file. **Default**: `.aicodec/config.json`.
--   **`-d, --directory <PATH>`**: The root directory to scan for files. Overrides the `directory` setting in the config.
+-   **`-d, --directories <PATH...>`**: One or more root directories to scan for files. Overrides the `directories` setting in the config.
 -   **`--full`**: Performs a full aggregation, ignoring the cache of file hashes and including all files that match the criteria, regardless of whether they have changed.
 -   **`--count-tokens`**: Counts the number of tokens in the final `context.json` output using the `cl100k_base` encoding (used by GPT-4) and displays it in the summary.
 -   **`--use-gitignore` / `--no-gitignore`**: A mutually exclusive pair of flags to explicitly enable or disable using the `.gitignore` file for exclusions.

@@ -15,9 +15,10 @@ def register_subparser(subparsers: Any) -> None:
     agg_parser.add_argument("-c", "--config", type=str,
                             default=".aicodec/config.json")
     agg_parser.add_argument(
-        "-d", "--directory",
+        "-d", "--directories",
+        nargs="+",
         type=str,
-        help="The root directory to scan."
+        help="One or more root directories to scan, overriding config."
     )
     agg_parser.add_argument(
         "--include-dirs",
@@ -98,13 +99,23 @@ def run(args: Any) -> None:
         use_gitignore = use_gitignore_cfg
 
     project_root = Path.cwd().resolve()
-    scan_dir = project_root / \
-        Path(args.directory or file_cfg.get("directory", ".")).resolve()
+
+    # Handle both "directories" (new) and "directory" (old) for backward compatibility
+    if "directories" in file_cfg:
+        config_dirs = file_cfg["directories"]
+    elif "directory" in file_cfg:
+        config_dirs = [file_cfg["directory"]]
+    else:
+        config_dirs = ["."]
+
+    scan_dirs_str = args.directories or config_dirs
+    scan_dirs = [(project_root / Path(d)).resolve() for d in scan_dirs_str]
+
     exclude_dirs = args.exclude_dirs + file_cfg.get("exclude_dirs", [])
     # Always exclude .aicodec and .git directories
     exclude_dirs.extend([".aicodec", ".git"])
     config = AggregateConfig(
-        directory=scan_dir,
+        directories=scan_dirs,
         include_dirs=args.include_dirs or file_cfg.get("include_dirs", []),
         include_ext=[
             e if e.startswith(".") else "." + e

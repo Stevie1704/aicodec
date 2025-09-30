@@ -23,7 +23,7 @@ def mock_change_repo():
 @pytest.fixture
 def temp_config(tmp_path):
     (tmp_path / '.aicodec').mkdir()
-    return AggregateConfig(directory=tmp_path, project_root=tmp_path)
+    return AggregateConfig(directories=[tmp_path], project_root=tmp_path)
 
 
 class TestAggregationService:
@@ -65,7 +65,7 @@ class TestAggregationService:
         service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
         service.aggregate()
 
-        output_file = temp_config.directory / '.aicodec' / 'context.json'
+        output_file = temp_config.project_root / '.aicodec' / 'context.json'
         assert output_file.exists()
         with open(output_file) as f:
             data = json.load(f)

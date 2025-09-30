@@ -74,6 +74,6 @@ def test_dataclass_instantiation():
     assert change_set.summary == "A test summary"
     assert len(change_set.changes) == 1
 
-    agg_config = AggregateConfig(directory=Path("."))
-    assert agg_config.directory == Path(".")
+    agg_config = AggregateConfig(directories=[Path(".")])
+    assert agg_config.directories == [Path(".")]
     assert agg_config.use_gitignore is True

@@ -22,7 +22,7 @@ def temp_config_file(tmp_path):
     config_dir.mkdir()
     config_file = config_dir / 'config.json'
     config_data = {
-        "aggregate": {"directory": "."},
+        "aggregate": {"directories": ["."]},
         "prompt": {"output_file": str(config_dir / "prompt.txt")},
         "prepare": {"changes": str(config_dir / 'changes.json'), "from_clipboard": False},
         "apply": {"output_dir": "."}
@@ -124,8 +124,8 @@ def test_aggregate_run(temp_config_file):
         mock_agg_service_instance = mock_agg_service_class.return_value
 
         args = MagicMock(
-            config=str(temp_config_file), directory=None, include_dir=[], include_ext=[],
-            include_file=[], exclude_dir=[], exclude_ext=[], exclude_file=[],
+            config=str(temp_config_file), directories=None, include_dirs=[], include_exts=[],
+            include_files=[], exclude_dirs=[], exclude_exts=[], exclude_files=[],
             full=True, use_gitignore=None, count_tokens=True
         )
         aggregate.run(args)

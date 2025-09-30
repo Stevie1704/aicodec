@@ -21,8 +21,8 @@ def run(args: Any) -> None:
 
     if config_file.exists():
         if not get_user_confirmation(
-                f'Configuration file "{config_file}" already exists. Overwrite?',
-                default_yes=False,
+            f'Configuration file "{config_file}" already exists. Overwrite?',
+            default_yes=False,
         ):
             print("Initialization cancelled.")
             return
@@ -30,7 +30,7 @@ def run(args: Any) -> None:
     config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
 
     print("--- Aggregation Settings ---")
-    config["aggregate"]["directory"] = "."
+    config["aggregate"]["directories"] = ["."]
     print("The '.git' and '.aicodec', are always excluded by default.")
     config["aggregate"]["exclude_dirs"] = [".git", ".aicodec"]
     config["aggregate"]["include_dirs"] = []
@@ -46,8 +46,8 @@ def run(args: Any) -> None:
 
     if use_gitignore:
         if get_user_confirmation(
-                "Update .gitignore to exclude the '.aicodec/' directory?",
-                default_yes=True,
+            "Update .gitignore to exclude the '.aicodec/' directory?",
+            default_yes=True,
         ):
             gitignore_path = Path(".gitignore")
             aicodec_entry = ".aicodec/"
@@ -71,13 +71,13 @@ def run(args: Any) -> None:
                 print(f"Warning: Could not update .gitignore: {e}")
 
         if get_user_confirmation(
-                "Also exclude the .gitignore file itself from the context?",
-                default_yes=True,
+            "Also exclude the .gitignore file itself from the context?",
+            default_yes=True,
         ):
             config["aggregate"]["exclude_files"].append(".gitignore")
 
     if get_user_confirmation(
-            "Configure additional inclusions/exclusions?", default_yes=False
+        "Configure additional inclusions/exclusions?", default_yes=False
     ):
         config["aggregate"]["include_dirs"].extend(
             get_list_from_user("Directories to always include:")

@@ -46,7 +46,9 @@ class FileSystemFileRepository(IFileRepository):
 
     def _discover_paths(self, config: AggregateConfig) -> list[Path]:
         project_root = config.project_root
-        all_files = {p for p in config.directory.rglob('*') if p.is_file()}
+        all_files = set()
+        for directory in config.directories:
+            all_files.update({p for p in directory.rglob('*') if p.is_file()})
 
         # Bug Fix: Always exclude the .aicodec directory, regardless of gitignore settings.
         # The tool should never aggregate its own internal files.
@@ -64,8 +66,8 @@ class FileSystemFileRepository(IFileRepository):
                 rel_path = path.relative_to(project_root)
                 rel_path_str = str(rel_path)
                 if self._file_inside_directory(rel_path, normalized_include_dirs) or \
-                   any(path.name.endswith(ext) for ext in config.include_ext) or \
-                   any(fnmatch.fnmatch(rel_path_str, p) for p in config.include_files):
+                    any(path.name.endswith(ext) for ext in config.include_ext) or \
+                    any(fnmatch.fnmatch(rel_path_str, p) for p in config.include_files):
                     explicit_includes.add(path)
 
         if config.use_gitignore and gitignore_spec:
@@ -83,8 +85,8 @@ class FileSystemFileRepository(IFileRepository):
 
             # Efficiently check if any part of the path is in the exclusion set
             if self._file_inside_directory(relative_path, normalized_exclude_dirs) or \
-               any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
-               any(rel_path_str.endswith(ext) for ext in config.exclude_exts):
+                any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
+                any(rel_path_str.endswith(ext) for ext in config.exclude_exts):
                 files_to_exclude.add(path)
 
         included_by_default = base_files - files_to_exclude
@@ -155,7 +157,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
             # Security: Prevent directory traversal attacks
             if output_path_abs not in target_path.parents and target_path != output_path_abs:
                 results.append({'filePath': change.file_path, 'status': 'FAILURE',
-                               'reason': 'Directory traversal attempt blocked.'})
+                                'reason': 'Directory traversal attempt blocked.'})
                 continue
 
             try:
@@ -189,11 +191,11 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                         continue
 
                 results.append({'filePath': change.file_path,
-                               'status': 'SUCCESS', 'action': change.action.value})
+                                'status': 'SUCCESS', 'action': change.action.value})
 
             except Exception as e:
                 results.append({'filePath': change.file_path,
-                               'status': 'FAILURE', 'reason': str(e)})
+                                'status': 'FAILURE', 'reason': str(e)})
 
         if mode == 'apply' and new_revert_changes:
             self._save_revert_data(

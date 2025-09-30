@@ -19,6 +19,7 @@
 /htmlcov/
 
 /.vscode/
+.devcontainer
 
 .env
 
@@ -30,3 +31,4 @@ coverage.lcov
 .ruff_cache
 
 rebuild.sh
+requirements.txt

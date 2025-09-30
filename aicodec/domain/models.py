@@ -43,7 +43,7 @@ class ChangeSet:
 @dataclass
 class AggregateConfig:
     """Configuration value object for the aggregation process."""
-    directory: Path
+    directories: list[Path]
     include_dirs: list[str] = field(default_factory=list)
     include_ext: list[str] = field(default_factory=list)
     include_files: list[str] = field(default_factory=list)
