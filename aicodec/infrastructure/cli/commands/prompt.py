@@ -108,18 +108,30 @@ def run(args: Any) -> None:
     prompt = template.format(**prompt_placeholders)
 
     clipboard = prompt_cfg.get("clipboard", False) or args.clipboard
+    output_file = args.output_file or prompt_cfg.get(
+        "output_file", ".aicodec/prompt.txt"
+    )
 
     if clipboard:
-        pyperclip.copy(prompt)
-        print("Prompt successfully copied to clipboard.")
+        try:
+            pyperclip.copy(prompt)
+            print("Prompt successfully copied to clipboard.")
+        except pyperclip.PyperclipException:
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(prompt, encoding="utf-8")
+            print(
+                f"Clipboard not available. Prompt has been saved to '{output_path}' instead.")
+            if not open_file_in_editor(output_path):
+                print("Could not open an editor automatically.")
+                print(
+                    f"Please open the file and copy its contents to your LLM: {output_path}")
     else:
-        output_file = args.output_file or prompt_cfg.get(
-            "output_file", ".aicodec/prompt.txt"
-        )
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(prompt, encoding="utf-8")
-        print(
-            f'Successfully generated prompt at "{output_path}". Opening in default editor...'
-        )
-        open_file_in_editor(output_path)
+        print(f'Successfully generated prompt at "{output_path}".')
+        if not open_file_in_editor(output_path):
+            print("Could not open an editor automatically.")
+            print(
+                f"Please open the file and copy its contents to your LLM: {output_path}")

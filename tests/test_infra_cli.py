@@ -211,15 +211,18 @@ def test_prepare_run_from_clipboard_success(temp_config_file):
                 mock_aicodec = MagicMock()
                 mock_aicodec.__truediv__.return_value = mock_assets
                 mock_files.return_value = mock_aicodec
-                valid_json = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": ""}]}'
-                mock_pyperclip.paste.return_value = valid_json
+                valid_json_str = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": ""}]}'
+                mock_pyperclip.paste.return_value = valid_json_str
 
                 args = MagicMock(config=str(temp_config_file),
                                  changes=None, from_clipboard=True)
                 prepare.run(args)
 
                 changes_path = temp_config_file.parent / 'changes.json'
-                assert changes_path.read_text() == valid_json
+                # Compare parsed data because prepare command pretty-prints the JSON
+                expected_data = json.loads(valid_json_str)
+                actual_data = json.loads(changes_path.read_text())
+                assert actual_data == expected_data
 
 
 def test_prepare_run_open_editor(temp_config_file):

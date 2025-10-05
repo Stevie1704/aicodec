@@ -59,19 +59,21 @@ def run(args: Any) -> None:
 
     changes_path.parent.mkdir(parents=True, exist_ok=True)
 
+    clipboard_content = None
     if from_clipboard:
         try:
             if os.environ.get('AICODEC_TEST_MODE'):
-                clipboard_content = os.environ.get('AICODEC_TEST_CLIPBOARD', '')
+                clipboard_content = os.environ.get(
+                    'AICODEC_TEST_CLIPBOARD', '')
             else:
                 clipboard_content = pyperclip.paste()
+            if not clipboard_content:
+                print("Warning: Clipboard is empty. Creating a file for manual paste.")
         except pyperclip.PyperclipException as e:
-            print(f"Error: Clipboard access failed: {e}")
-            return
+            print(f"Warning: Clipboard access failed: {e}")
+            print("Falling back to creating an empty file for manual paste.")
 
-        if not clipboard_content:
-            print("Error: Clipboard is empty.")
-            return
+    if clipboard_content:
         try:
             schema_path = files("aicodec") / "assets" / "decoder_schema.json"
             schema_content = schema_path.read_text(encoding="utf-8")
@@ -83,6 +85,11 @@ def run(args: Any) -> None:
         try:
             json_content = json.loads(clipboard_content)
             validate(instance=json_content, schema=schema)
+            # Pretty-print the validated JSON to the file
+            formatted_json = json.dumps(json_content, indent=4)
+            changes_path.write_text(formatted_json, encoding="utf-8")
+            print(
+                f'Successfully wrote content from clipboard to "{changes_path}".')
         except json.JSONDecodeError:
             print(
                 "Error: Clipboard content is not valid JSON. Please copy the correct output."
@@ -93,12 +100,11 @@ def run(args: Any) -> None:
                 f"Error: Clipboard content does not match the expected schema. {e.message}"
             )
             return
-        changes_path.write_text(clipboard_content, encoding="utf-8")
-        print(
-            f'Successfully wrote content from clipboard to "{changes_path}".')
     else:
-        changes_path.touch()
-        print(
-            f'Successfully created empty file at "{changes_path}". Opening in default editor...'
-        )
-        open_file_in_editor(changes_path)
+        # Ensure the file is empty before opening it for the user to paste into.
+        changes_path.write_text("", encoding="utf-8")
+        print(f'Successfully created empty file at "{changes_path}".')
+        if not open_file_in_editor(changes_path):
+            print("Could not open an editor automatically.")
+            print(
+                f"Please paste your JSON changes into the file at: {changes_path}")

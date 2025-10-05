@@ -1,11 +1,13 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.12
+    rev: v0.13.3
     hooks:
       - id: ruff-check
         args: ["--fix", "aicodec"]
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+    rev: 1.8.6
     hooks:
       - id: bandit
-        args: ["-r", "aicodec", "-ll"]
+        args: ["-r", ".", "-c", "pyproject.toml", "-ll"]
+        pass_filenames: false
+        additional_dependencies: ['bandit[toml]']

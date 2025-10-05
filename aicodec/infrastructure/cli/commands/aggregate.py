@@ -63,7 +63,7 @@ def register_subparser(subparsers: Any) -> None:
         help="Specific files or glob patterns to exclude."
     )
     agg_parser.add_argument(
-        "--full",
+        "-f", "--full",
         action="store_true",
         help="Perform a full aggregation, ignoring previous hashes.",
     )

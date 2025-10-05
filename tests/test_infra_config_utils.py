@@ -1,5 +1,6 @@
 # tests/test_infra_config_utils.py
 import json
+import os
 import subprocess
 from unittest.mock import patch
 
@@ -33,31 +34,50 @@ class TestConfigLoader:
 
 class TestUtils:
 
+    def test_open_file_in_editor_vscode(self, monkeypatch):
+        """Tests that the 'code' command is used when TERM_PROGRAM is vscode."""
+        monkeypatch.setenv("TERM_PROGRAM", "vscode")
+        with patch("subprocess.run") as mock_run:
+            result = open_file_in_editor("test.txt")
+            assert result is True
+            mock_run.assert_called_once_with(
+                ["code", "test.txt"], check=True, capture_output=True)
+
     @pytest.mark.parametrize("platform, mock_function, expected_call", [
         ("win32", "os.startfile", ["test.txt"]),
         ("darwin", "subprocess.run", ["open", "test.txt"]),
         ("linux", "subprocess.run", ["xdg-open", "test.txt"]),
     ])
     def test_open_file_in_editor_platforms(self, platform, mock_function, expected_call):
-        with patch("sys.platform", platform):
-            with patch(f"aicodec.infrastructure.utils.{mock_function}", create=True) as mock_call:
-                open_file_in_editor("test.txt")
+        """Tests the correct command is called for each platform."""
+        # Ensure we don't hit the vscode path by clearing the env var
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("sys.platform", platform):
+                with patch(f"aicodec.infrastructure.utils.{mock_function}", create=True) as mock_call:
+                    open_file_in_editor("test.txt")
+                    if "subprocess" in mock_function:
+                        mock_call.assert_called_once_with(
+                            expected_call, check=True, capture_output=True)
+                    else:
+                        mock_call.assert_called_once_with(*expected_call)
 
-                if "subprocess" in mock_function:
-                    mock_call.assert_called_once_with(expected_call, check=True)
-                else:
-                    mock_call.assert_called_once_with(*expected_call)
-
-    @pytest.mark.parametrize("error_type, error_args", [
-        (FileNotFoundError, ["Test error"]),
-        (subprocess.CalledProcessError, [1, "cmd", "Test error"]),
-        (Exception, ["Test error"])
+    @pytest.mark.parametrize("error_type", [
+        FileNotFoundError,
+        subprocess.CalledProcessError,
+        OSError,
+        Exception,
     ])
-    def test_open_file_in_editor_exceptions(self, capsys, error_type, error_args):
+    def test_open_file_in_editor_exceptions(self, capsys, error_type):
+        """Tests that the function returns False and does not print on any exception."""
+        # Prepare a side effect, instantiating exceptions that require arguments
+        side_effect = error_type
+        if error_type is subprocess.CalledProcessError:
+            side_effect = error_type(1, 'cmd')
         with patch("sys.platform", "linux"):
-            with patch("subprocess.run", side_effect=error_type(*error_args)):
-                open_file_in_editor("test.txt")
-
+            with patch("subprocess.run", side_effect=side_effect):
+                result = open_file_in_editor("test.txt")
+                # Assert the function signals failure and remains silent
+                assert result is False
                 captured = capsys.readouterr()
-                assert "Could not open file" in captured.out or "An unexpected error occurred" in captured.out
-                assert "Please manually open the file" in captured.out
+                assert captured.out == ""
+                assert captured.err == ""

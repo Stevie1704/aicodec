@@ -1,0 +1,52 @@
+name: Build and Release Executables
+
+# This workflow runs when you push a tag that starts with 'v' (e.g., v1.0, v1.5.0)
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    # Use a matrix to run the job on all three major operating systems
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+
+      - name: Build with PyInstaller
+        run: |
+          # The data separator is different on Windows vs. Linux/macOS
+          SEPARATOR=":"
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            SEPARATOR=";"
+          fi
+          pyinstaller --name aicodec --clean \
+            --add-data "aicodec/assets${SEPARATOR}aicodec/assets" \
+            --add-data "aicodec/infrastructure/web/ui${SEPARATOR}aicodec/infrastructure/web/ui" \
+            run_aicodec.py
+
+      - name: Package the output as a zip archive
+        # GitHub Actions runners have 7-Zip pre-installed, which works cross-platform
+        run: 7z a aicodec-${{ runner.os }}.zip ./dist/aicodec/*
+
+      - name: Upload the zipped archive as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aicodec-${{ runner.os }}
+          path: aicodec-*.zip

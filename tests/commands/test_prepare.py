@@ -44,11 +44,16 @@ def test_prepare_run_from_clipboard_success(sample_project, aicodec_config_file,
         from_clipboard=True
     )
 
-    with patch('jsonschema.validate'):  # Mock validation to avoid dependency on exact schema
+    # Mock validation to avoid dependency on exact schema, as it's tested elsewhere
+    with patch('jsonschema.validate'):
         prepare.run(args)
 
     changes_file = sample_project / ".aicodec" / "changes.json"
-    assert changes_file.read_text() == valid_json_content
+    # The prepare command pretty-prints the JSON, so we compare the parsed objects
+    # for a robust check instead of comparing raw strings.
+    expected_data = json.loads(valid_json_content)
+    actual_data = json.loads(changes_file.read_text())
+    assert actual_data == expected_data
 
 
 def test_prepare_run_from_clipboard_invalid_json(sample_project, aicodec_config_file, monkeypatch, capsys):

@@ -187,7 +187,7 @@ def test_parse_file_not_found(tmp_path: Path, capsys):
         parse_json_file(non_existent_file)
 
     # Assert the exit code is 1
-    assert e.type == SystemExit
+    assert e.type is SystemExit
     assert e.value.code == 1
 
     # Assert the correct error message was printed to stderr
@@ -211,7 +211,7 @@ def test_parse_invalid_json_file(tmp_path: Path, capsys):
         parse_json_file(file_path)
 
     # Assert the exit code is 1
-    assert e.type == SystemExit
+    assert e.type is SystemExit
     assert e.value.code == 1
 
     # Assert the correct error message was printed to stderr

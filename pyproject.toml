@@ -4,31 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "1.6.0"
+version = "1.4.0"
 requires-python = ">= 3.10"
 description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Steffen Krakau" }]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Code Generators",
-    "Topic :: Utilities",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: 3.15",
+ 	"Development Status :: 5 - Production/Stable",
+ 	"Intended Audience :: Developers",
+ 	"Topic :: Software Development :: Code Generators",
+ 	"Topic :: Utilities",
+ 	"License :: OSI Approved :: MIT License",
+ 	"Programming Language :: Python :: 3",
+ 	"Programming Language :: Python :: 3.10",
+ 	"Programming Language :: Python :: 3.11",
+ 	"Programming Language :: Python :: 3.12",
+ 	"Programming Language :: Python :: 3.13",
+ 	"Programming Language :: Python :: 3.14",
+ 	"Programming Language :: Python :: 3.15",
 ]
 dependencies = [
-    "jsonschema",
-    "pyperclip",
-    "pathspec",
-    "tiktoken"
+ 	"jsonschema",
+ 	"pyperclip",
+ 	"pathspec",
+ 	"tiktoken"
 ]
 
 [project.urls]
@@ -37,17 +37,18 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-mock",
-    "pytest-cov",
-    "pytest-html",
-    "mypy",
-    "ruff",
-    "bandit",
-    "pre-commit",
-    "codespell",
-    "mkdocs",
-    "mkdocs-material"
+ 	"pytest",
+ 	"pytest-mock",
+ 	"pytest-cov",
+ 	"pytest-html",
+ 	"mypy",
+ 	"ruff",
+ 	"bandit",
+ 	"pre-commit",
+ 	"codespell",
+	"mkdocs",
+    "mkdocs-material",
+    "pyinstaller"
 ]
 
 [project.scripts]
@@ -59,9 +60,9 @@ include = ["aicodec*"]
 
 [tool.setuptools.package-data]
 aicodec = [
-    "assets/**",
-    "infrastructure/web/ui/**",
-    "py.typed",
+ 	"assets/**",
+ 	"infrastructure/web/ui/**",
+ 	"py.typed",
 ]
 
 [tool.pytest.ini_options]
@@ -70,7 +71,9 @@ addopts = "--cov=aicodec --cov-report=lcov:lcov.info --cov-report=html"
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "E721"]
 ignore = ["E203", "E501"]
 
 [tool.black]

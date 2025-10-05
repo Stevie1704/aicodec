@@ -92,6 +92,19 @@ class TestAggregationService:
             captured = capsys.readouterr()
             assert "(Token count: 3)" in captured.out
 
+    def test_aggregate_with_token_count_failure(self, mock_file_repo, temp_config, capsys):
+        with patch('aicodec.application.services.tiktoken.get_encoding') as mock_get_encoding:
+            mock_get_encoding.side_effect = Exception("tiktoken error")
+            files = [FileItem('a.py', 'new_content')]
+            mock_file_repo.discover_files.return_value = files
+            mock_file_repo.load_hashes.return_value = {}
+
+            service = AggregationService(mock_file_repo, temp_config, project_root=temp_config.project_root)
+            service.aggregate(count_tokens=True)
+
+            captured = capsys.readouterr()
+            assert "(Token counting failed: tiktoken error)" in captured.out
+
 
 class TestReviewService:
 

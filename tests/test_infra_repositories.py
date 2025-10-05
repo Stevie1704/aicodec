@@ -1,5 +1,6 @@
 # tests/test_infra_repositories.py
 import json
+from pathlib import Path
 
 import pytest
 
@@ -110,6 +111,22 @@ class TestFileSystemFileRepository:
         relative_files = {item.file_path for item in files}
         assert relative_files == {'src/utils.js'}
 
+    @pytest.mark.parametrize("file_path_str, dir_set_str, expected", [
+        ("src/app.py", {"src"}, True),
+        ("src/api/main.py", {"src"}, True),
+        ("app.py", {"src"}, False),
+        ("src/app.py", {"lib", "src/api"}, False),
+        ("src/api/main.py", {"lib", "src/api"}, True),
+        ("docs/spec/openapi.json", {"docs/spec"}, True),
+        ("docs/spec/openapi.json", {"docs"}, True),
+        ("test.py", {"."}, True),
+    ])
+    def test_file_inside_directory(self, file_path_str, dir_set_str, expected):
+        file_path = Path(file_path_str)
+        dir_set = {Path(d) for d in dir_set_str}
+        repo = FileSystemFileRepository()
+        assert repo._file_inside_directory(file_path, dir_set) is expected
+
 
 class TestFileSystemChangeSetRepository:
 
@@ -125,7 +142,7 @@ class TestFileSystemChangeSetRepository:
             "changes": [
                 {"filePath": "new_file.txt", "action": "CREATE", "content": "Hello"},
                 {"filePath": "existing.txt", "action": "REPLACE",
-                    "content": "New Content"},
+                 "content": "New Content"},
                 {"filePath": "to_delete.txt", "action": "DELETE", "content": ""}
             ]
         }
