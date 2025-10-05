@@ -30,6 +30,8 @@ jobs:
           pip install .[dev]
 
       - name: Build with PyInstaller
+        # Add this line to ensure Bash is used on all runners, including Windows
+        shell: bash
         run: |
           # The data separator is different on Windows vs. Linux/macOS
           SEPARATOR=":"
