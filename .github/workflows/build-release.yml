@@ -1,15 +1,17 @@
 name: Build and Release Executables
 
-# This workflow runs when you push a tag that starts with 'v' (e.g., v1.0, v1.5.0)
 on:
   push:
     tags:
       - 'v*'
 
+# Add permissions for the workflow to create a release
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}
-    # Use a matrix to run the job on all three major operating systems
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,10 +32,8 @@ jobs:
           pip install .[dev]
 
       - name: Build with PyInstaller
-        # Add this line to ensure Bash is used on all runners, including Windows
         shell: bash
         run: |
-          # The data separator is different on Windows vs. Linux/macOS
           SEPARATOR=":"
           if [ "$RUNNER_OS" == "Windows" ]; then
             SEPARATOR=";"
@@ -44,11 +44,28 @@ jobs:
             run_aicodec.py
 
       - name: Package the output as a zip archive
-        # GitHub Actions runners have 7-Zip pre-installed, which works cross-platform
         run: 7z a aicodec-${{ runner.os }}.zip ./dist/aicodec/*
 
-      - name: Upload the zipped archive as an artifact
+      # This step now uploads the artifact so the 'release' job can find it
+      - name: Upload build artifact for release job
         uses: actions/upload-artifact@v4
         with:
           name: aicodec-${{ runner.os }}
           path: aicodec-*.zip
+
+  release:
+    name: Create GitHub Release
+    # This job runs only after all 'build' jobs have succeeded
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts # Downloads all artifacts into an 'artifacts' directory
+      
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          # This will find all the .zip files from the artifacts and upload them
+          files: artifacts/*/*.zip
