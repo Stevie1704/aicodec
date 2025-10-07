@@ -33,5 +33,5 @@ AI Codec is designed for the developer who:
 
 ## Next Steps
 
--   **🚀 Ready to start?** Jump into the **[Getting Started](./getting-started.md)** guide for a full walkthrough.
+-   **🚀 Ready to start?** Jump into the **[Getting Started](./getting-started/installation.md)** guide for a full walkthrough.
 -   **⚙️ Want to customize?** Learn about all the options in the **[Configuration](./configuration.md)** reference.

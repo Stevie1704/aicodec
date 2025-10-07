@@ -1,4 +1,4 @@
-# Getting Started: A Step-by-Step Tutorial
+# Step-by-Step Tutorial
 
 This guide will walk you through a complete `aicodec` workflow, from initializing a project to applying and reverting an LLM-generated change.
 
@@ -6,7 +6,7 @@ This guide will walk you through a complete `aicodec` workflow, from initializin
 
 ---
 
-### Step 0: Project Setup
+### Step 1: Project Setup
 
 First, let's create a simple project to work with.
 
@@ -28,7 +28,7 @@ Your project now has one file.
 
 ---
 
-### Step 1: Initialize AI Codec
+### Step 2: Initialize AI Codec
 
 Run the `init` command in your project's root directory. This creates the `.aicodec/config.json` file that powers the tool.
 
@@ -51,7 +51,7 @@ This will create a `.aicodec` directory and a `config.json` file inside it.
 
 ---
 
-### Step 2: Aggregate Code for Context
+### Step 3: Aggregate Code for Context
 
 Next, we need to gather our project's code into a single file that we can give to the LLM.
 
@@ -67,7 +67,7 @@ Successfully aggregated 1 changed file(s) into '.aicodec/context.json'.
 
 ---
 
-### Step 3: Generate the Prompt
+### Step 4: Generate the Prompt
 
 Now, let's create the prompt for the LLM. We'll define our task using the `--task` flag.
 
@@ -79,7 +79,7 @@ This generates a prompt containing the instructions, your code context, and the 
 
 ---
 
-### Step 4: Interact with the LLM
+### Step 5: Interact with the LLM
 
 1.  Paste the prompt into your favorite LLM chat interface (ChatGPT, Claude, etc.).
 2.  The LLM will process the request and generate a JSON object as a response.
@@ -107,7 +107,7 @@ A valid response for our task would look like this:
 
 ---
 
-### Step 5: Prepare the Changes
+### Step 6: Prepare the Changes
 
 Now, feed the LLM's response into `aicodec`. Since we configured "from clipboard" as the default, this is simple:
 
@@ -119,7 +119,7 @@ This command validates the JSON from your clipboard against the schema and saves
 
 ---
 
-### Step 6: Review and Apply
+### Step 7: Review and Apply
 
 This is the most important step. Let's launch the review UI:
 
@@ -138,7 +138,7 @@ Once applied, check your file system. You'll see that `calculator.py` is updated
 
 ---
 
-### Step 7: Revert the Changes (The "Undo" Button)
+### Step 8: Revert the Changes (The "Undo" Button)
 
 Made a mistake? Don't like the changes? No problem.
 
@@ -148,6 +148,6 @@ aicodec revert
 
 The same review UI will open, but this time it shows the inverse operation: modifying `calculator.py` back to its original state and deleting `test_calculator.py`.
 
-Click **"Revert Selected Changes"**. Your project is now back to exactly how it was before Step 6.
+Click **"Revert Selected Changes"**. Your project is now back to exactly how it was before Step 7.
 
 **Congratulations! You've completed the entire AI Codec workflow.**
