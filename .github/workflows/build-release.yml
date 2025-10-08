@@ -57,13 +57,18 @@ jobs:
             --add-data "aicodec/infrastructure/web/ui${SEPARATOR}aicodec/infrastructure/web/ui" \
             run_aicodec.py
 
+      - name: Create lowercase platform variable
+        id: vars
+        shell: bash
+        run: echo "platform_lower=${{ matrix.platform,, }}" >> $GITHUB_ENV
+
       - name: Package the output as a zip archive
-        run: 7z a aicodec-${{ matrix.platform }}-${{ matrix.arch }}.zip ./dist/aicodec/*
+        run: 7z a aicodec-${{ env.platform_lower }}-${{ matrix.arch }}.zip ./dist/aicodec/*
 
       - name: Upload build artifact for release job
         uses: actions/upload-artifact@v4
         with:
-          name: aicodec-${{ matrix.platform }}-${{ matrix.arch }}
+          name: aicodec-${{ env.platform_lower }}-${{ matrix.arch }}
           path: aicodec-*.zip
 
   release:
