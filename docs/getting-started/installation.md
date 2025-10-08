@@ -48,5 +48,5 @@ If you prefer not to run a script, you can perform the steps manually.
 After any of these methods, open a **new terminal** and verify the installation:
 
 ```bash
-aicodec --version
+aicodec -h
 ```
