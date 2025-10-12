@@ -1,13 +1,3 @@
-name: Build and Release Executables
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
-
 jobs:
   build:
     name: Build on ${{ matrix.platform }} (${{ matrix.arch }})
@@ -34,6 +24,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      # ⬇️ ADD THIS STEP ⬇️
+      - name: Set up QEMU for ARM build
+        # This action allows the x86 runner to build for ARM
+        if: matrix.arch == 'arm64' && matrix.platform == 'Linux'
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -70,18 +66,3 @@ jobs:
         with:
           name: aicodec-${{ env.platform_lower }}-${{ matrix.arch }}
           path: aicodec-*.zip
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*/*.zip
