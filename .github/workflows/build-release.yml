@@ -1,4 +1,12 @@
-on: [push, pull_request]
+name: Build and Release Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -51,6 +59,7 @@ jobs:
           pyinstaller --name aicodec --clean \
             --add-data "aicodec/assets${SEPARATOR}aicodec/assets" \
             --add-data "aicodec/infrastructure/web/ui${SEPARATOR}aicodec/infrastructure/web/ui" \
+             run_aicodec.py
       - name: Create lowercase platform variable
         id: vars
         shell: bash
