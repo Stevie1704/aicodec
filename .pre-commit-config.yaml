@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.3
+    rev: v0.14.0
     hooks:
       - id: ruff-check
         args: ["--fix", "aicodec"]
@@ -11,3 +11,14 @@ repos:
         args: ["-r", ".", "-c", "pyproject.toml", "-ll"]
         pass_filenames: false
         additional_dependencies: ['bandit[toml]']
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.8 # Use a recent version
+    hooks:
+      - id: actionlint
+
+  # For general YAML syntax and style consistency
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1 # Use a recent version
+    hooks:
+      - id: yamllint
+        args: ['--config-file', '.yamllint.yaml']
