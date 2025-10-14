@@ -1,3 +1,5 @@
+on: [push, pull_request]
+
 jobs:
   build:
     name: Build on ${{ matrix.platform }} (${{ matrix.arch }})
@@ -25,9 +27,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      # ⬇️ ADD THIS STEP ⬇️
       - name: Set up QEMU for ARM build
-        # This action allows the x86 runner to build for ARM
         if: matrix.arch == 'arm64' && matrix.platform == 'Linux'
         uses: docker/setup-qemu-action@v3
 
@@ -51,18 +51,14 @@ jobs:
           pyinstaller --name aicodec --clean \
             --add-data "aicodec/assets${SEPARATOR}aicodec/assets" \
             --add-data "aicodec/infrastructure/web/ui${SEPARATOR}aicodec/infrastructure/web/ui" \
-            run_aicodec.py
-
       - name: Create lowercase platform variable
         id: vars
         shell: bash
-        run: echo "platform_lower=${{ matrix.platform,, }}" >> $GITHUB_ENV
-
+        run: echo "platform_lower=$(echo '${{ matrix.platform }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
       - name: Package the output as a zip archive
-        run: 7z a aicodec-${{ env.platform_lower }}-${{ matrix.arch }}.zip ./dist/aicodec/*
-
+        run: 7z a aicodec-${{ steps.vars.outputs.platform_lower }}-${{ matrix.arch }}.zip ./dist/aicodec/*
       - name: Upload build artifact for release job
         uses: actions/upload-artifact@v4
         with:
-          name: aicodec-${{ env.platform_lower }}-${{ matrix.arch }}
+          name: aicodec-${{ steps.vars.outputs.platform_lower }}-${{ matrix.arch }}
           path: aicodec-*.zip

@@ -55,16 +55,10 @@ TMP_UNZIP_DIR="/tmp/${TOOL_NAME}-install"
 echo "⚙️  Downloading from: ${DOWNLOAD_URL}"
 curl -sSL -o "${ZIP_FILE}" "${DOWNLOAD_URL}"
 unzip -o "${ZIP_FILE}" -d "${TMP_UNZIP_DIR}"
-UNZIPPED_FOLDER=$(find "${TMP_UNZIP_DIR}" -mindepth 1 -maxdepth 1 -type d -print -quit)
-
-if [ -z "${UNZIPPED_FOLDER}" ]; then
-    echo "❌ Failed to find the unzipped directory. Aborting."
-    exit 1
-fi
 
 # 3. Move folder to /opt
 echo "⚙️  Installing application to ${INSTALL_DIR}..."
-sudo mv "${UNZIPPED_FOLDER}" "${INSTALL_DIR}"
+sudo mv "${TMP_UNZIP_DIR}" "${INSTALL_DIR}"
 
 # 4. Make the binary executable
 #    THIS IS THE NEW, CRITICAL STEP!
