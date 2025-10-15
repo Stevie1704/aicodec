@@ -27,10 +27,8 @@ Alternatively, you can download a standalone executable for your operating syste
 curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash
 ```
 Uninstall with
-
-**For macOS and Linux:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/uninstall.sh | bash
 ```
 
 **For Windows**
