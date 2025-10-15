@@ -69,8 +69,9 @@ def run(args: Any) -> None:
                 clipboard_content = pyperclip.paste()
             if not clipboard_content:
                 print("Warning: Clipboard is empty. Creating a file for manual paste.")
-        except pyperclip.PyperclipException as e:
-            print(f"Warning: Clipboard access failed: {e}")
+        # FileNotFoundError can occur on Linux if no clipboard mechanism is found
+        except (pyperclip.PyperclipException, FileNotFoundError):
+            print("Warning: Clipboard access failed")
             print("Falling back to creating an empty file for manual paste.")
 
     if clipboard_content:

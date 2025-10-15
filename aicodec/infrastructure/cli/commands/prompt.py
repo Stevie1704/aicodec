@@ -116,7 +116,8 @@ def run(args: Any) -> None:
         try:
             pyperclip.copy(prompt)
             print("Prompt successfully copied to clipboard.")
-        except pyperclip.PyperclipException:
+        # FileNotFoundError can occur on Linux if no clipboard mechanism is found
+        except (pyperclip.PyperclipException, FileNotFoundError):
             output_path = Path(output_file)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(prompt, encoding="utf-8")
