@@ -22,7 +22,25 @@ Alternatively, you can download a standalone executable for your operating syste
 
 ### Automated Installation (CLI)
 
-COMMING SOON
+**For macOS and Linux:**
+```bash
+curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash
+```
+Uninstall with
+
+**For macOS and Linux:**
+```bash
+curl -sSL https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.sh | bash
+```
+
+**For Windows**
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/install.ps1 | iex"
+```
+Uninstall with
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/Stevie1704/aicodec/main/scripts/uninstall.ps1 | iex"
+```
 
 ### Manual Installation
 

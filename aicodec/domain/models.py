@@ -44,11 +44,7 @@ class ChangeSet:
 class AggregateConfig:
     """Configuration value object for the aggregation process."""
     directories: list[Path]
-    include_dirs: list[str] = field(default_factory=list)
-    include_ext: list[str] = field(default_factory=list)
-    include_files: list[str] = field(default_factory=list)
-    exclude_dirs: list[str] = field(default_factory=list)
-    exclude_exts: list[str] = field(default_factory=list)
-    exclude_files: list[str] = field(default_factory=list)
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
     use_gitignore: bool = True
     project_root: Path = field(default_factory=Path.cwd)

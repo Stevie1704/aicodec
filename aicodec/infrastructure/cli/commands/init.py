@@ -31,13 +31,9 @@ def run(args: Any) -> None:
 
     print("--- Aggregation Settings ---")
     config["aggregate"]["directories"] = ["."]
-    print("The '.git' and '.aicodec', are always excluded by default.")
-    config["aggregate"]["exclude_dirs"] = [".git", ".aicodec"]
-    config["aggregate"]["include_dirs"] = []
-    config["aggregate"]["include_ext"] = []
-    config["aggregate"]["include_files"] = []
-    config["aggregate"]["exclude_exts"] = []
-    config["aggregate"]["exclude_files"] = []
+    print("'.git/**' and '.aicodec/**' are always excluded by default.")
+    config["aggregate"]["exclude"] = []
+    config["aggregate"]["include"] = []
 
     use_gitignore = get_user_confirmation(
         "Use the .gitignore file for exclusions?", default_yes=True
@@ -74,29 +70,16 @@ def run(args: Any) -> None:
             "Also exclude the .gitignore file itself from the context?",
             default_yes=True,
         ):
-            config["aggregate"]["exclude_files"].append(".gitignore")
+            config["aggregate"]["exclude"].append(".gitignore")
 
     if get_user_confirmation(
-        "Configure additional inclusions/exclusions?", default_yes=False
+        "Configure additional inclusion/exclusion glob patterns?", default_yes=False
     ):
-        config["aggregate"]["include_dirs"].extend(
-            get_list_from_user("Directories to always include:")
+        config["aggregate"]["include"].extend(
+            get_list_from_user("Glob patterns to always include (gitignore-style):")
         )
-        config["aggregate"]["include_files"].extend(
-            get_list_from_user("Files/glob patterns to always include:")
-        )
-        config["aggregate"]["include_ext"].extend(
-            get_list_from_user(
-                "File extensions to always include (e.g., .py, .ts):")
-        )
-        config["aggregate"]["exclude_dirs"].extend(
-            get_list_from_user("Additional directories to exclude:")
-        )
-        config["aggregate"]["exclude_files"].extend(
-            get_list_from_user("Additional files/glob patterns to exclude:")
-        )
-        config["aggregate"]["exclude_exts"].extend(
-            get_list_from_user("File extensions to always exclude:")
+        config["aggregate"]["exclude"].extend(
+            get_list_from_user("Additional glob patterns to exclude (gitignore-style):")
         )
 
     print("\n--- LLM Interaction Settings ---")

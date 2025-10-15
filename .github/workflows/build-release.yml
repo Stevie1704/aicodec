@@ -63,7 +63,7 @@ jobs:
       - name: Create lowercase platform variable
         id: vars
         shell: bash
-        run: echo "platform_lower=$(echo '${{ matrix.platform }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "platform_lower=$(echo '${{ matrix.platform }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
       - name: Package the output as a zip archive
         run: 7z a aicodec-${{ steps.vars.outputs.platform_lower }}-${{ matrix.arch }}.zip ./dist/aicodec/*
       - name: Upload build artifact for release job
@@ -71,3 +71,18 @@ jobs:
         with:
           name: aicodec-${{ steps.vars.outputs.platform_lower }}-${{ matrix.arch }}
           path: aicodec-*.zip
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*/*.zip

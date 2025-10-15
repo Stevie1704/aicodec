@@ -20,17 +20,17 @@ repo_name: Stevie1704/aicodec
 nav:
   - 'Overview': 'index.md'
   - 'Getting Started':
-    - 'Installation': 'getting-started/installation.md'
-    - 'Tutorial': 'getting-started/tutorial.md'
+      - 'Installation': 'getting-started/installation.md'
+      - 'Tutorial': 'getting-started/tutorial.md'
   - 'Configuration': 'configuration.md'
   - 'Guides':
-    - 'Best Practices': 'guides/best-practices.md'
-    - 'Git Integration': 'guides/git-integration.md'
+      - 'Best Practices': 'guides/best-practices.md'
+      - 'Git Integration': 'guides/git-integration.md'
   - 'Command Reference':
-    - 'init': 'commands/init.md'
-    - 'aggregate': 'commands/aggregate.md'
-    - 'prompt': 'commands/prompt.md'
-    - 'prepare': 'commands/prepare.md'
-    - 'apply': 'commands/apply.md'
-    - 'revert': 'commands/revert.md'
-    - 'schema': 'commands/schema.md'
+      - 'init': 'commands/init.md'
+      - 'aggregate': 'commands/aggregate.md'
+      - 'prompt': 'commands/prompt.md'
+      - 'prepare': 'commands/prepare.md'
+      - 'apply': 'commands/apply.md'
+      - 'revert': 'commands/revert.md'
+      - 'schema': 'commands/schema.md'

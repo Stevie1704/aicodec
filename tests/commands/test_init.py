@@ -30,7 +30,7 @@ def test_init_run_defaults(tmp_path, monkeypatch):
     config = json.loads(config_file.read_text())
 
     assert config['aggregate']['use_gitignore'] is True
-    assert '.gitignore' in config['aggregate']['exclude_files']
+    assert '.gitignore' in config['aggregate']['exclude']
     assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prepare']['from_clipboard'] is False
@@ -62,12 +62,8 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     user_inputs = [
         'y', 'y', 'y',  # Standard gitignore prompts
         'y',  # Configure additional?
-        'src, lib',  # include_dirs
-        '*.py',  # include_files
-        '.ts, .tsx',  # include_ext
-        'node_modules, build',  # exclude_dirs
-        '*.log',  # exclude_files
-        '.tmp',  # exclude_exts
+        'src/**, lib/**',  # include
+        'node_modules/, **/*.log',  # exclude
         'y',  # Use minimal prompt?
         'TypeScript/React',  # Tech stack
         'y',  # from_clipboard
@@ -82,12 +78,9 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     config = json.loads(config_file.read_text())
     agg_config = config['aggregate']
 
-    assert agg_config['include_dirs'] == ['src', 'lib']
-    assert agg_config['include_files'] == ['*.py']
-    assert agg_config['include_ext'] == ['.ts', '.tsx']
-    assert 'node_modules' in agg_config['exclude_dirs']
-    assert '*.log' in agg_config['exclude_files']
-    assert agg_config['exclude_exts'] == ['.tmp']
+    assert agg_config['include'] == ['src/**', 'lib/**']
+    assert 'node_modules/' in agg_config['exclude']
+    assert '**/*.log' in agg_config['exclude']
     assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'TypeScript/React'
     assert config['prepare']['from_clipboard'] is True
