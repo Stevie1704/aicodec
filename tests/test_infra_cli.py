@@ -33,8 +33,7 @@ def temp_config_file(tmp_path):
 
 def test_init_run_interactive(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'y', 'src,lib', '*.ts', '.ts,.js',
-        'node_modules', '*.log', '.log', 'n', 'Python', 'n', 'y', 'n'
+        'y', 'y', 'y', 'y', 'src/**', '*.ts', 'n', 'Python', 'n', 'y', 'n'
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
@@ -45,9 +44,9 @@ def test_init_run_interactive(tmp_path, monkeypatch):
     config = json.loads(config_file.read_text())
 
     assert config['aggregate']['use_gitignore'] is True
-    assert '.gitignore' in config['aggregate']['exclude_files']
-    assert 'src' in config['aggregate']['include_dirs']
-    assert 'node_modules' in config['aggregate']['exclude_dirs']
+    assert '.gitignore' in config['aggregate']['exclude']
+    assert 'src/**' in config['aggregate']['include']
+    assert '*.ts' in config['aggregate']['exclude']
     assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
@@ -70,11 +69,8 @@ def test_init_run_interactive_skip_additional(tmp_path, monkeypatch):
     assert config_file.exists()
     config = json.loads(config_file.read_text())
 
-    assert config['aggregate']['include_dirs'] == []
-    assert config['aggregate']['include_ext'] == []
-    assert config['aggregate']['include_files'] == []
-    assert config['aggregate']['exclude_exts'] == []
-    assert config['aggregate']['exclude_files'] == ['.gitignore']
+    assert config['aggregate']['include'] == []
+    assert config['aggregate']['exclude'] == ['.gitignore']
     assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
@@ -124,9 +120,8 @@ def test_aggregate_run(temp_config_file):
         mock_agg_service_instance = mock_agg_service_class.return_value
 
         args = MagicMock(
-            config=str(temp_config_file), directories=None, include_dirs=[], include_exts=[],
-            include_files=[], exclude_dirs=[], exclude_exts=[], exclude_files=[],
-            full=True, use_gitignore=None, count_tokens=True
+            config=str(temp_config_file), directories=None, include=[],
+            exclude=[], full=True, use_gitignore=None, count_tokens=True
         )
         aggregate.run(args)
         mock_agg_service_class.assert_called_once()

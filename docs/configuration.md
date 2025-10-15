@@ -39,25 +39,13 @@ This section controls which files are collected into `context.json`.
     -   If `true`, `aicodec` will respect the rules in your project's `.gitignore` file.
     -   **Default**: `true`
 
--   `"include_dirs": ["src", "lib"]`
-    -   A list of directories to **always include**, even if they are excluded by other rules (like `.gitignore`).
+-   `"include": ["src/api/**", "*.conf"]`
+    -   A list of gitignore-style glob patterns to **always include**, even if they are excluded by other rules (like `.gitignore`).
 
--   `"include_files": ["*.conf", "config/important.json"]`
-    -   A list of files or glob patterns to **always include**.
+-   `"exclude": ["dist/", "**/*.log"]`
+    -   A list of gitignore-style glob patterns to **always exclude**. Note that `.git/**` and `.aicodec/**` are always excluded by default.
 
--   `"include_exts": [".py", ".ts"]`
-    -   A list of file extensions to **always include**.
-
--   `"exclude_dirs": ["dist", "node_modules"]`
-    -   A list of directories to **always exclude**. The `.git` and `.aicodec` directories are always excluded by default.
-
--   `"exclude_files": ["*.lock", "poetry.lock"]`
-    -   A list of files or glob patterns to **always exclude**.
-
--   `"exclude_exts": [".log", ".tmp"]`
-    -   A list of file extensions to **always exclude**.
-
-**Note on Precedence:** The "include" rules have higher precedence than "exclude" rules. If a file matches both an include and an exclude rule, it will be **included**.
+**Note on Precedence:** The `include` rules have higher precedence than `exclude` rules (including `.gitignore`). If a file matches both an include and an exclude pattern, it will be **included**.
 
 ---
 

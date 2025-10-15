@@ -21,46 +21,18 @@ def register_subparser(subparsers: Any) -> None:
         help="One or more root directories to scan, overriding config."
     )
     agg_parser.add_argument(
-        "--include-dirs",
-        action="append",
-        nargs="+",
-        default=[],
-        help="Specific directories to include, overriding exclusions.",
-    )
-    agg_parser.add_argument(
-        "--include-exts",
-        action="append",
-        nargs="+",
-        default=[],
-        help="File extensions to include."
-    )
-    agg_parser.add_argument(
-        "--include-files",
+        "-i", "--include",
         action="extend",
         nargs="+",
         default=[],
-        help="Specific files or glob patterns to include.",
+        help="Specific files or glob patterns to include (gitignore-style).",
     )
     agg_parser.add_argument(
-        "--exclude-dirs",
+        "-e", "--exclude",
         action="extend",
         nargs="+",
         default=[],
-        help="Specific directories to exclude."
-    )
-    agg_parser.add_argument(
-        "--exclude-exts",
-        action="extend",
-        nargs="+",
-        default=[],
-        help="File extensions to exclude."
-    )
-    agg_parser.add_argument(
-        "--exclude-files",
-        action="extend",
-        nargs="+",
-        default=[],
-        help="Specific files or glob patterns to exclude."
+        help="Specific files or glob patterns to exclude (gitignore-style)."
     )
     agg_parser.add_argument(
         "-f", "--full",
@@ -111,23 +83,10 @@ def run(args: Any) -> None:
     scan_dirs_str = args.directories or config_dirs
     scan_dirs = [(project_root / Path(d)).resolve() for d in scan_dirs_str]
 
-    exclude_dirs = args.exclude_dirs + file_cfg.get("exclude_dirs", [])
-    # Always exclude .aicodec and .git directories
-    exclude_dirs.extend([".aicodec", ".git"])
     config = AggregateConfig(
         directories=scan_dirs,
-        include_dirs=args.include_dirs or file_cfg.get("include_dirs", []),
-        include_ext=[
-            e if e.startswith(".") else "." + e
-            for e in args.include_exts or file_cfg.get("include_exts", [])
-        ],
-        include_files=args.include_files or file_cfg.get("include_files", []),
-        exclude_dirs=exclude_dirs,
-        exclude_exts=[
-            e if e.startswith(".") else "." + e
-            for e in args.exclude_exts or file_cfg.get("exclude_exts", [])
-        ],
-        exclude_files=args.exclude_files or file_cfg.get("exclude_files", []),
+        include=args.include or file_cfg.get("include", []),
+        exclude=args.exclude + file_cfg.get("exclude", []),
         use_gitignore=use_gitignore,
         project_root=project_root,
     )

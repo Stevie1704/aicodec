@@ -23,7 +23,7 @@
 
 .env
 
-.aicodec
+.aicodec/
 lcov.info
 coverage.lcov
 

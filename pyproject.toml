@@ -71,8 +71,6 @@ addopts = "--cov=aicodec --cov-report=lcov:lcov.info --cov-report=html"
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-
-[tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "E721"]
 ignore = ["E203", "E501"]
 

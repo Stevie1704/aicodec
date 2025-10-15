@@ -10,11 +10,11 @@ By default, this command runs in an **incremental mode**. It caches file hashes 
 # Run an incremental aggregation
 aicodec aggregate
 
+# Exclude all markdown files and include only the src/api directory
+aicodec aggregate -e "*.md" -i "src/api/**"
+
 # Run a full aggregation, ignoring the cache
 aicodec aggregate --full
-
-# Run aggregation on specific directories
-aicodec aggregate -d src/api tests/api
 ```
 
 ## Options
@@ -23,13 +23,8 @@ All command-line options override the settings in your `.aicodec/config.json` fi
 
 -   **`-c, --config <PATH>`**: Specifies the path to the configuration file. **Default**: `.aicodec/config.json`.
 -   **`-d, --directories <PATH...>`**: One or more root directories to scan for files. Overrides the `directories` setting in the config.
+-   **`-i, --include <PATTERN...>`**: One or more gitignore-style glob patterns to explicitly include. These rules override any exclusions.
+-   **`-e, --exclude <PATTERN...>`**: One or more gitignore-style glob patterns to exclude.
 -   **`--full`**: Performs a full aggregation, ignoring the cache of file hashes and including all files that match the criteria, regardless of whether they have changed.
 -   **`--count-tokens`**: Counts the number of tokens in the final `context.json` output using the `cl100k_base` encoding (used by GPT-4) and displays it in the summary.
 -   **`--use-gitignore` / `--no-gitignore`**: A mutually exclusive pair of flags to explicitly enable or disable using the `.gitignore` file for exclusions.
--   **Include/Exclude Flags**:
-    -   `--include-dirs <DIR...>`
-    -   `--include-exts <EXT...>`
-    -   `--include-files <FILE...>`
-    -   `--exclude-dirs <DIR...>`
-    -   `--exclude-exts <EXT...>`
-    -   `--exclude-files <FILE...>`

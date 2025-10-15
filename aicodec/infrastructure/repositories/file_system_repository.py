@@ -1,7 +1,5 @@
 # aicodec/infrastructure/repositories/file_system_repository.py
-import fnmatch
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -50,47 +48,34 @@ class FileSystemFileRepository(IFileRepository):
         for directory in config.directories:
             all_files.update({p for p in directory.rglob('*') if p.is_file()})
 
-        # Bug Fix: Always exclude the .aicodec directory, regardless of gitignore settings.
-        # The tool should never aggregate its own internal files.
-        always_exclude_spec = pathspec.PathSpec.from_lines(
-            'gitwildmatch', ['**/.aicodec/*'])
-        all_files = {p for p in all_files if not always_exclude_spec.match_file(
-            str(p.relative_to(project_root)))}
-
-        gitignore_spec = self._load_gitignore_spec(config)
-        normalized_include_dirs = {
-            os.path.normpath(d) for d in config.include_dirs}
-        explicit_includes = set()
-        if config.include_dirs or config.include_ext or config.include_files:
-            for path in all_files:
-                rel_path = path.relative_to(project_root)
-                rel_path_str = str(rel_path)
-                if self._file_inside_directory(rel_path, normalized_include_dirs) or \
-                    any(path.name.endswith(ext) for ext in config.include_ext) or \
-                    any(fnmatch.fnmatch(rel_path_str, p) for p in config.include_files):
-                    explicit_includes.add(path)
-
-        if config.use_gitignore and gitignore_spec:
-            base_files = {p for p in all_files if not gitignore_spec.match_file(
-                str(p.relative_to(project_root)))}
+        # Apply gitignore first, if enabled
+        if config.use_gitignore:
+            gitignore_spec = self._load_gitignore_spec(config)
+            if gitignore_spec:
+                base_files = {p for p in all_files if not gitignore_spec.match_file(
+                    str(p.relative_to(project_root)))}
+            else:
+                base_files = all_files
         else:
             base_files = all_files
 
-        files_to_exclude = set()
-        for path in base_files:
-            rel_path_str = str(path.relative_to(project_root))
-            normalized_exclude_dirs = {
-                os.path.normpath(d) for d in config.exclude_dirs}
-            relative_path = path.relative_to(project_root)
+        # Apply explicit excludes from config, plus hardcoded ones.
+        # These patterns are gitignore-style.
+        exclude_patterns = config.exclude + ['.aicodec/**', '.git/**']
+        exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude_patterns)
 
-            # Efficiently check if any part of the path is in the exclusion set
-            if self._file_inside_directory(relative_path, normalized_exclude_dirs) or \
-                any(fnmatch.fnmatch(rel_path_str, p) for p in config.exclude_files) or \
-                any(rel_path_str.endswith(ext) for ext in config.exclude_exts):
-                files_to_exclude.add(path)
+        files_after_exclusion = {p for p in base_files if not exclude_spec.match_file(
+            str(p.relative_to(project_root)))}
 
-        included_by_default = base_files - files_to_exclude
-        final_files_set = included_by_default | explicit_includes
+        # Apply explicit includes, which can bring back excluded files.
+        explicit_includes = set()
+        if config.include:
+            include_spec = pathspec.PathSpec.from_lines('gitwildmatch', config.include)
+            # We check against all_files, so includes can override all excludes.
+            explicit_includes = {p for p in all_files if include_spec.match_file(
+                str(p.relative_to(project_root)))}
+
+        final_files_set = files_after_exclusion | explicit_includes
         return sorted(list(final_files_set))
 
     def _load_gitignore_spec(self, config: AggregateConfig) -> pathspec.PathSpec | None:
@@ -111,11 +96,6 @@ class FileSystemFileRepository(IFileRepository):
                 except json.JSONDecodeError:
                     return {}
         return {}
-
-    @staticmethod
-    def _file_inside_directory(file_path: Path, directories: set[Path]) -> bool:
-        """Check if a file is inside any of the specified directories."""
-        return any(file_path.is_relative_to(d) for d in directories)
 
     def save_hashes(self, path: Path, hashes: dict[str, str]) -> None:
         path.parent.mkdir(exist_ok=True)

@@ -1,6 +1,5 @@
 # tests/test_infra_repositories.py
 import json
-from pathlib import Path
 
 import pytest
 
@@ -46,8 +45,8 @@ class TestFileSystemFileRepository:
         assert relative_files == expected
 
     def test_discover_with_exclusions(self, project_structure, file_repo):
-        config = AggregateConfig(directories=[project_structure], exclude_dirs=[
-            'src'], exclude_exts=['.js'], use_gitignore=False, project_root=project_structure)
+        config = AggregateConfig(directories=[project_structure], exclude=[
+            'src/**', '*.js'], use_gitignore=False, project_root=project_structure)
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert 'src/utils.js' not in relative_files
@@ -55,7 +54,7 @@ class TestFileSystemFileRepository:
     def test_discover_inclusion_overrides_exclusion(self, project_structure, file_repo):
         config = AggregateConfig(
             directories=[project_structure],
-            include_files=['dist/bundle.js'],
+            include=['dist/bundle.js'],
             use_gitignore=True,
             project_root=project_structure
         )
@@ -110,22 +109,6 @@ class TestFileSystemFileRepository:
         files = file_repo.discover_files(config)
         relative_files = {item.file_path for item in files}
         assert relative_files == {'src/utils.js'}
-
-    @pytest.mark.parametrize("file_path_str, dir_set_str, expected", [
-        ("src/app.py", {"src"}, True),
-        ("src/api/main.py", {"src"}, True),
-        ("app.py", {"src"}, False),
-        ("src/app.py", {"lib", "src/api"}, False),
-        ("src/api/main.py", {"lib", "src/api"}, True),
-        ("docs/spec/openapi.json", {"docs/spec"}, True),
-        ("docs/spec/openapi.json", {"docs"}, True),
-        ("test.py", {"."}, True),
-    ])
-    def test_file_inside_directory(self, file_path_str, dir_set_str, expected):
-        file_path = Path(file_path_str)
-        dir_set = {Path(d) for d in dir_set_str}
-        repo = FileSystemFileRepository()
-        assert repo._file_inside_directory(file_path, dir_set) is expected
 
 
 class TestFileSystemChangeSetRepository:

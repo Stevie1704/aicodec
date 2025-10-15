@@ -12,8 +12,8 @@ def test_aggregate_run_basic(sample_project, aicodec_config_file, monkeypatch):
     args = Namespace(
         config=str(aicodec_config_file),
         directories=None,
-        include_dirs=[], include_exts=[], include_files=[],
-        exclude_dirs=[], exclude_exts=[], exclude_files=[],
+        include=[],
+        exclude=[],
         full=False, use_gitignore=None, count_tokens=False
     )
 
@@ -37,8 +37,8 @@ def test_aggregate_run_no_gitignore(sample_project, aicodec_config_file, monkeyp
 
     args = Namespace(
         config=str(aicodec_config_file), directories=None,
-        include_dirs=[], include_exts=[], include_files=[],
-        exclude_dirs=[], exclude_exts=[], exclude_files=[],
+        include=[],
+        exclude=[],
         full=False, use_gitignore=False, count_tokens=False
     )
 
@@ -59,8 +59,8 @@ def test_aggregate_run_with_overrides(sample_project, aicodec_config_file, monke
 
     args = Namespace(
         config=str(aicodec_config_file), directories=None,
-        include_dirs=["dist"], include_exts=[".log"], include_files=[],
-        exclude_dirs=["src"], exclude_exts=[".md"], exclude_files=[],
+        include=["dist/**", "*.log"],
+        exclude=["src/**", "README.md"],
         full=True, use_gitignore=None, count_tokens=True
     )
 
@@ -70,10 +70,10 @@ def test_aggregate_run_with_overrides(sample_project, aicodec_config_file, monke
     data = json.loads(context_file.read_text())
     filepaths = {item['filePath'] for item in data}
 
-    assert "dist/bundle.js" in filepaths  # Included via --include-dir
-    assert "app.log" in filepaths        # Included via --include-ext
-    assert "src/utils.py" not in filepaths  # Excluded via --exclude-dir
-    assert "README.md" not in filepaths     # Excluded via --exclude-ext
+    assert "dist/bundle.js" in filepaths  # Included via include glob
+    assert "app.log" in filepaths        # Included via include glob
+    assert "src/utils.py" not in filepaths  # Excluded via exclude glob
+    assert "README.md" not in filepaths     # Excluded via exclude glob
 
 
 def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, capsys):
@@ -82,8 +82,8 @@ def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, 
 
     args = Namespace(
         config=str(aicodec_config_file), directories=None,
-        include_dirs=[], include_exts=[], include_files=[],
-        exclude_dirs=[], exclude_exts=[], exclude_files=[],
+        include=[],
+        exclude=[],
         full=False, use_gitignore=None, count_tokens=False
     )
 
@@ -97,13 +97,13 @@ def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, 
 
 
 def test_aggregate_exclude_nested_dir(sample_project, aicodec_config_file, monkeypatch):
-    """Test aggregate excludes nested directories with --exclude-dir."""
+    """Test aggregate excludes nested directories with --exclude."""
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
         config=str(aicodec_config_file), directories=None,
-        include_dirs=[], include_exts=[], include_files=[],
-        exclude_dirs=["ex/dir"], exclude_exts=[], exclude_files=[],
+        include=[],
+        exclude=["ex/dir/**"],
         full=True, use_gitignore=None, count_tokens=False
     )
 
@@ -121,13 +121,13 @@ def test_aggregate_exclude_nested_dir(sample_project, aicodec_config_file, monke
 
 
 def test_aggregate_include_nested_dir(sample_project, aicodec_config_file, monkeypatch):
-    """Test aggregate includes nested directories with --include-dir, without over-including similar-named files."""
+    """Test aggregate includes nested directories with --include, without over-including similar-named files."""
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
         config=str(aicodec_config_file), directories=None,
-        include_dirs=["node_modules/submodule"], include_exts=[], include_files=[],
-        exclude_dirs=[], exclude_exts=[], exclude_files=[],
+        include=["node_modules/submodule/**"],
+        exclude=[],
         full=True, use_gitignore=None, count_tokens=False
     )
 
