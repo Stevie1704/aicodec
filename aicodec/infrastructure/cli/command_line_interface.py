@@ -3,6 +3,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from aicodec import __version__
+
 from .commands import (
     aggregate,
     apply,
@@ -28,8 +30,14 @@ def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="A lightweight communication layer for developers to interact with LLMs."
     )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
     subparsers = parser.add_subparsers(
-        dest="command", required=True, help="Available commands"
+        dest="command", help="Available commands"
     )
 
     # Register all commands
@@ -42,6 +50,11 @@ def main() -> None:  # pragma: no cover
     prepare.register_subparser(subparsers)
 
     args = parser.parse_args()
+
+    # If --version was not used and no command was given, show help and exit.
+    if not args.command:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     if args.command not in ["init", "schema"]:
         check_config_exists(args.config)
