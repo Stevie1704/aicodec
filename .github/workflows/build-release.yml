@@ -63,7 +63,7 @@ jobs:
       - name: Create lowercase platform variable
         id: vars
         shell: bash
-        run: echo "platform_lower=$(echo '${{ matrix.platform }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "platform_lower=$(echo '${{ matrix.platform }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
       - name: Package the output as a zip archive
         run: 7z a aicodec-${{ steps.vars.outputs.platform_lower }}-${{ matrix.arch }}.zip ./dist/aicodec/*
       - name: Upload build artifact for release job
