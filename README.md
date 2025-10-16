@@ -1,6 +1,6 @@
 # AI Codec
 
-[![PyPI version](https://badge.fury.io/py/aicodec.svg)](https://badge.fury.io/py/aicodec)
+[![PyPI version](https://img.shields.io/pypi/v/aicodec)](https://pypi.org/project/aicodec/)
 [![CI](https://github.com/Stevie1704/aicodec/actions/workflows/ci.yml/badge.svg)](https://github.com/Stevie1704/aicodec/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
