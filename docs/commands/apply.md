@@ -11,23 +11,29 @@ This command requires a valid `.aicodec/changes.json` file, which is created by 
 ## Usage
 
 ```bash
+# Launch the interactive review UI
 aicodec apply
+
+# Apply all changes directly without the UI
+aicodec apply --all
 ```
 
 ## The Review UI
 
 The web UI allows you to:
--   View a summary of the proposed changes.
--   See a list of all files to be created, modified, or deleted.
--   Select or deselect individual changes to be applied.
--   View a color-coded, side-by-side diff for each file.
--   **Directly edit** the LLM's proposed content in the diff viewer before applying.
--   Save your edits back to the `changes.json` file without applying them.
+
+- 	View a summary of the proposed changes.
+- 	See a list of all files to be created, modified, or deleted.
+- 	Select or deselect individual changes to be applied.
+- 	View a color-coded, side-by-side diff for each file.
+- 	**Directly edit** the LLM's proposed content in the diff viewer before applying.
+- 	Save your edits back to the `changes.json` file without applying them.
 
 When you apply changes, the tool creates a `.aicodec/revert.json` file that allows the entire operation to be undone with the `revert` command.
 
 ## Options
 
--   **`-c, --config <PATH>`**: Specifies the path to the configuration file. **Default**: `.aicodec/config.json`.
--   **`-od, --output-dir <PATH>`**: The project directory where changes should be applied. Overrides the `output_dir` setting in the config.
--   **`--changes <PATH>`**: The path to the LLM changes JSON file to be reviewed. Overrides the `changes` path in the config.
+- 	**`-c, --config <PATH>`**: Specifies the path to the configuration file. **Default**: `.aicodec/config.json`.
+- 	**`-od, --output-dir <PATH>`**: The project directory where changes should be applied. Overrides the `output_dir` setting in the config.
+- 	**`--changes <PATH>`**: The path to the LLM changes JSON file to be reviewed. Overrides the `changes` path in the config.
+- 	**`-a, --all`**: Applies all proposed changes directly without launching the interactive review UI. Use this when you trust the source of the changes.

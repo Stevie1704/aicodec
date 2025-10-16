@@ -13,7 +13,7 @@ def setup_revert_file(sample_project):
     revert_dir = sample_project / ".aicodec"
     revert_dir.mkdir(exist_ok=True)
     revert_file = revert_dir / "revert.json"
-    revert_file.write_text(json.dumps({"summary": "revert data", "changes": []}))
+    revert_file.write_text(json.dumps({"summary": "revert data", "changes": [{'filePath': 'a.py', 'action': 'DELETE', 'content': ''}]}))
     return revert_file
 
 
@@ -23,7 +23,8 @@ def test_revert_run_basic(sample_project, aicodec_config_file, setup_revert_file
 
     args = Namespace(
         config=str(aicodec_config_file),
-        output_dir=None
+        output_dir=None,
+        all=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch:
@@ -39,7 +40,8 @@ def test_revert_run_no_revert_file(sample_project, aicodec_config_file, monkeypa
 
     args = Namespace(
         config=str(aicodec_config_file),
-        output_dir=None
+        output_dir=None,
+        all=False
     )
 
     revert.run(args)
@@ -54,7 +56,8 @@ def test_revert_run_with_override(sample_project, aicodec_config_file, setup_rev
 
     args = Namespace(
         config=str(aicodec_config_file),
-        output_dir=sample_project  # Explicitly point to the project dir
+        output_dir=sample_project,  # Explicitly point to the project dir
+        all=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch:
@@ -64,3 +67,30 @@ def test_revert_run_with_override(sample_project, aicodec_config_file, setup_rev
         review_service = mock_launch.call_args[0][0]
         assert review_service.output_dir == sample_project.resolve()
         assert review_service.changes_file == (sample_project / ".aicodec" / "revert.json").resolve()
+
+
+def test_revert_run_all_flag(sample_project, aicodec_config_file, setup_revert_file, monkeypatch, capsys):
+    """Test revert command with --all flag bypasses the UI."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        output_dir=None,
+        all=True
+    )
+
+    with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch, \
+         patch('aicodec.infrastructure.cli.commands.revert.ReviewService') as mock_review_service_class:
+
+        mock_service_instance = mock_review_service_class.return_value
+        mock_service_instance.get_review_context.return_value = {'changes': [{'filePath': 'a.py', 'proposed_content': '', 'action': 'DELETE'}]}
+        mock_service_instance.apply_changes.return_value = [{'status': 'SUCCESS'}]
+
+        revert.run(args)
+
+        mock_launch.assert_not_called()
+        mock_service_instance.apply_changes.assert_called_once()
+
+        captured = capsys.readouterr()
+        assert "Reverting all changes without review..." in captured.out
+        assert "Revert complete" in captured.out

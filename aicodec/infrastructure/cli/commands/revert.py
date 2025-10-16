@@ -1,4 +1,3 @@
-# aicodec/infrastructure/cli/commands/revert.py
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +24,12 @@ def register_subparser(subparsers: Any) -> None:
         type=Path,
         help="The project directory to revert changes in (overrides config).",
     )
+    revert_parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="Revert all changes directly without launching the review UI.",
+    )
     revert_parser.set_defaults(func=run)
 
 
@@ -47,4 +52,39 @@ def run(args: Any) -> None:
 
     repo = FileSystemChangeSetRepository()
     service = ReviewService(repo, output_dir_path, revert_file, mode="revert")
-    launch_review_server(service, mode="revert")
+
+    if args.all:
+        print("Reverting all changes without review...")
+        context = service.get_review_context()
+        changes_to_revert = context.get("changes", [])
+
+        if not changes_to_revert:
+            print("No changes to revert.")
+            return
+
+        changes_payload = [
+            {
+                "filePath": c["filePath"],
+                "action": c["action"],
+                "content": c["proposed_content"],
+            }
+            for c in changes_to_revert
+        ]
+
+        # In revert mode, session_id is None
+        results = service.apply_changes(changes_payload, None)
+
+        success_count = sum(1 for r in results if r["status"] == "SUCCESS")
+        skipped_count = sum(1 for r in results if r["status"] == "SKIPPED")
+        failure_count = sum(1 for r in results if r["status"] == "FAILURE")
+
+        print(
+            f"Revert complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed."
+        )
+        if failure_count > 0:
+            print("Failures:")
+            for r in results:
+                if r["status"] == "FAILURE":
+                    print(f"  - {r['filePath']}: {r['reason']}")
+    else:
+        launch_review_server(service, mode="revert")

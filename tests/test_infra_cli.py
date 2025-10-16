@@ -195,7 +195,7 @@ def test_apply_run(temp_config_file):
     with patch('aicodec.infrastructure.cli.commands.apply.ReviewService') as mock_review_service:
         with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch_server:
             args = MagicMock(config=str(temp_config_file),
-                             output_dir=None, changes=None)
+                             output_dir=None, changes=None, all=False)
             apply.run(args)
             mock_review_service.assert_called_once()
             mock_launch_server.assert_called_once_with(
@@ -207,7 +207,8 @@ def test_revert_run(temp_config_file):
         with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch_server:
             with patch('pathlib.Path.is_file', return_value=True):
                 args = MagicMock(config=str(temp_config_file),
-                                 output_dir=str(temp_config_file.parent.parent))
+                                 output_dir=str(temp_config_file.parent.parent),
+                                 all=False)
                 revert.run(args)
 
                 mock_review_service.assert_called_once()

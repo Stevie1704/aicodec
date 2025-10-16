@@ -1,4 +1,4 @@
-# aicodec/infrastructure/cli/commands/apply.py
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,12 @@ def register_subparser(subparsers: Any) -> None:
         type=Path,
         help="Path to the LLM changes JSON file (overrides config).",
     )
+    apply_parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="Apply all changes directly without launching the review UI.",
+    )
     apply_parser.set_defaults(func=run)
 
 
@@ -39,6 +45,7 @@ def run(args: Any) -> None:
     changes_file_cfg = file_cfg.get("prepare", {}).get("changes")
     output_dir = args.output_dir or output_dir_cfg
     changes_file = args.changes or changes_file_cfg
+
     if not all([output_dir, changes_file]):
         print(
             "Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config."
@@ -49,4 +56,40 @@ def run(args: Any) -> None:
     service = ReviewService(
         repo, Path(output_dir).resolve(), Path(changes_file).resolve(), mode="apply"
     )
-    launch_review_server(service, mode="apply")
+
+    if args.all:
+        session_id = str(uuid.uuid4())
+        print(f"Starting new apply session: {session_id}")
+        print("Applying all changes without review...")
+        context = service.get_review_context()
+        changes_to_apply = context.get("changes", [])
+
+        if not changes_to_apply:
+            print("No changes to apply.")
+            return
+
+        changes_payload = [
+            {
+                "filePath": c["filePath"],
+                "action": c["action"],
+                "content": c["proposed_content"],
+            }
+            for c in changes_to_apply
+        ]
+
+        results = service.apply_changes(changes_payload, session_id)
+
+        success_count = sum(1 for r in results if r["status"] == "SUCCESS")
+        skipped_count = sum(1 for r in results if r["status"] == "SKIPPED")
+        failure_count = sum(1 for r in results if r["status"] == "FAILURE")
+
+        print(
+            f"Apply complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed."
+        )
+        if failure_count > 0:
+            print("Failures:")
+            for r in results:
+                if r["status"] == "FAILURE":
+                    print(f"  - {r['filePath']}: {r['reason']}")
+    else:
+        launch_review_server(service, mode="apply")

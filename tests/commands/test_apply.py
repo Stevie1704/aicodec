@@ -18,7 +18,8 @@ def test_apply_run_basic(sample_project, aicodec_config_file, sample_changes_fil
     args = Namespace(
         config=str(aicodec_config_file),
         output_dir=None,
-        changes=None
+        changes=None,
+        all=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch:
@@ -35,7 +36,8 @@ def test_apply_run_with_overrides(sample_project, aicodec_config_file, sample_ch
     args = Namespace(
         config=str(aicodec_config_file),
         output_dir=sample_project,
-        changes=sample_changes_file
+        changes=sample_changes_file,
+        all=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch:
@@ -46,6 +48,38 @@ def test_apply_run_with_overrides(sample_project, aicodec_config_file, sample_ch
         review_service = mock_launch.call_args[0][0]
         assert review_service.output_dir == sample_project.resolve()
         assert review_service.changes_file == sample_changes_file.resolve()
+
+
+def test_apply_run_all_flag(sample_project, aicodec_config_file, sample_changes_file, monkeypatch, capsys):
+    """Test apply command with --all flag bypasses the UI."""
+    monkeypatch.chdir(sample_project)
+
+    config_data = json.loads(aicodec_config_file.read_text())
+    config_data["prepare"]["changes"] = str(sample_changes_file)
+    aicodec_config_file.write_text(json.dumps(config_data))
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        output_dir=None,
+        changes=None,
+        all=True
+    )
+
+    with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch, \
+         patch('aicodec.infrastructure.cli.commands.apply.ReviewService') as mock_review_service_class:
+
+        mock_service_instance = mock_review_service_class.return_value
+        mock_service_instance.get_review_context.return_value = {'changes': [{'filePath': 'a.py', 'proposed_content': 'test', 'action': 'CREATE'}]}
+        mock_service_instance.apply_changes.return_value = [{'status': 'SUCCESS'}]
+
+        apply.run(args)
+
+        mock_launch.assert_not_called()
+        mock_service_instance.apply_changes.assert_called_once()
+
+        captured = capsys.readouterr()
+        assert "Applying all changes without review..." in captured.out
+        assert "Apply complete" in captured.out
 
 
 def test_apply_run_missing_config(sample_project, monkeypatch, capsys):
@@ -60,7 +94,8 @@ def test_apply_run_missing_config(sample_project, monkeypatch, capsys):
     args = Namespace(
         config=str(config_file),
         output_dir=None,
-        changes=None
+        changes=None,
+        all=False
     )
 
     apply.run(args)

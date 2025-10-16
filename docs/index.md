@@ -29,7 +29,7 @@ AI Codec is designed for the developer who:
 
 - 	 Prefers the flexibility of interacting directly with an LLM's web interface (like ChatGPT, Claude, Gemini, etc.).
 - 	 Wants to avoid the complexity and cost of managing API keys.
-- 	 Needs a structured, safe, and reversible way to apply AI-generated code without the overhead of a fully integrated solution like Aider.
+- 	 Needs a structured, safe, and reversible way to apply AI-generated code.
 
 ---
 
