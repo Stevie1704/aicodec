@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -8,7 +7,6 @@ import pytest
 from aicodec.infrastructure.cli.commands.utils import (
     get_list_from_user,
     get_user_confirmation,
-    load_default_prompt_template,
     parse_json_file,
 )
 
@@ -98,52 +96,6 @@ def mock_prompt_files(tmp_path):
     (prompt_dir / "full.txt").write_text("Full prompt content.")
     # We return the path to the top-level 'aicodec' directory
     return tmp_path / "aicodec"
-
-
-def test_load_default_prompt_template_minimal(monkeypatch, mock_prompt_files):
-    """Tests loading the minimal prompt template."""
-    # Arrange: Mock importlib.resources.files to return our temp path
-    mock_files = MagicMock(return_value=mock_prompt_files)
-    monkeypatch.setattr(
-        "aicodec.infrastructure.cli.commands.utils.files", mock_files)
-
-    # Act: Call the function for the minimal template
-    content = load_default_prompt_template(minimal=True)
-
-    # Assert: Check that the correct file content was read
-    mock_files.assert_called_once_with("aicodec")
-    assert content == "Minimal prompt content."
-
-
-def test_load_default_prompt_template_full(monkeypatch, mock_prompt_files):
-    """Tests loading the full prompt template."""
-    # Arrange: Mock importlib.resources.files to return our temp path
-    mock_files = MagicMock(return_value=mock_prompt_files)
-    monkeypatch.setattr(
-        "aicodec.infrastructure.cli.commands.utils.files", mock_files)
-
-    # Act: Call the function for the full template
-    content = load_default_prompt_template(minimal=False)
-
-    # Assert: Check that the correct file content was read
-    mock_files.assert_called_once_with("aicodec")
-    assert content == "Full prompt content."
-
-
-def test_load_default_prompt_template_file_not_found(monkeypatch, capsys):
-    """Tests the error handling when a template file is not found."""
-    # Arrange: Mock importlib.resources.files to raise an error
-    mock_files = MagicMock(side_effect=FileNotFoundError)
-    monkeypatch.setattr(
-        "aicodec.infrastructure.cli.commands.utils.files", mock_files)
-
-    # Act & Assert: Check that SystemExit is raised and the correct error is printed
-    with pytest.raises(SystemExit) as e:
-        load_default_prompt_template(minimal=True)
-
-    assert e.value.code == 1
-    captured = capsys.readouterr()
-    assert "prompt template not found" in captured.err
 
 
 def test_parse_valid_json_file(tmp_path: Path):

@@ -4,11 +4,12 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+import jinja2
 import pyperclip
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor
-from .utils import load_default_prompt_template, parse_json_file
+from .utils import parse_json_file
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -49,6 +50,20 @@ def register_subparser(subparsers: Any) -> None:
         action="store_true",
         help="Copy the generated prompt to the clipboard instead of opening a file.",
     )
+    prompt_parser.add_argument(
+        "-noi",
+        "--no-output-instruction",
+        action="store_true",
+        dest="exclude_output_instructions",
+        help="Exclude output instructions from the prompt.",
+    )
+    prompt_parser.add_argument(
+        "-np",
+        "--new-project",
+        action="store_true",
+        dest="is_new_project",
+        help="Optimize the prompt for a new project with no existing code context.",
+    )
     group = prompt_parser.add_mutually_exclusive_group()
     group.add_argument(
         "--no-code",
@@ -64,14 +79,14 @@ def run(args: Any) -> None:
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
 
-    if args.exclude_code:
+    if args.exclude_code or args.is_new_project:
         include_code_context = False
     else:
         include_code_context = prompt_cfg.get("include_code", True)
 
-    context_file = Path(".aicodec") / "context.json"
-    code_context_section = ""
+    code_context = None
     if include_code_context:
+        context_file = Path(".aicodec") / "context.json"
         if not context_file.is_file():
             print(
                 f"Error: Context file '{context_file}' not found. Run 'aicodec aggregate' first."
@@ -79,13 +94,7 @@ def run(args: Any) -> None:
             sys.exit(1)
 
         try:
-            context_content = parse_json_file(context_file)
-            code_context_section = (
-                "<code_context>\n"
-                "The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.\n\n"
-                f"```json\n{context_content}\n```\n"
-                "</code_context>\n"
-            )
+            code_context = parse_json_file(context_file)
         except FileNotFoundError as e:
             print(f"Error reading required file: {e}", file=sys.stderr)
             sys.exit(1)
@@ -94,18 +103,33 @@ def run(args: Any) -> None:
     schema_content = parse_json_file(schema_path)
 
     tech_stack = prompt_cfg.get("tech_stack", False) or args.tech_stack
-    minimal_prompt = args.minimal or prompt_cfg.get("minimal", False)
-    template = prompt_cfg.get(
-        "template", load_default_prompt_template(minimal_prompt))
-    # Default values for placeholders if they are not in the template
-    prompt_placeholders = {
+
+    prompt_templates_path = files("aicodec") / "assets" / "prompts"
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(str(prompt_templates_path)),
+        # B701:autoescape is False. This is safe as we are generating plain text files, not HTML.
+        autoescape=False,  # nosec B701
+    )
+
+    custom_template_str = prompt_cfg.get("template")
+
+    if custom_template_str:
+        template = env.from_string(custom_template_str)
+    else:
+        minimal_prompt = args.minimal or prompt_cfg.get("minimal", False)
+        template_name = "minimal.j2" if minimal_prompt else "full.j2"
+        template = env.get_template(template_name)
+
+    prompt_context = {
         "language_and_tech_stack": tech_stack,
         "user_task_description": args.task,
-        "code_context_section": code_context_section,
+        "code_context": code_context,
         "json_schema": schema_content,
+        "include_output_instructions": not args.exclude_output_instructions,
+        "is_new_project": args.is_new_project,
     }
 
-    prompt = template.format(**prompt_placeholders)
+    prompt = template.render(**prompt_context)
 
     clipboard = prompt_cfg.get("clipboard", False) or args.clipboard
     output_file = args.output_file or prompt_cfg.get(
@@ -122,11 +146,13 @@ def run(args: Any) -> None:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(prompt, encoding="utf-8")
             print(
-                f"Clipboard not available. Prompt has been saved to '{output_path}' instead.")
+                f"Clipboard not available. Prompt has been saved to '{output_path}' instead."
+            )
             if not open_file_in_editor(output_path):
                 print("Could not open an editor automatically.")
                 print(
-                    f"Please open the file and copy its contents to your LLM: {output_path}")
+                    f"Please open the file and copy its contents to your LLM: {output_path}"
+                )
     else:
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -135,4 +161,5 @@ def run(args: Any) -> None:
         if not open_file_in_editor(output_path):
             print("Could not open an editor automatically.")
             print(
-                f"Please open the file and copy its contents to your LLM: {output_path}")
+                f"Please open the file and copy its contents to your LLM: {output_path}"
+            )

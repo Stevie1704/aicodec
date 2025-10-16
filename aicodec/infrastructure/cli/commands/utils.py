@@ -1,7 +1,6 @@
 # aicodec/infrastructure/cli/commands/utils.py
 import json
 import sys
-from importlib.resources import files
 from pathlib import Path
 
 
@@ -26,23 +25,6 @@ def get_list_from_user(prompt: str) -> list[str]:
     if not response:
         return []
     return [item.strip() for item in response.split(",")]
-
-
-def load_default_prompt_template(minimal: bool) -> str:
-    """Loads the default prompt template from the package data."""
-    try:
-        prompt_dir = files("aicodec") / "assets" / "prompts"
-        if minimal:
-            prompt_template = prompt_dir / "minimal.txt"
-        else:
-            prompt_template = prompt_dir / "full.txt"
-        return prompt_template.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        print(
-            "Error: prompt template not found. The package might be corrupted.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
 
 def parse_json_file(file_path: Path) -> str:

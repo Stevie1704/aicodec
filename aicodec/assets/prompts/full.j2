@@ -1,0 +1,28 @@
+{% extends "base.j2" %}
+
+{% block extra_guidance %}
+<action_rules>
+* Apply changes **in the array order** they appear.
+* Avoid duplicate `filePath` entries unless sequential edits are explicitly intended (prefer consolidation).
+* For files not present in context, use `CREATE`. For present ones, use `REPLACE`.
+* Do not include generated artifacts (compiled outputs, lock files unless requested, binaries) unless explicitly required.
+</action_rules>
+<coding_standard>
+Apply best practices relevant to {{ language_and_tech_stack }}, including:
+* Style and formatting conventions (e.g., idiomatic syntax, linting rules).
+* Clear structure and maintainability (small functions, modular design).
+* Testing: add/update tests for changed logic using the appropriate test framework.
+* Security: no secrets in code; validate inputs; safe handling of external dependencies.
+* Performance: efficient algorithms and resource usage.
+* Packaging/Deployment: update config or containerization (if applicable) using minimal, secure, reproducible practices.
+</coding_standard>
+<preflight_checking>
+Must be true before emitting JSON:
+* The JSON validates against the schema.
+* No markdown, comments, or extra text outside the JSON.
+* All `CREATE`/`REPLACE` contain full file contents.
+* All `DELETE` actions have `content: ""`.
+* File paths are POSIX and relative.
+* Output is minimal yet complete.
+</preflight_checking>
+{% endblock extra_guidance %}

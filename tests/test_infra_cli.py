@@ -22,7 +22,7 @@ def temp_config_file(tmp_path):
     config_dir.mkdir()
     config_file = config_dir / 'config.json'
     config_data = {
-        "aggregate": {"directories": ["."]},
+        "aggregate": {"directories": ["./"]},
         "prompt": {"output_file": str(config_dir / "prompt.txt")},
         "prepare": {"changes": str(config_dir / 'changes.json'), "from_clipboard": False},
         "apply": {"output_dir": "."}
@@ -131,44 +131,64 @@ def test_aggregate_run(temp_config_file):
 
 def test_prompt_run(temp_config_file):
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
-        with patch('aicodec.infrastructure.cli.commands.prompt.files') as mock_files:
-            with patch('aicodec.infrastructure.cli.commands.prompt.load_default_prompt_template') as mock_template:
-                mock_schema_path = MagicMock()
-                mock_schema_path.read_text.return_value = '{"schema": true}'
-                mock_assets = MagicMock()
-                mock_assets.__truediv__.return_value = mock_schema_path
-                mock_aicodec = MagicMock()
-                mock_aicodec.__truediv__.return_value = mock_assets
-                mock_files.return_value = mock_aicodec
-                mock_template.return_value = 'template with {user_task_description}'
+        with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', side_effect=['[]', '{"schema": true}']) as mock_parse_json:
+            with patch('aicodec.infrastructure.cli.commands.prompt.jinja2') as mock_jinja2:
+                mock_template = MagicMock()
+                mock_template.render.return_value = "rendered template"
+                mock_env = MagicMock()
+                mock_env.get_template.return_value = mock_template
+                mock_jinja2.Environment.return_value = mock_env
 
                 context_file = temp_config_file.parent / 'context.json'
                 context_file.write_text('[]')
 
-                args = MagicMock(config=str(
-                    temp_config_file), task='test task', output_file=None, clipboard=False)
+                args = MagicMock(
+                    config=str(temp_config_file),
+                    task='test task',
+                    output_file=None,
+                    clipboard=False,
+                    minimal=False,
+                    exclude_code=False,
+                    tech_stack="Python",
+                    is_new_project=False,
+                    exclude_output_instructions=False
+                )
 
                 with patch('pathlib.Path.write_text') as mock_write:
                     prompt.run(args)
-
-                    mock_write.assert_called_once()
-                    call_args = mock_write.call_args
-                    assert 'template with test task' in call_args[0][0]
+                    mock_write.assert_called_once_with("rendered template", encoding="utf-8")
+                    mock_env.get_template.assert_called_once_with("full.j2")
+                    assert mock_parse_json.call_count == 2
 
 
 def test_prompt_run_to_clipboard(temp_config_file):
     with patch('aicodec.infrastructure.cli.commands.prompt.pyperclip') as mock_pyperclip:
-        with patch('pathlib.Path.is_file', return_value=True):
-            with patch('pathlib.Path.read_text', return_value='[]'):
-                with patch('aicodec.infrastructure.cli.commands.prompt.files'):
-                    with patch('aicodec.infrastructure.cli.commands.prompt.load_default_prompt_template', return_value='template'):
-                        with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', return_value='{"schema":true}'):
-                            args = MagicMock(config=str(
-                                temp_config_file), task='test task', output_file=None, clipboard=True)
-                            prompt.run(args)
+        with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', side_effect=['[]', '{"schema": true}']):
+            with patch('aicodec.infrastructure.cli.commands.prompt.jinja2') as mock_jinja2:
+                mock_template = MagicMock()
+                mock_template.render.return_value = "rendered template"
+                mock_env = MagicMock()
+                mock_env.get_template.return_value = mock_template
+                mock_jinja2.Environment.return_value = mock_env
 
-                            mock_pyperclip.copy.assert_called_once_with(
-                                'template')
+                context_file = temp_config_file.parent / 'context.json'
+                context_file.write_text('[]')
+
+                args = MagicMock(
+                    config=str(temp_config_file),
+                    task='test task',
+                    output_file=None,
+                    clipboard=True,
+                    minimal=True,
+                    exclude_code=False,
+                    tech_stack="Python",
+                    is_new_project=False,
+                    exclude_output_instructions=False
+                )
+                prompt.run(args)
+
+                mock_pyperclip.copy.assert_called_once_with("rendered template")
+                mock_env.get_template.assert_called_once_with("minimal.j2")
 
 
 def test_apply_run(temp_config_file):

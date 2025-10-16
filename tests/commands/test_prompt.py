@@ -29,7 +29,9 @@ def test_prompt_run_basic(sample_project, aicodec_config_file, setup_context_fil
         tech_stack=None,
         output_file=None,
         clipboard=False,
-        exclude_code=False
+        exclude_code=False,
+        exclude_output_instructions=False,
+        is_new_project=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor') as mock_open:
@@ -40,8 +42,10 @@ def test_prompt_run_basic(sample_project, aicodec_config_file, setup_context_fil
     assert prompt_file.exists()
     content = prompt_file.read_text()
     assert "My test task" in content
-    assert "<code_context>" in content  # Code is included by default
-    assert "<coding_standard>" in content  # full context is included
+    assert "<code_context>" in content
+    assert "<coding_standard>" in content
+    assert "<output_instructions>" in content
+    assert "deeply analyze" in content
 
 
 def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
@@ -55,7 +59,9 @@ def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_cont
         tech_stack="Python",
         output_file=None,
         clipboard=True,
-        exclude_code=False
+        exclude_code=False,
+        exclude_output_instructions=False,
+        is_new_project=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.pyperclip.copy') as mock_copy:
@@ -64,7 +70,7 @@ def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_cont
         call_content = mock_copy.call_args[0][0]
         assert "Clipboard task" in call_content
         assert "Python" in call_content
-        assert "<coding_standard>" not in call_content  # full context is not included
+        assert "<coding_standard>" not in call_content
 
 
 def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
@@ -78,7 +84,9 @@ def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_f
         tech_stack=None,
         output_file=None,
         clipboard=False,
-        exclude_code=True
+        exclude_code=True,
+        exclude_output_instructions=False,
+        is_new_project=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
@@ -98,10 +106,13 @@ def test_prompt_run_missing_context(sample_project, aicodec_config_file, monkeyp
     args = Namespace(
         config=str(aicodec_config_file),
         task="Will fail",
+        minimal=False,
         tech_stack=None,
         output_file=None,
         clipboard=False,
-        exclude_code=False
+        exclude_code=False,
+        exclude_output_instructions=False,
+        is_new_project=False
     )
 
     with pytest.raises(SystemExit) as e:
@@ -110,3 +121,56 @@ def test_prompt_run_missing_context(sample_project, aicodec_config_file, monkeyp
     assert e.value.code == 1
     captured = capsys.readouterr()
     assert "context.json' not found" in captured.out
+
+
+def test_prompt_run_no_output_instructions(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
+    """Test prompt generation with the --no-output-instruction flag."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        task="No output instructions task",
+        minimal=False,
+        tech_stack=None,
+        output_file=None,
+        clipboard=False,
+        exclude_code=False,
+        exclude_output_instructions=True,  # Flag under test
+        is_new_project=False
+    )
+
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
+        prompt.run(args)
+
+    prompt_file = sample_project / ".aicodec" / "prompt.txt"
+    content = prompt_file.read_text()
+    assert "No output instructions task" in content
+    assert "<output_instructions>" not in content
+    assert "<code_context>" in content
+
+
+def test_prompt_run_new_project(sample_project, aicodec_config_file, monkeypatch):
+    """Test prompt generation with the --new-project flag."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        task="New project task",
+        minimal=False,
+        tech_stack=None,
+        output_file=None,
+        clipboard=False,
+        exclude_code=False,  # Should be ignored by is_new_project
+        exclude_output_instructions=False,
+        is_new_project=True  # Flag under test
+    )
+
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
+        prompt.run(args)
+
+    prompt_file = sample_project / ".aicodec" / "prompt.txt"
+    content = prompt_file.read_text()
+    assert "New project task" in content
+    assert "<code_context>" not in content
+    assert "deeply analyze the provided code context" not in content
+    assert "perform the following actions" in content
