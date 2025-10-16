@@ -1,6 +1,7 @@
 {% extends "base.j2" %}
 
 {% block extra_guidance %}
+{% if include_output_instructions %}
 <action_rules>
 * Apply changes **in the array order** they appear.
 * Avoid duplicate `filePath` entries unless sequential edits are explicitly intended (prefer consolidation).
@@ -25,4 +26,5 @@ Must be true before emitting JSON:
 * File paths are POSIX and relative.
 * Output is minimal yet complete.
 </preflight_checking>
+{% endif %}
 {% endblock extra_guidance %}
