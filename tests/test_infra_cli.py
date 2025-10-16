@@ -115,7 +115,8 @@ def test_schema_run_not_found(capsys):
     assert "schema.json not found" in captured.err
 
 
-def test_aggregate_run(temp_config_file):
+def test_aggregate_run(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.aggregate.AggregationService') as mock_agg_service_class:
         mock_agg_service_instance = mock_agg_service_class.return_value
 
@@ -129,7 +130,8 @@ def test_aggregate_run(temp_config_file):
             full_run=True, count_tokens=True)
 
 
-def test_prompt_run(temp_config_file):
+def test_prompt_run(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
         with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', side_effect=['[]', '{"schema": true}']) as mock_parse_json:
             with patch('aicodec.infrastructure.cli.commands.prompt.jinja2') as mock_jinja2:
@@ -161,7 +163,8 @@ def test_prompt_run(temp_config_file):
                     assert mock_parse_json.call_count == 2
 
 
-def test_prompt_run_to_clipboard(temp_config_file):
+def test_prompt_run_to_clipboard(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prompt.pyperclip') as mock_pyperclip:
         with patch('aicodec.infrastructure.cli.commands.prompt.parse_json_file', side_effect=['[]', '{"schema": true}']):
             with patch('aicodec.infrastructure.cli.commands.prompt.jinja2') as mock_jinja2:
@@ -191,7 +194,8 @@ def test_prompt_run_to_clipboard(temp_config_file):
                 mock_env.get_template.assert_called_once_with("minimal.j2")
 
 
-def test_apply_run(temp_config_file):
+def test_apply_run(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.apply.ReviewService') as mock_review_service:
         with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch_server:
             args = MagicMock(config=str(temp_config_file),
@@ -202,7 +206,8 @@ def test_apply_run(temp_config_file):
                 mock_review_service.return_value, mode='apply')
 
 
-def test_revert_run(temp_config_file):
+def test_revert_run(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.revert.ReviewService') as mock_review_service:
         with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch_server:
             with patch('pathlib.Path.is_file', return_value=True):
@@ -216,7 +221,8 @@ def test_revert_run(temp_config_file):
                     mock_review_service.return_value, mode='revert')
 
 
-def test_prepare_run_from_clipboard_success(temp_config_file):
+def test_prepare_run_from_clipboard_success(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prepare.pyperclip') as mock_pyperclip:
         with patch('aicodec.infrastructure.cli.commands.prepare.files') as mock_files:
             with patch('jsonschema.validate'):
@@ -241,7 +247,8 @@ def test_prepare_run_from_clipboard_success(temp_config_file):
                 assert actual_data == expected_data
 
 
-def test_prepare_run_open_editor(temp_config_file):
+def test_prepare_run_open_editor(temp_config_file, monkeypatch):
+    monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prepare.open_file_in_editor') as mock_open_editor:
         args = MagicMock(config=str(temp_config_file),
                          changes=None, from_clipboard=False)
