@@ -8,7 +8,16 @@ Your goal is to scaffold a **new project** from scratch. There is no existing co
 2.  **Include all necessary boilerplate files**, such as configuration (`pyproject.toml`, `package.json`, etc.), dependency lists (`requirements.txt`), and documentation (`README.md`).
 3.  **Ensure the result is a complete, runnable starting point.** Before finishing, double-check that you have included all the files needed to set up and run the project.
 </project_instructions>
-{% elif code_context %}
+{% else %}
+{% if repo_map_content %}
+<repository_map>
+The repository has the following structure:
+```markdown
+{{ repo_map_content }}
+```
+</repository_map>
+{% endif %}
+{% if code_context %}
 <code_context>
 The relevant codebase is provided below as a JSON array. Each object in the array contains the relative 'filePath' and the full 'content' of a file.
 
@@ -16,6 +25,7 @@ The relevant codebase is provided below as a JSON array. Each object in the arra
 {{ code_context }}
 ```
 </code_context>
+{% endif %}
 {% endif %}
 {% if include_output_instructions %}
 <output_instructions>

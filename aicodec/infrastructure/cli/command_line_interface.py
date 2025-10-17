@@ -8,6 +8,7 @@ from aicodec import __version__
 from .commands import (
     aggregate,
     apply,
+    buildmap,
     init,
     prepare,
     prompt,
@@ -44,6 +45,7 @@ def main() -> None:  # pragma: no cover
     init.register_subparser(subparsers)
     schema.register_subparser(subparsers)
     aggregate.register_subparser(subparsers)
+    buildmap.register_subparser(subparsers)
     prompt.register_subparser(subparsers)
     apply.register_subparser(subparsers)
     revert.register_subparser(subparsers)

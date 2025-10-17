@@ -66,8 +66,7 @@ def aicodec_config_file(sample_project):
     config_data = {
         "aggregate": {
             "directories": ["."],
-            "use_gitignore": True,
-            "exclude_dirs": [".git", ".aicodec"]
+            "use_gitignore": True
         },
         "prompt": {
             "output_file": ".aicodec/prompt.txt",
