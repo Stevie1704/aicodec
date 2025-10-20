@@ -42,11 +42,25 @@ def parse_json_file(file_path: Path) -> str:
         sys.exit(1)
 
 
-def remove_control_characters(s: str) -> str:
+def clean_json_string(s: str) -> str:
     """
-    Removes all ASCII control characters from the input string.
+    Cleans a string intended for JSON parsing.
 
-    Control characters are those with Unicode code points 0-31 and 127.
+    1. Replaces actual non-breaking spaces (\u00a0 or \xa0) with regular spaces.
+    2. Replaces the literal text "\\u00a0" with a regular space.
+    3. Removes problematic ASCII control characters (0-8, 11-12, 14-31, 127)
+       while preserving tab (\t), newline (\n), and carriage return (\r).
     """
-    # Use regex to substitute control characters with empty string
-    return re.sub(r'[\x00-\x1F\x7F\xa0]', '', s)
+
+    # 1. Replace the actual non-breaking space character with a regular space
+    s = re.sub(r'\xa0', ' ', s)
+
+    # 2. Replace the literal text sequence "\\u00a0" with a regular space
+    # (The first \ escapes the second \ for the regex)
+    s = re.sub(r'\\u00a0', ' ', s)
+
+    # 3. Remove other control characters, preserving \t, \n, \r
+    #    (Ranges: 0-8, 11-12, 14-31, and 127)
+    s = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', s)
+
+    return s

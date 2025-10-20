@@ -9,7 +9,7 @@ from jsonschema import ValidationError, validate
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor
-from .utils import get_user_confirmation
+from .utils import clean_json_string, get_user_confirmation
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -84,7 +84,8 @@ def run(args: Any) -> None:
             return
 
         try:
-            json_content = json.loads(clipboard_content)
+            json_content = json.loads(
+                clean_json_string(clipboard_content))
             validate(instance=json_content, schema=schema)
             # Pretty-print the validated JSON to the file
             formatted_json = json.dumps(json_content, indent=4)
