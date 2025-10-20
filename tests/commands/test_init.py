@@ -9,18 +9,16 @@ def test_init_run_defaults(tmp_path, monkeypatch):
     """Test `init` with default 'yes' for most prompts and skipping advanced config."""
     monkeypatch.chdir(tmp_path)
 
-    # Responses:
-    # Overwrite? (not asked)
-    # Use gitignore? (Y)
-    # Update .gitignore? (Y)
-    # Exclude .gitignore? (Y)
-    # Configure additional? (n)
-    # Use minimal prompt? (n)
-    # Tech stack? (Python)
-    # From clipboard default? (n)
-    # Include code? (Y)
-    # Prompt clipboard? (n)
-    user_inputs = ['y', 'y', 'y', 'n', 'n', 'Python', 'n', 'y', 'n']
+    user_inputs = [
+        'y', 'y', 'y',  # Standard gitignore prompts
+        'n',  # Configure additional?
+        'n',  # Use minimal prompt?
+        'Python',  # Tech stack
+        'y',  # Include repository map?
+        'n',  # from_clipboard
+        'y',  # include_code
+        'y',  # prompt to clipboard
+    ]
 
     with patch('builtins.input', side_effect=user_inputs):
         init.run(MagicMock())
@@ -33,6 +31,7 @@ def test_init_run_defaults(tmp_path, monkeypatch):
     assert '.gitignore' in config['aggregate']['exclude']
     assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
+    assert config['prompt']['include_map'] is True
     assert config['prepare']['from_clipboard'] is False
     assert config['prompt']['include_code'] is True
 
@@ -66,6 +65,7 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
         'node_modules/, **/*.log',  # exclude
         'y',  # Use minimal prompt?
         'TypeScript/React',  # Tech stack
+        'n',  # Include repository map?
         'y',  # from_clipboard
         'y',  # include_code
         'y',  # prompt to clipboard
@@ -83,5 +83,6 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     assert '**/*.log' in agg_config['exclude']
     assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'TypeScript/React'
+    assert config['prompt']['include_map'] is False
     assert config['prepare']['from_clipboard'] is True
     assert config['prompt']['clipboard'] is True

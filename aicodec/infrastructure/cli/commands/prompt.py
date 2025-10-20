@@ -64,13 +64,29 @@ def register_subparser(subparsers: Any) -> None:
         dest="is_new_project",
         help="Optimize the prompt for a new project with no existing code context.",
     )
-    group = prompt_parser.add_mutually_exclusive_group()
-    group.add_argument(
+    code_group = prompt_parser.add_mutually_exclusive_group()
+    code_group.add_argument(
         "--no-code",
         action="store_true",
         dest="exclude_code",
         help="Exclude code context from the prompt (overrides config).",
     )
+
+    map_group = prompt_parser.add_mutually_exclusive_group()
+    map_group.add_argument(
+        "-im", "--include-map",
+        action="store_true",
+        dest="include_map",
+        default=None,
+        help="Include the repository map in the prompt (overrides config)."
+    )
+    map_group.add_argument(
+        "-em", "--exclude-map",
+        action="store_false",
+        dest="include_map",
+        help="Exclude the repository map from the prompt (overrides config)."
+    )
+
     prompt_parser.set_defaults(func=run)
 
 
@@ -87,17 +103,30 @@ def run(args: Any) -> None:
     code_context = None
     if include_code_context:
         context_file = Path(".aicodec") / "context.json"
-        if not context_file.is_file():
-            print(
-                f"Error: Context file '{context_file}' not found. Run 'aicodec aggregate' first."
-            )
-            sys.exit(1)
-
-        try:
+        if context_file.is_file():
             code_context = parse_json_file(context_file)
-        except FileNotFoundError as e:
-            print(f"Error reading required file: {e}", file=sys.stderr)
-            sys.exit(1)
+
+    if args.include_map is not None:
+        include_repo_map = args.include_map
+    else:
+        include_repo_map = prompt_cfg.get("include_map", False)
+
+    repo_map_content = None
+    repo_map_file = Path(".aicodec") / "repo_map.md"
+    if include_repo_map:
+        if repo_map_file.is_file():
+            try:
+                repo_map_content = repo_map_file.read_text(encoding="utf-8")
+            except Exception as e:
+                print(f"Warning: Could not read repo map file '{repo_map_file}': {e}")
+        else:
+            print(f"Warning: Repo map file not found at '{repo_map_file}'. Run 'aicodec buildmap' first.")
+
+    if include_code_context and not code_context and not repo_map_content:
+        print(
+            "Error: No context available. Run 'aicodec aggregate' or 'aicodec buildmap' first, or use the appropriate flags."
+        )
+        sys.exit(1)
 
     schema_path = files("aicodec") / "assets" / "decoder_schema.json"
     schema_content = parse_json_file(schema_path)
@@ -109,6 +138,8 @@ def run(args: Any) -> None:
         loader=jinja2.FileSystemLoader(str(prompt_templates_path)),
         # B701:autoescape is False. This is safe as we are generating plain text files, not HTML.
         autoescape=False,  # nosec B701
+        trim_blocks=True,
+        lstrip_blocks=True
     )
 
     custom_template_str = prompt_cfg.get("template")
@@ -124,6 +155,7 @@ def run(args: Any) -> None:
         "language_and_tech_stack": tech_stack,
         "user_task_description": args.task,
         "code_context": code_context,
+        "repo_map_content": repo_map_content,
         "json_schema": schema_content,
         "include_output_instructions": not args.exclude_output_instructions,
         "is_new_project": args.is_new_project,

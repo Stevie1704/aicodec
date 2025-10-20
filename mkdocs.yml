@@ -29,6 +29,7 @@ nav:
   - 'Command Reference':
       - 'init': 'commands/init.md'
       - 'aggregate': 'commands/aggregate.md'
+      - 'buildmap': 'commands/buildmap.md'
       - 'prompt': 'commands/prompt.md'
       - 'prepare': 'commands/prepare.md'
       - 'apply': 'commands/apply.md'

@@ -1,5 +1,6 @@
 # aicodec/infrastructure/cli/commands/utils.py
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -39,3 +40,13 @@ def parse_json_file(file_path: Path) -> str:
         print(
             f"Error: Failed to parse JSON file '{file_path}': {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def remove_control_characters(s: str) -> str:
+    """
+    Removes all ASCII control characters from the input string.
+
+    Control characters are those with Unicode code points 0-31 and 127.
+    """
+    # Use regex to substitute control characters with empty string
+    return re.sub(r'[\x00-\x1F\x7F\xa0]', '', s)

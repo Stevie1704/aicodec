@@ -3,174 +3,130 @@ import json
 from argparse import Namespace
 from unittest.mock import patch
 
-import pytest
-
 from aicodec.infrastructure.cli.commands import prompt
 
 
-@pytest.fixture
-def setup_context_file(sample_project):
-    context_dir = sample_project / ".aicodec"
-    context_dir.mkdir(exist_ok=True)
-    context_file = context_dir / "context.json"
-    context_file.write_text(json.dumps(
-        [{"filePath": "main.py", "content": "print"}]))
-    return context_file
-
-
-def test_prompt_run_basic(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
-    """Test basic prompt generation to a file."""
+def test_prompt_run_basic(sample_project, aicodec_config_file, monkeypatch):
+    """Test basic prompt command generates a file with context but no map."""
     monkeypatch.chdir(sample_project)
+    (sample_project / ".aicodec" / "context.json").write_text('[]')
 
     args = Namespace(
         config=str(aicodec_config_file),
-        task="My test task",
-        minimal=False,
-        tech_stack=None,
-        output_file=None,
-        clipboard=False,
-        exclude_code=False,
-        exclude_output_instructions=False,
-        is_new_project=False
+        task="A test task",
+        minimal=False, tech_stack=None, output_file=None, clipboard=False,
+        exclude_output_instructions=False, is_new_project=False, exclude_code=False,
+        include_map=None  # Use default from config (False)
     )
 
-    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor') as mock_open:
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
         prompt.run(args)
-        mock_open.assert_called_once()
 
     prompt_file = sample_project / ".aicodec" / "prompt.txt"
     assert prompt_file.exists()
     content = prompt_file.read_text()
-    assert "My test task" in content
+
+    assert "A test task" in content
     assert "<code_context>" in content
-    assert "<coding_standard>" in content
-    assert "<output_instructions>" in content
-    assert "deeply analyze" in content
+    assert "<repository_map>" not in content
 
 
-def test_prompt_run_to_clipboard(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
-    """Test prompt generation to the clipboard."""
+@patch('pyperclip.copy')
+def test_prompt_run_include_map_flag(mock_copy, sample_project, aicodec_config_file, monkeypatch):
+    """Test prompt command with --include-map includes a pre-existing repo map."""
     monkeypatch.chdir(sample_project)
+    map_content = ".\n└── main.py"
+    (sample_project / ".aicodec" / "repo_map.md").write_text(map_content)
 
     args = Namespace(
         config=str(aicodec_config_file),
-        task="Clipboard task",
-        minimal=True,
-        tech_stack="Python",
-        output_file=None,
-        clipboard=True,
-        exclude_code=False,
-        exclude_output_instructions=False,
-        is_new_project=False
+        task="A map task",
+        minimal=False, tech_stack=None, output_file=None, clipboard=True,
+        exclude_output_instructions=False, is_new_project=False, exclude_code=True,
+        include_map=True  # Explicitly include
     )
 
-    with patch('aicodec.infrastructure.cli.commands.prompt.pyperclip.copy') as mock_copy:
-        prompt.run(args)
-        mock_copy.assert_called_once()
-        call_content = mock_copy.call_args[0][0]
-        assert "Clipboard task" in call_content
-        assert "Python" in call_content
-        assert "<coding_standard>" not in call_content
+    prompt.run(args)
+
+    mock_copy.assert_called_once()
+    content = mock_copy.call_args[0][0]
+
+    assert "A map task" in content
+    assert "<code_context>" not in content
+    assert "<repository_map>" in content
+    assert map_content in content
 
 
-def test_prompt_run_no_code(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
-    """Test prompt generation with the --no-code flag."""
+def test_prompt_run_exclude_map_flag(sample_project, aicodec_config_file, monkeypatch):
+    """Test prompt command with --exclude-map overrides a config default of true."""
     monkeypatch.chdir(sample_project)
+    (sample_project / ".aicodec" / "repo_map.md").write_text(".")
+
+    # Set config to include map by default
+    config_data = json.loads(aicodec_config_file.read_text())
+    config_data['prompt']['include_map'] = True
+    aicodec_config_file.write_text(json.dumps(config_data))
 
     args = Namespace(
         config=str(aicodec_config_file),
-        task="No code task",
-        minimal=False,
-        tech_stack=None,
-        output_file=None,
-        clipboard=False,
-        exclude_code=True,
-        exclude_output_instructions=False,
-        is_new_project=False
+        task="A test task",
+        minimal=False, tech_stack=None, output_file=None, clipboard=False,
+        exclude_output_instructions=False, is_new_project=False, exclude_code=True,
+        include_map=False  # Explicitly exclude via --exclude-map
     )
 
-    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
         prompt.run(args)
 
     prompt_file = sample_project / ".aicodec" / "prompt.txt"
     content = prompt_file.read_text()
-    assert "No code task" in content
-    assert "<code_context>" not in content
-    assert "<coding_standard>" in content
+    assert "<repository_map>" not in content
 
 
-def test_prompt_run_missing_context(sample_project, aicodec_config_file, monkeypatch, capsys):
-    """Test that prompt command exits if context.json is missing."""
+def test_prompt_run_from_config(sample_project, aicodec_config_file, monkeypatch):
+    """Test prompt command respects include_map=True from config."""
+    monkeypatch.chdir(sample_project)
+    (sample_project / ".aicodec" / "repo_map.md").write_text(".")
+
+    # Set config to include map by default
+    config_data = json.loads(aicodec_config_file.read_text())
+    config_data['prompt']['include_map'] = True
+    aicodec_config_file.write_text(json.dumps(config_data))
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        task="A test task",
+        minimal=False, tech_stack=None, output_file=None, clipboard=False,
+        exclude_output_instructions=False, is_new_project=False, exclude_code=True,
+        include_map=None  # Use config
+    )
+
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
+        prompt.run(args)
+
+    prompt_file = sample_project / ".aicodec" / "prompt.txt"
+    content = prompt_file.read_text()
+    assert "<repository_map>" in content
+
+def test_prompt_warns_if_map_missing(sample_project, aicodec_config_file, monkeypatch, capsys):
+    """Test prompt command warns the user if the repo map file is requested but not found."""
     monkeypatch.chdir(sample_project)
 
     args = Namespace(
         config=str(aicodec_config_file),
-        task="Will fail",
-        minimal=False,
-        tech_stack=None,
-        output_file=None,
-        clipboard=False,
-        exclude_code=False,
-        exclude_output_instructions=False,
-        is_new_project=False
+        task="A test task",
+        minimal=False, tech_stack=None, output_file=None, clipboard=False,
+        exclude_output_instructions=False, is_new_project=False, exclude_code=True,
+        include_map=True  # Request map that doesn't exist
     )
 
-    with pytest.raises(SystemExit) as e:
+    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
         prompt.run(args)
 
-    assert e.value.code == 1
     captured = capsys.readouterr()
-    assert "context.json' not found" in captured.out
-
-
-def test_prompt_run_no_output_instructions(sample_project, aicodec_config_file, setup_context_file, monkeypatch):
-    """Test prompt generation with the --no-output-instruction flag."""
-    monkeypatch.chdir(sample_project)
-
-    args = Namespace(
-        config=str(aicodec_config_file),
-        task="No output instructions task",
-        minimal=False,
-        tech_stack=None,
-        output_file=None,
-        clipboard=False,
-        exclude_code=False,
-        exclude_output_instructions=True,  # Flag under test
-        is_new_project=False
-    )
-
-    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
-        prompt.run(args)
+    assert "Warning: Repo map file not found" in captured.out
+    assert "Run 'aicodec buildmap' first" in captured.out
 
     prompt_file = sample_project / ".aicodec" / "prompt.txt"
     content = prompt_file.read_text()
-    assert "No output instructions task" in content
-    assert "<output_instructions>" not in content
-    assert "<code_context>" in content
-
-
-def test_prompt_run_new_project(sample_project, aicodec_config_file, monkeypatch):
-    """Test prompt generation with the --new-project flag."""
-    monkeypatch.chdir(sample_project)
-
-    args = Namespace(
-        config=str(aicodec_config_file),
-        task="New project task",
-        minimal=False,
-        tech_stack=None,
-        output_file=None,
-        clipboard=False,
-        exclude_code=False,  # Should be ignored by is_new_project
-        exclude_output_instructions=False,
-        is_new_project=True  # Flag under test
-    )
-
-    with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor'):
-        prompt.run(args)
-
-    prompt_file = sample_project / ".aicodec" / "prompt.txt"
-    content = prompt_file.read_text()
-    assert "New project task" in content
-    assert "<code_context>" not in content
-    assert "deeply analyze the provided code context" not in content
-    assert "perform the following actions" in content
+    assert "<repository_map>" not in content

@@ -100,6 +100,11 @@ def run(args: Any) -> None:
     if tech_stack:
         config["prompt"]["tech_stack"] = tech_stack
 
+    include_map = get_user_confirmation(
+        "Include the repository map in the prompt by default?", default_yes=False
+    )
+    config["prompt"]["include_map"] = include_map
+
     from_clipboard = get_user_confirmation(
         "Read LLM output directly from the clipboard by default?", default_yes=False
     )
