@@ -47,7 +47,8 @@ class AggregationService:
 
         if not aggregated_content:
             print("No changes detected in the specified files since last run.")
-            self.file_repo.save_hashes(self.hashes_file, {**previous_hashes, **current_hashes})
+            self.file_repo.save_hashes(
+                self.hashes_file, {**previous_hashes, **current_hashes})
             return
 
         self.output_dir.mkdir(exist_ok=True)
@@ -55,7 +56,8 @@ class AggregationService:
         with open(self.output_file, 'w', encoding='utf-8') as f:
             f.write(json_output)
 
-        self.file_repo.save_hashes(self.hashes_file, {**previous_hashes, **current_hashes})
+        self.file_repo.save_hashes(
+            self.hashes_file, {**previous_hashes, **current_hashes})
 
         token_count_msg = ""
         if count_tokens:
@@ -66,7 +68,7 @@ class AggregationService:
                 token_count_msg = f" (Token count: {token_count})"
             except Exception as e:
                 token_count_msg = f" (Token counting failed: {e})"
-        
+
         print(
             f"Successfully aggregated {len(aggregated_content)} changed file(s) into '{self.output_file}'.{token_count_msg}"
         )
@@ -97,10 +99,22 @@ class ReviewService:
             )
 
             if should_include:
+                # For PATCH, we need to generate the 'proposed_content' by applying the diff
+                proposed_content = change.content
+                if current_action == 'PATCH':
+                    try:
+                        proposed_content = self.change_repo.get_patched_content(
+                            original_content, change.content)
+                    except Exception as e:
+                        print(
+                            f"Warning: Could not apply patch for {change.file_path}: {e}")
+                        # Fallback: show the raw patch content if application fails
+                        proposed_content = f"<Could not apply patch: {e}>\n\n{change.content}"
+
                 processed_changes.append({
                     "filePath": change.file_path,
                     "original_content": original_content if current_action != 'CREATE' else "",
-                    "proposed_content": change.content if current_action != 'DELETE' else "",
+                    "proposed_content": proposed_content if current_action != 'DELETE' else "",
                     "action": current_action
                 })
 
@@ -115,7 +129,8 @@ class ReviewService:
         action = change.action.value
 
         if file_exists:
-            if action == 'CREATE':  # If file exists, it's a replace
+            if action == 'CREATE':
+                # If file exists, it's a replace
                 action = 'REPLACE'
             if action == 'REPLACE':
                 # Don't include if content is identical
@@ -125,11 +140,19 @@ class ReviewService:
                     change.content.encode('utf-8')).hexdigest()
                 if hash_disk == hash_proposed:
                     return None, False
+            if action == 'PATCH':
+                # We can't easily check for no-op patches here, so always include.
+                return action, True
             return action, True
-        else:  # File does not exist
-            if action == 'DELETE':  # Can't delete non-existent file
+        else:
+            # File does not exist
+            if action == 'DELETE':
+                # Can't delete non-existent file
                 return None, False
-            # Any action on a non-existent file is a CREATE
+            if action == 'PATCH':
+                # Can't patch non-existent file
+                return None, False
+            # Any other action on a non-existent file is a CREATE
             return 'CREATE', True
 
     def apply_changes(self, changes_to_apply_data: list[dict], session_id: str | None) -> list[dict]:
@@ -139,5 +162,8 @@ class ReviewService:
 
     def save_editable_changes(self, change_set_data: dict) -> None:
         """Saves changes from the UI back to the changes file."""
+        # Note: This might need adjustment if users edit a patched file.
+        # The UI currently saves the 'proposed_content', not the patch itself.
+        # For simplicity, we assume 'save' writes back in the same format.
         self.change_repo.save_change_set_from_dict(
             self.changes_file, change_set_data)

@@ -5,7 +5,7 @@
 <action_rules>
 * Apply changes **in the array order** they appear.
 * Avoid duplicate `filePath` entries unless sequential edits are explicitly intended (prefer consolidation).
-* For files not present in context, use `CREATE`. For present ones, use `REPLACE`.
+* For files not present in context, use `CREATE`. For present ones, use `REPLACE` (full content) or `PATCH` (unified diff).
 * Do not include generated artifacts (compiled outputs, lock files unless requested, binaries) unless explicitly required.
 </action_rules>
 <coding_standard>
@@ -21,7 +21,7 @@ Apply best practices relevant to {{ language_and_tech_stack }}, including:
 Must be true before emitting JSON:
 * The JSON validates against the schema.
 * No markdown, comments, or extra text outside the JSON.
-* All `CREATE`/`REPLACE` contain full file contents.
+* All `CREATE`/`REPLACE`/`PATCH` contain full file contents or diffs.
 * All `DELETE` actions have `content: ""`.
 * File paths are POSIX and relative.
 * Output is minimal yet complete.

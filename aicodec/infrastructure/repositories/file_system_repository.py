@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import patch_ng
 import pathspec
 
 from ...domain.models import AggregateConfig, Change, ChangeAction, ChangeSet, FileItem
@@ -62,7 +63,8 @@ class FileSystemFileRepository(IFileRepository):
         # Apply explicit excludes from config, plus hardcoded ones.
         # These patterns are gitignore-style.
         exclude_patterns = config.exclude + ['.aicodec/**', '.git/**']
-        exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude_patterns)
+        exclude_spec = pathspec.PathSpec.from_lines(
+            'gitwildmatch', exclude_patterns)
 
         files_after_exclusion = {p for p in base_files if not exclude_spec.match_file(
             str(p.relative_to(project_root)))}
@@ -70,7 +72,8 @@ class FileSystemFileRepository(IFileRepository):
         # Apply explicit includes, which can bring back excluded files.
         explicit_includes = set()
         if config.include:
-            include_spec = pathspec.PathSpec.from_lines('gitwildmatch', config.include)
+            include_spec = pathspec.PathSpec.from_lines(
+                'gitwildmatch', config.include)
             # We check against all_files, so includes can override all excludes.
             explicit_includes = {p for p in all_files if include_spec.match_file(
                 str(p.relative_to(project_root)))}
@@ -127,6 +130,12 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                 return "<Cannot read binary file>"
         return ""
 
+    def get_patched_content(self, original_content: str, patch_content: str) -> str:
+        patch_set = patch_ng.fromstring(
+            patch_content.encode('utf-8'))
+        patched_bytes = patch_set.apply(original_content.encode('utf-8'))
+        return patched_bytes.decode('utf-8')
+
     def apply_changes(self, changes: list[Change], output_dir: Path, mode: str, session_id: str | None) -> list[dict]:
         results = []
         new_revert_changes = []
@@ -143,6 +152,8 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
             try:
                 original_content_for_revert = ""
                 file_existed = target_path.exists()
+                patch_set_for_revert: patch_ng.PatchSet | None = None
+
                 if file_existed:
                     try:
                         original_content_for_revert = target_path.read_text(
@@ -158,6 +169,23 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                         revert_action = 'REPLACE' if file_existed else 'DELETE'
                         new_revert_changes.append(Change(file_path=change.file_path, action=ChangeAction(
                             revert_action), content=original_content_for_revert))
+
+                elif change.action == ChangeAction.PATCH:
+                    if file_existed:
+                        patch_set = patch_ng.fromstring(
+                            change.content.encode('utf-8'))
+                        patched_bytes = patch_set.apply(
+                            original_content_for_revert.encode('utf-8'))
+                        target_path.write_bytes(patched_bytes)
+                        patch_set_for_revert = patch_set
+                        if mode == 'apply':
+                            reverse_patch = patch_set_for_revert.revert()
+                            new_revert_changes.append(Change(
+                                file_path=change.file_path, action=ChangeAction.PATCH, content=reverse_patch.to_string()))
+                    else:
+                        results.append(
+                            {'filePath': change.file_path, 'status': 'SKIPPED', 'reason': 'File not found for PATCH'})
+                        continue
 
                 elif change.action == ChangeAction.DELETE:
                     if file_existed:

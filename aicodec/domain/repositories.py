@@ -46,3 +46,8 @@ class IChangeSetRepository(ABC):
     def apply_changes(self, changes: list[Change], output_dir: Path, mode: str, session_id: str | None) -> list[dict]:
         """Applies a list of changes to the filesystem and manages revert data."""
         pass  # pragma: no cover
+
+    @abstractmethod
+    def get_patched_content(self, original_content: str, patch_content: str) -> str:
+        """Applies a patch to original content and returns the result."""
+        pass  # pragma: no cover

@@ -8,6 +8,7 @@ class ChangeAction(Enum):
     CREATE = "CREATE"
     REPLACE = "REPLACE"
     DELETE = "DELETE"
+    PATCH = "PATCH"
 
 
 @dataclass
