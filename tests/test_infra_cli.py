@@ -33,7 +33,7 @@ def temp_config_file(tmp_path):
 
 def test_init_run_interactive(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'y', 'src/**', '*.ts', 'n', 'Python', 'n', 'y', 'n'
+        'y', 'y', 'y', 'y', 'src/**', '*.ts', 'n', 'Python', 'y', 'n', 'y', 'n'
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
@@ -50,6 +50,7 @@ def test_init_run_interactive(tmp_path, monkeypatch):
     assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
+    assert config['prompt']['include_map'] is True
     assert config['prompt']['clipboard'] is False
 
     gitignore_file = tmp_path / '.gitignore'
@@ -59,7 +60,7 @@ def test_init_run_interactive(tmp_path, monkeypatch):
 
 def test_init_run_interactive_skip_additional(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'n', 'y', 'Python', 'n', 'y', 'n'
+        'y', 'y', 'y', 'n', 'y', 'Python', 'n', 'n', 'y', 'n'
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
@@ -74,6 +75,7 @@ def test_init_run_interactive_skip_additional(tmp_path, monkeypatch):
     assert config['prompt']['minimal'] is True
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_code'] is True
+    assert config['prompt']['include_map'] is False
     assert config['prompt']['clipboard'] is False
 
 
@@ -158,7 +160,8 @@ def test_prompt_run(temp_config_file, monkeypatch):
 
                 with patch('pathlib.Path.write_text') as mock_write:
                     prompt.run(args)
-                    mock_write.assert_called_once_with("rendered template", encoding="utf-8")
+                    mock_write.assert_called_once_with(
+                        "rendered template", encoding="utf-8")
                     mock_env.get_template.assert_called_once_with("full.j2")
                     assert mock_parse_json.call_count == 2
 
@@ -190,7 +193,8 @@ def test_prompt_run_to_clipboard(temp_config_file, monkeypatch):
                 )
                 prompt.run(args)
 
-                mock_pyperclip.copy.assert_called_once_with("rendered template")
+                mock_pyperclip.copy.assert_called_once_with(
+                    "rendered template")
                 mock_env.get_template.assert_called_once_with("minimal.j2")
 
 
@@ -212,7 +216,8 @@ def test_revert_run(temp_config_file, monkeypatch):
         with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch_server:
             with patch('pathlib.Path.is_file', return_value=True):
                 args = MagicMock(config=str(temp_config_file),
-                                 output_dir=str(temp_config_file.parent.parent),
+                                 output_dir=str(
+                                     temp_config_file.parent.parent),
                                  all=False)
                 revert.run(args)
 
