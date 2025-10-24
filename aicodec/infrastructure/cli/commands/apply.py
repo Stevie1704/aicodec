@@ -53,6 +53,9 @@ def run(args: Any) -> None:
             "Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config."
         )
         return
+    if not Path(changes_file).exists():
+        print(f"Error: Changes file '{changes_file}' not found.")
+        return
 
     # removing control characters from config
     changes = json.loads(

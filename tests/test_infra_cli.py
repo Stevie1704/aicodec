@@ -200,6 +200,14 @@ def test_prompt_run_to_clipboard(temp_config_file, monkeypatch):
 
 def test_apply_run(temp_config_file, monkeypatch):
     monkeypatch.chdir(temp_config_file.parent.parent)
+
+    # Create the changes file that the config references
+    changes_file = temp_config_file.parent / "changes.json"
+    changes_file.write_text(json.dumps({
+        "summary": "Test changes",
+        "changes": []
+    }))
+
     with patch('aicodec.infrastructure.cli.commands.apply.ReviewService') as mock_review_service:
         with patch('aicodec.infrastructure.cli.commands.apply.launch_review_server') as mock_launch_server:
             args = MagicMock(config=str(temp_config_file),
