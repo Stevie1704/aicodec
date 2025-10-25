@@ -1,5 +1,6 @@
 # aicodec/infrastructure/repositories/file_system_repository.py
 import json
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -131,79 +132,209 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         return ""
 
     def get_patched_content(self, original_content: str, patch_content: str) -> str:
-        patch_set = patch_ng.fromstring(
-            patch_content.encode('utf-8'))
-        patched_bytes = patch_set.apply(original_content.encode('utf-8'))
-        return patched_bytes.decode('utf-8')
+        """Apply a patch to original content and return the result.
+
+        Args:
+            original_content: The original file content as a string
+            patch_content: The unified diff patch as a string
+
+        Returns:
+            The patched content as a string
+
+        Raises:
+            Exception: If the patch cannot be parsed or applied
+        """
+        # patch_ng requires actual files on disk, so we use a temporary directory
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            try:
+                # Parse the patch first to determine the target file path
+                patch_set = patch_ng.fromstring(patch_content.encode('utf-8'))
+                if not patch_set or not patch_set.items:
+                    raise ValueError(
+                        "Failed to parse patch content or patch is empty")
+
+                # Assuming a single file patch for this method.
+                # Replicate patch_ng's strip=1 logic to find the target file name.
+                # This is consistent with how apply_changes calls patch.apply.
+                patched_file = patch_set.items[0]
+                path_bytes = patched_file.target  # e.g., b'b/file.txt'
+
+                comps = path_bytes.split(b'/')
+                if len(comps) > 1:
+                    # This handles 'b/file.txt' -> 'file.txt'
+                    # and 'a/src/main.py' -> 'src/main.py'
+                    stripped_path_str = b'/'.join(comps[1:]).decode('utf-8')
+                else:
+                    # Handles 'file.txt' -> 'file.txt'
+                    # Note: patch.apply(strip=1) will fail on this path,
+                    # which is the correct behavior if the patch isn't prefixed.
+                    stripped_path_str = path_bytes.decode('utf-8')
+
+                if not stripped_path_str:
+                    raise ValueError(
+                        "Could not determine target file from patch")
+
+                # Write original content to a temporary file *with the correct path*
+                temp_file = tmpdir_path / stripped_path_str
+                temp_file.parent.mkdir(parents=True, exist_ok=True)
+                temp_file.write_text(original_content, encoding='utf-8')
+
+                # Apply with strip=1 to remove a/ and b/ prefixes
+                result = patch_set.apply(strip=1, root=tmpdir)
+
+                if not result:
+                    raise ValueError(
+                        "Patch application failed - content may not match")
+
+                # Read the patched content
+                return temp_file.read_text(encoding='utf-8')
+            except Exception as e:
+                raise Exception(f"Error applying patch: {str(e)}") from e
 
     def apply_changes(self, changes: list[Change], output_dir: Path, mode: str, session_id: str | None) -> list[dict]:
+        """Apply a list of changes to the filesystem.
+
+        Args:
+            changes: List of Change objects to apply
+            output_dir: Base directory to apply changes to
+            mode: 'apply' or 'revert' mode
+            session_id: Optional session identifier for tracking
+
+        Returns:
+            List of result dictionaries with status for each change
+        """
         results = []
         new_revert_changes = []
         output_path_abs = output_dir.resolve()
 
         for change in changes:
             target_path = output_path_abs.joinpath(change.file_path).resolve()
+
             # Security: Prevent directory traversal attacks
-            if output_path_abs not in target_path.parents and target_path != output_path_abs:
-                results.append({'filePath': change.file_path, 'status': 'FAILURE',
-                                'reason': 'Directory traversal attempt blocked.'})
+            # The target must be inside output_dir (either equal or a child)
+            try:
+                target_path.relative_to(output_path_abs)
+            except ValueError:
+                # relative_to() raises ValueError if target_path is not relative to output_path_abs
+                results.append({
+                    'filePath': change.file_path,
+                    'status': 'FAILURE',
+                    'reason': 'Directory traversal attempt blocked - path outside project directory.'
+                })
                 continue
 
             try:
                 original_content_for_revert = ""
                 file_existed = target_path.exists()
-                patch_set_for_revert: patch_ng.PatchSet | None = None
 
                 if file_existed:
                     try:
                         original_content_for_revert = target_path.read_text(
                             encoding='utf-8')
-                    except Exception:
-                        # For binary files, we can't revert content but can revert the action
-                        pass
+                    except Exception as e:
+                        # For binary files or encoding errors, we can't revert content
+                        print(
+                            f"Warning: Could not read {change.file_path} for revert: {e}")
 
                 if change.action in [ChangeAction.CREATE, ChangeAction.REPLACE]:
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(change.content, encoding='utf-8')
+
                     if mode == 'apply':
-                        revert_action = 'REPLACE' if file_existed else 'DELETE'
-                        new_revert_changes.append(Change(file_path=change.file_path, action=ChangeAction(
-                            revert_action), content=original_content_for_revert))
+                        revert_action = ChangeAction.REPLACE if file_existed else ChangeAction.DELETE
+                        new_revert_changes.append(Change(
+                            file_path=change.file_path,
+                            action=revert_action,
+                            content=original_content_for_revert
+                        ))
 
                 elif change.action == ChangeAction.PATCH:
-                    if file_existed:
-                        patch_set = patch_ng.fromstring(
-                            change.content.encode('utf-8'))
-                        patched_bytes = patch_set.apply(
-                            original_content_for_revert.encode('utf-8'))
-                        target_path.write_bytes(patched_bytes)
-                        patch_set_for_revert = patch_set
-                        if mode == 'apply':
-                            reverse_patch = patch_set_for_revert.revert()
-                            new_revert_changes.append(Change(
-                                file_path=change.file_path, action=ChangeAction.PATCH, content=reverse_patch.to_string()))
-                    else:
-                        results.append(
-                            {'filePath': change.file_path, 'status': 'SKIPPED', 'reason': 'File not found for PATCH'})
+                    if not file_existed:
+                        results.append({
+                            'filePath': change.file_path,
+                            'status': 'SKIPPED',
+                            'reason': 'File not found for PATCH action'
+                        })
+                        continue
+
+                    try:
+                        # Use temporary directory for patch application
+                        with tempfile.TemporaryDirectory() as tmpdir:
+                            tmpdir_path = Path(tmpdir)
+
+                            # Create directory structure in temp dir to match the file path
+                            temp_file = tmpdir_path / change.file_path
+                            temp_file.parent.mkdir(parents=True, exist_ok=True)
+                            temp_file.write_text(
+                                original_content_for_revert, encoding='utf-8')
+
+                            # Parse and apply the patch
+                            patch_set = patch_ng.fromstring(
+                                change.content.encode('utf-8'))
+                            if not patch_set:
+                                raise ValueError("Failed to parse patch")
+
+                            # Apply with strip=1 to handle a/ and b/ prefixes
+                            result = patch_set.apply(strip=1, root=tmpdir)
+
+                            if not result:
+                                raise ValueError(
+                                    "Patch application failed - content does not match patch expectations")
+
+                            # Read patched content and write to target
+                            patched_content = temp_file.read_text(
+                                encoding='utf-8')
+                            target_path.write_text(
+                                patched_content, encoding='utf-8')
+
+                            if mode == 'apply':
+
+                                new_revert_changes.append(Change(
+                                    file_path=change.file_path,
+                                    # For revert, we use REPLACE also
+                                    action=ChangeAction.REPLACE,
+                                    content=original_content_for_revert
+                                ))
+                    except Exception as e:
+                        results.append({
+                            'filePath': change.file_path,
+                            'status': 'FAILURE',
+                            'reason': f'Patch application error: {str(e)}'
+                        })
                         continue
 
                 elif change.action == ChangeAction.DELETE:
-                    if file_existed:
-                        target_path.unlink()
-                        if mode == 'apply':
-                            new_revert_changes.append(Change(
-                                file_path=change.file_path, action=ChangeAction.CREATE, content=original_content_for_revert))
-                    else:
-                        results.append(
-                            {'filePath': change.file_path, 'status': 'SKIPPED', 'reason': 'File not found for DELETE'})
+                    if not file_existed:
+                        results.append({
+                            'filePath': change.file_path,
+                            'status': 'SKIPPED',
+                            'reason': 'File not found for DELETE action'
+                        })
                         continue
 
-                results.append({'filePath': change.file_path,
-                                'status': 'SUCCESS', 'action': change.action.value})
+                    target_path.unlink()
+
+                    if mode == 'apply':
+                        new_revert_changes.append(Change(
+                            file_path=change.file_path,
+                            action=ChangeAction.CREATE,
+                            content=original_content_for_revert
+                        ))
+
+                results.append({
+                    'filePath': change.file_path,
+                    'status': 'SUCCESS',
+                    'action': change.action.value
+                })
 
             except Exception as e:
-                results.append({'filePath': change.file_path,
-                                'status': 'FAILURE', 'reason': str(e)})
+                results.append({
+                    'filePath': change.file_path,
+                    'status': 'FAILURE',
+                    'reason': str(e)
+                })
 
         if mode == 'apply' and new_revert_changes:
             self._save_revert_data(
@@ -212,6 +343,13 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
         return results
 
     def _save_revert_data(self, new_revert_changes: list[Change], output_dir: Path, session_id: str | None) -> None:
+        """Save revert information for applied changes.
+
+        Args:
+            new_revert_changes: List of changes needed to revert
+            output_dir: Base directory where revert data is saved
+            session_id: Optional session identifier
+        """
         if not session_id:
             session_id = f"revert-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
