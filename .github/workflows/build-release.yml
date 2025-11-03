@@ -44,6 +44,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -57,6 +60,8 @@ jobs:
             SEPARATOR=";"
           fi
           pyinstaller --name aicodec --clean \
+            --hidden-import=tiktoken_ext.openai_public \
+            --hidden-import=tiktoken_ext \
             --add-data "aicodec/assets${SEPARATOR}aicodec/assets" \
             --add-data "aicodec/infrastructure/web/ui${SEPARATOR}aicodec/infrastructure/web/ui" \
              run_aicodec.py
