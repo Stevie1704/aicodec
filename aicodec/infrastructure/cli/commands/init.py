@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from rich.console import Console
+
 from .utils import get_list_from_user, get_user_confirmation
 
 
@@ -15,7 +17,8 @@ def register_subparser(subparsers: Any) -> None:
 
 def run(args: Any) -> None:
     """Handles the interactive project initialization."""
-    print("Initializing aicodec configuration...\n")
+    console = Console()
+    console.print("Initializing aicodec configuration...", style="bold")
     config_dir = Path(".aicodec")
     config_file = config_dir / "config.json"
 
@@ -24,14 +27,16 @@ def run(args: Any) -> None:
             f'Configuration file "{config_file}" already exists. Overwrite?',
             default_yes=False,
         ):
-            print("Initialization cancelled.")
+            console.print("Initialization cancelled.", style="bold red")
             return
 
     config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
 
-    print("--- Aggregation Settings ---")
+    console.rule("[bold cyan]Aggregation Settings[/bold cyan]")
     config["aggregate"]["directories"] = ["."]
-    print("'.git/**' and '.aicodec/**' are always excluded by default.")
+    console.print(
+        "'.git/**' and '.aicodec/**' are always excluded by default.", style="dim"
+    )
     config["aggregate"]["exclude"] = []
     config["aggregate"]["include"] = []
 
@@ -55,16 +60,26 @@ def run(args: Any) -> None:
                             if content and not content.endswith("\n"):
                                 f.write("\n")
                             f.write(f"{aicodec_entry}\n")
-                        print(f"Added '{aicodec_entry}' to '.gitignore'.")
+                        console.print(
+                            f"Added '{aicodec_entry}' to '.gitignore'.", style="green"
+                        )
                     else:
-                        print(
-                            f"'.gitignore' already contains '{aicodec_entry}'. No changes made.")
+                        console.print(
+                            f"'.gitignore' already contains '{aicodec_entry}'. No changes made.",
+                            style="dim",
+                        )
                 else:
                     gitignore_path.write_text(
-                        f"{aicodec_entry}\n", encoding="utf-8")
-                    print(f"Created '.gitignore' and added '{aicodec_entry}'.")
+                        f"{aicodec_entry}\n", encoding="utf-8"
+                    )
+                    console.print(
+                        f"Created '.gitignore' and added '{aicodec_entry}'.",
+                        style="green",
+                    )
             except Exception as e:
-                print(f"Warning: Could not update .gitignore: {e}")
+                console.print(
+                    f"Warning: Could not update .gitignore: {e}", style="yellow"
+                )
 
         if get_user_confirmation(
             "Also exclude the .gitignore file itself from the context?",
@@ -79,24 +94,28 @@ def run(args: Any) -> None:
             get_list_from_user("Glob patterns to always include (gitignore-style):")
         )
         config["aggregate"]["exclude"].extend(
-            get_list_from_user("Additional glob patterns to exclude (gitignore-style):")
+            get_list_from_user(
+                "Additional glob patterns to exclude (gitignore-style):"
+            )
         )
 
-    print("\n--- LLM Interaction Settings ---")
+    console.rule("[bold cyan]LLM Interaction Settings[/bold cyan]")
     config["prepare"]["changes"] = ".aicodec/changes.json"
     config["apply"]["output_dir"] = "."
     config["prompt"]["output_file"] = ".aicodec/prompt.txt"
-    print(
+    console.print(
         "LLM changes will be read from '.aicodec/changes.json' and applied to the current directory ('.')."
     )
-    print("A default prompt file will be generated at '.aicodec/prompt.txt'.")
+    console.print("A default prompt file will be generated at '.aicodec/prompt.txt'.")
 
     minimal = get_user_confirmation(
-        "Use a minimal prompt template to reduce context size (might influence results)?", default_yes=False
+        "Use a minimal prompt template to reduce context size (might influence results)?",
+        default_yes=False,
     )
     config["prompt"]["minimal"] = minimal
     tech_stack = input(
-        "What is your primary language or tech stack? (e.g., Python, TypeScript/React) [optional]: ").strip()
+        "What is your primary language or tech stack? (e.g., Python, TypeScript/React) [optional]: "
+    ).strip()
     if tech_stack:
         config["prompt"]["tech_stack"] = tech_stack
 
@@ -110,8 +129,9 @@ def run(args: Any) -> None:
     )
     config["prepare"]["from_clipboard"] = from_clipboard
     if from_clipboard:
-        print(
-            "Note: Using the clipboard in some environments (like devcontainers) might require extra setup."
+        console.print(
+            "Note: Using the clipboard in some environments (like devcontainers) might require extra setup.",
+            style="italic dim",
         )
 
     include_code = get_user_confirmation(
@@ -120,7 +140,8 @@ def run(args: Any) -> None:
     config["prompt"]["include_code"] = include_code
 
     prompt_clipboard = get_user_confirmation(
-        "Copy generated prompt directly to the clipboard by default (instead of writing to file)?", default_yes=False
+        "Copy generated prompt directly to the clipboard by default (instead of writing to file)?",
+        default_yes=False,
     )
     config["prompt"]["clipboard"] = prompt_clipboard
 
@@ -128,4 +149,7 @@ def run(args: Any) -> None:
     with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)
 
-    print(f'\nSuccessfully created configuration at "{config_file}".')
+    console.print(
+        f"\nSuccessfully created configuration at '[bold]{config_file}[/bold]'.",
+        style="bold green",
+    )
