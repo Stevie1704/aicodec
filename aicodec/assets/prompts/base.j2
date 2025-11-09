@@ -31,6 +31,18 @@ The relevant codebase is provided below as a JSON array. Each object in the arra
 <output_instructions>
 Your response MUST be a single, raw JSON object that is valid RFC 8259 JSON.
 Do **not** include any conversational text, explanations, code fences, markdown, comments, or extra formatting before or after the JSON object.
+CRITICAL: Return ONLY valid JSON. Follow these rules strictly:
+1. NO markdown code blocks (no ```json or ```)
+2. Escape special characters in strings:
+   - Use \" for literal quotes
+   - Use \\ for literal backslashes (e.g., Windows paths: "C:\\Users\\Test")
+   - Use \n for newlines (not literal line breaks)
+   - Use \t for tabs
+3. Do NOT use markdown escaping (\_, \*, etc.) inside JSON strings
+Example of correct JSON content field:
+{
+  "content": "print(\"Hello World\")\npath = \"C:\\Users\\Test\"\n"
+}
 {% block output_instructions_body %}
 The JSON object must strictly adhere to the following rules and schema:
 1. **Summary**: Provide a brief, human-readable summary of the proposed changes in the `summary` field.

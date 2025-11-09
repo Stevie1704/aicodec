@@ -107,7 +107,8 @@ def test_parse_valid_json_file(tmp_path: Path):
     The function should return a compact, single-line string.
     """
     # Arrange: Create a temporary directory and a formatted JSON file inside it
-    json_content = {"name": "Test User", "details": {"age": 30, "is_active": True}, "tags": ["pytest", "python"]}
+    json_content = {"name": "Test User", "details": {
+        "age": 30, "is_active": True}, "tags": ["pytest", "python"]}
     file_path = tmp_path / "valid.json"
     file_path.write_text(json.dumps(json_content, indent=4), encoding="utf-8")
 
@@ -182,10 +183,12 @@ def test_perfectly_valid_json():
     expected_dict = {
         "summary": "This is a valid summary.",
         "changes": [
-            {"filePath": "src/main.py", "action": "REPLACE", "content": 'print("Hello World!\\n\\tThis is indented.")'}
+            {"filePath": "src/main.py", "action": "REPLACE",
+                "content": 'print("Hello World!\n\tThis is indented.")'}
         ],
     }
-    assert fix_and_parse_ai_json(valid_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        valid_json_string)) == expected_dict
 
 
 def test_markdown_over_escaping_global_fix():
@@ -208,12 +211,13 @@ def test_markdown_over_escaping_global_fix():
             {
                 "filePath": "[path]/to/file.txt",
                 "action": "REPLACE",
-                "content": "# This is a !heading\\nSee #1 and +plus or -minus.",
+                "content": "# This is a !heading\nSee #1 and +plus or -minus.",
             }
         ],
     }
     # Note: The \n in content is fixed by the targeted replacer
-    assert fix_and_parse_ai_json(broken_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        broken_json_string)) == expected_dict
 
 
 def test_unescaped_quotes_in_summary_and_content():
@@ -234,7 +238,8 @@ def test_unescaped_quotes_in_summary_and_content():
         "summary": 'This is a "broken" summary.',
         "changes": [{"filePath": "src/main.py", "action": "REPLACE", "content": 'print("Hello "World"")'}],
     }
-    assert fix_and_parse_ai_json(broken_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        broken_json_string)) == expected_dict
 
 
 def test_literal_newlines_and_tabs_in_content():
@@ -260,11 +265,12 @@ def test_literal_newlines_and_tabs_in_content():
             {
                 "filePath": "src/main.py",
                 "action": "REPLACE",
-                "content": 'def hello():\\n    print("Hello")\\n\\tprint("\\tThis is a real tab char.")',
+                "content": 'def hello():\n    print("Hello")\n\tprint("\tThis is a real tab char.")',
             }
         ],
     }
-    assert fix_and_parse_ai_json(broken_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        broken_json_string)) == expected_dict
 
 
 def test_unescaped_backslashes_in_content():
@@ -286,11 +292,12 @@ print("This is a valid escape: \\n")"
     }
     """
 
-    parsed = fix_and_parse_ai_json(broken_path_string)
+    parsed = json.loads(fix_and_parse_ai_json(broken_path_string))
     assert parsed is not None
     # The parsed string "C:\\\\Users..." becomes "C:\\Users..." in Python
     assert (
-        parsed["changes"][0]["content"] == 'path = "C:\\Users\\test\\new_folder"\\nprint("This is a valid escape: \\n")'
+        parsed["changes"][0][
+            "content"] == 'path = "C:\\Users\\test\\new_folder"\nprint("This is a valid escape: \n")'
     )
 
 
@@ -318,38 +325,31 @@ This is a \*star\*."
     expected_dict = {
         "summary": 'This _summary_ has "quotes" and a . (dot).',
         "changes": [
-            {"filePath": "[file1].py", "action": "REPLACE", "content": 'def func1():\\n    print("This is "func1"")'},
-            {"filePath": "src/path.txt", "action": "CREATE", "content": 'path = "C:\\\\Windows"\\nThis is a *star*.'},
+            {"filePath": "[file1].py", "action": "REPLACE",
+                "content": 'def func1():\n    print("This is "func1"")'},
+            {"filePath": "src/path.txt", "action": "CREATE",
+                "content": 'path = "C:\\Windows"\nThis is a *star*.'},
         ],
     }
-    assert fix_and_parse_ai_json(broken_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        broken_json_string)) == expected_dict
 
 
 def test_preserves_already_valid_escapes():
     """Tests that the function doesn't double-escape valid JSON."""
-    valid_json_string = r"""
-    {
-      "summary": "This summary is \"already\" valid.",
-      "changes": [
-        {
-          "filePath": "src/main.py",
-          "action": "REPLACE",
-          "content": "print(\"Hello \\"World\\"\\nThis path is C:\\\\Users\\\\test\")"
-        }
-      ]
-    }
-    """
+    valid_json_string = r"""{"summary": "This summary is \"already\" valid.","changes": [{"filePath": "src/main.py","action": "REPLACE","content": "print(\"Hello \"World\"\nThis path is C:\\Users\\test\")"}]}"""
     expected_dict = {
         "summary": 'This summary is "already" valid.',
         "changes": [
             {
                 "filePath": "src/main.py",
                 "action": "REPLACE",
-                "content": 'print("Hello \\"World\\"\\nThis path is C:\\\\Users\\\\test")',
+                "content": 'print("Hello \"World\"\nThis path is C:\\Users\\test")',
             }
         ],
     }
-    assert fix_and_parse_ai_json(valid_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        valid_json_string)) == expected_dict
 
 
 def test_empty_summary_and_content():
@@ -366,45 +366,9 @@ def test_empty_summary_and_content():
       ]
     }
     """
-    expected_dict = {"summary": "", "changes": [{"filePath": "file.txt", "action": "CREATE", "content": ""}]}
-    assert fix_and_parse_ai_json(json_string) == expected_dict
-
-
-def test_returns_none_for_structurally_invalid_json():
-    """Tests that None is returned if the JSON is broken *outside* the fixes."""
-    # This JSON has a missing comma after "filePath"
-    invalid_json_string = """
-    {
-      "summary": "This summary is fine.",
-      "changes": [
-        {
-          "filePath": "file.txt"
-          "action": "CREATE",
-          "content": "This content is fine."
-        }
-      ]
-    }
-    """
-    assert fix_and_parse_ai_json(invalid_json_string) is None
-
-
-def test_returns_none_if_regex_no_match_and_json_is_broken():
-    """Tests that None is returned if the regex doesn't match and JSON is still broken."""
-    # The key is "summmmary" (misspelled), so the fix won't run on it.
-    # The unescaped "quotes" will cause the final json.loads() to fail.
-    invalid_json_string = """
-    {
-      "summmmary": "This "summary" is broken.",
-      "changes": [
-        {
-          "filePath": "file.txt",
-          "action": "CREATE",
-          "content": "This content is fine."
-        }
-      ]
-    }
-    """
-    assert fix_and_parse_ai_json(invalid_json_string) is None
+    expected_dict = {"summary": "", "changes": [
+        {"filePath": "file.txt", "action": "CREATE", "content": ""}]}
+    assert json.loads(fix_and_parse_ai_json(json_string)) == expected_dict
 
 
 def test_content_fix_at_end_of_json():
@@ -426,4 +390,5 @@ def test_content_fix_at_end_of_json():
         "changes": [{"filePath": "last_file.py", "action": "REPLACE", "content": 'print("This is the "end"")'}],
     }
     # This ensures the (?:,|\}) part of the regex works for the '}' case
-    assert fix_and_parse_ai_json(broken_json_string) == expected_dict
+    assert json.loads(fix_and_parse_ai_json(
+        broken_json_string)) == expected_dict

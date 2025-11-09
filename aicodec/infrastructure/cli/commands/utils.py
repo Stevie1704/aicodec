@@ -66,7 +66,7 @@ def clean_json_string(s: str) -> str:
     return s
 
 
-def fix_and_parse_ai_json(text: str) -> dict | None:
+def fix_and_parse_ai_json(text: str) -> str | None:
     """
     Fixes common AI-generated JSON errors for a specific schema.
 
@@ -151,11 +151,238 @@ def fix_and_parse_ai_json(text: str) -> dict | None:
     except Exception as e:
         print(f"Error during regex replacement: {e}")
         return None
+    return text
 
-    # 5. Parse the fully corrected string
+
+def fix_and_parse_ai_json_new(text: str) -> dict | None:
+    """
+    Fixes common AI-generated JSON errors for a specific schema.
+
+    Handles:
+    - Markdown code block wrappers (```json ... ```)
+    - Markdown over-escaping (e.g., \_, \*, \.)
+    - Missing JSON escapes (unescaped quotes, backslashes, newlines)
+    """
+
+    # Step 1: Remove markdown code block wrappers if present
+    text = text.strip()
+    if text.startswith('```'):
+        # Remove opening ```json or ```
+        text = re.sub(r'^```(?:json)?\s*\n?', '', text)
+        # Remove closing ```
+        text = re.sub(r'\n?```\s*$', '', text)
+        text = text.strip()
+
+    # Step 2: Fix markdown over-escaping ONLY for non-JSON-special characters
+    # We do this carefully to avoid breaking legitimate JSON escapes
+    markdown_escapes = {
+        r'\_': '_',
+        r'\*': '*',
+        r'\#': '#',
+        r'\+': '+',
+        r'\!': '!',
+        r'\`': '`',
+        r'\[': '[',
+        r'\]': ']',
+        r'\(': '(',
+        r'\)': ')',
+        r'\{': '{',
+        r'\}': '}',
+        r'\>': '>',
+        r'\|': '|',
+        r'\-': '-',  # Careful with this one
+        r'\.': '.',  # And this one
+    }
+
+    for escaped, unescaped in markdown_escapes.items():
+        text = text.replace(escaped, unescaped)
+
+    # Step 3: Find and fix string values in specific fields
+    def fix_string_content(content: str) -> str:
+        """
+        Properly escape a string value for JSON.
+        This processes the raw content between quotes.
+        """
+        result = []
+        i = 0
+
+        while i < len(content):
+            char = content[i]
+
+            # Check if this is already an escaped character
+            if char == '\\' and i + 1 < len(content):
+                next_char = content[i + 1]
+
+                # Valid JSON escape sequences
+                if next_char in '"\\\/bfnrtu':
+                    # Keep valid escapes as-is
+                    result.append(char)
+                    result.append(next_char)
+                    i += 2
+                    continue
+                else:
+                    # Invalid escape - escape the backslash itself
+                    result.append('\\\\')
+                    i += 1
+                    continue
+
+            # Escape special characters
+            if char == '"':
+                result.append('\\"')
+            elif char == '\n':
+                result.append('\\n')
+            elif char == '\r':
+                result.append('\\r')
+            elif char == '\t':
+                result.append('\\t')
+            elif char == '\b':
+                result.append('\\b')
+            elif char == '\f':
+                result.append('\\f')
+            elif char == '\\':
+                result.append('\\\\')
+            else:
+                result.append(char)
+
+            i += 1
+
+        return ''.join(result)
+
+    # Step 4: Process summary field
+    def fix_summary(match):
+        prefix = match.group(1)
+        content = match.group(2)
+        suffix = match.group(3)
+        fixed = fix_string_content(content)
+        return f'{prefix}{fixed}{suffix}'
+
+    # Match "summary": "..." where ... can contain anything including literal newlines
+    summary_pattern = r'("summary"\s*:\s*")((?:[^"\\]|\\.)*)(")'
+    text = re.sub(summary_pattern, fix_summary, text, flags=re.DOTALL)
+
+    # Step 5: Process content fields
+    # We need a more sophisticated approach for content fields
+    # because they can be large and contain complex nested structures
+
+    def find_and_fix_content_fields(json_text: str) -> str:
+        """
+        Find all "content": "..." fields and fix their content.
+        Uses a character-by-character parser to handle nesting properly.
+        """
+        result = []
+        i = 0
+
+        while i < len(json_text):
+            # Look for "content"
+            if json_text[i:i+9] == '"content"':
+                # Copy up to and including "content"
+                result.append('"content"')
+                i += 9
+
+                # Skip whitespace and colon
+                while i < len(json_text) and json_text[i] in ' \t\n\r':
+                    result.append(json_text[i])
+                    i += 1
+
+                if i < len(json_text) and json_text[i] == ':':
+                    result.append(':')
+                    i += 1
+
+                    # Skip whitespace after colon
+                    while i < len(json_text) and json_text[i] in ' \t\n\r':
+                        result.append(json_text[i])
+                        i += 1
+
+                    # Now we should be at the opening quote
+                    if i < len(json_text) and json_text[i] == '"':
+                        result.append('"')
+                        i += 1
+
+                        # Extract the content until the closing quote
+                        content_chars = []
+                        while i < len(json_text):
+                            if json_text[i] == '"':
+                                # Check if it's escaped
+                                # Count preceding backslashes
+                                num_backslashes = 0
+                                j = len(content_chars) - 1
+                                while j >= 0 and content_chars[j] == '\\':
+                                    num_backslashes += 1
+                                    j -= 1
+
+                                # If even number of backslashes (including 0), quote is not escaped
+                                if num_backslashes % 2 == 0:
+                                    # This is the closing quote
+                                    break
+
+                            content_chars.append(json_text[i])
+                            i += 1
+
+                        # Fix the content
+                        raw_content = ''.join(content_chars)
+                        fixed_content = fix_string_content(raw_content)
+                        result.append(fixed_content)
+
+                        # Add closing quote if we found it
+                        if i < len(json_text) and json_text[i] == '"':
+                            result.append('"')
+                            i += 1
+            else:
+                result.append(json_text[i])
+                i += 1
+
+        return ''.join(result)
+
+    text = find_and_fix_content_fields(text)
+
+    # Step 6: Try to parse
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
         print("\n--- FAILED TO PARSE JSON ---")
         print(f"Error: {e}")
+        print(f"Position: Line {e.lineno}, Column {e.colno}")
+        print("\n--- Context around error: ---")
+        lines = text.split('\n')
+        start = max(0, e.lineno - 3)
+        end = min(len(lines), e.lineno + 2)
+        for i in range(start, end):
+            marker = ">>> " if i == e.lineno - 1 else "    "
+            print(f"{marker}{i+1}: {lines[i]}")
+        print("---------------------------------")
         return None
+
+
+# Test with your example
+if __name__ == "__main__":
+    broken_json_string = """
+    {
+      "summary": "This is a "test" summary with an \_underscore.",
+      "changes": [
+        {
+          "filePath": "aicodec/test_file.py",
+          "action": "REPLACE",
+          "content": "# This is code
+    print("Hello "World"")
+    path = "C:\\Users\\Test"
+    f.write("\n")
+    "
+        },
+        {
+          "filePath": "another/file\\.txt",
+          "action": "CREATE",
+          "content": "Just a "simple" \.dot file
+    with a tab:	here."
+        }
+      ]
+    }
+    """
+
+    print("--- Fixing and Parsing AI JSON ---")
+    fixed_data = fix_and_parse_ai_json(broken_json_string)
+
+    if fixed_data:
+        print("\n--- ✅ Successfully Parsed Data: ---")
+        print(json.dumps(fixed_data, indent=2))
+    else:
+        print("\n--- ❌ Failed to parse ---")
