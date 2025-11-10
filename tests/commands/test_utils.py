@@ -278,15 +278,15 @@ def test_unescaped_backslashes_in_content():
     # Let's create a more realistic broken string for this test
     # The AI would send literal backslashes, which we must represent
     # in Python by escaping them (e.g., 'C:\\Users' to represent 'C:\Users').
-    broken_path_string = """
+    broken_path_string = r"""
     {
       "summary": "Fixing paths.",
       "changes": [
         {
-          "filePath": "C:\\\\Windows\\\\System32",
+          "filePath": "C:\\Windows\\System32",
           "action": "REPLACE",
-          "content": "path = "C:\\Users\\test\\new_folder"
-print("This is a valid escape: \\n")"
+          "content": "path = "C:\Users\test\new_folder"
+print("This is a valid escape: \n")"
         }
       ]
     }
@@ -297,7 +297,7 @@ print("This is a valid escape: \\n")"
     # The parsed string "C:\\\\Users..." becomes "C:\\Users..." in Python
     assert (
         parsed["changes"][0][
-            "content"] == 'path = "C:\\Users\\test\\new_folder"\nprint("This is a valid escape: \n")'
+            "content"] == 'path = "C:\\Users\test\new_folder"\nprint("This is a valid escape: \n")'
     )
 
 

@@ -205,7 +205,11 @@ def test_apply_run(temp_config_file, monkeypatch):
     changes_file = temp_config_file.parent / "changes.json"
     changes_file.write_text(json.dumps({
         "summary": "Test changes",
-        "changes": []
+        "changes": [{
+            "filePath": "a.py",
+            "action": "CREATE",
+            "content": "print('hello')"
+        }]
     }))
 
     with patch('aicodec.infrastructure.cli.commands.apply.ReviewService') as mock_review_service:
@@ -246,7 +250,7 @@ def test_prepare_run_from_clipboard_success(temp_config_file, monkeypatch):
                 mock_aicodec = MagicMock()
                 mock_aicodec.__truediv__.return_value = mock_assets
                 mock_files.return_value = mock_aicodec
-                valid_json_str = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": ""}]}'
+                valid_json_str = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": "a"}]}'
                 mock_pyperclip.paste.return_value = valid_json_str
 
                 args = MagicMock(config=str(temp_config_file),

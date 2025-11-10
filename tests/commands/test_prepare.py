@@ -6,11 +6,13 @@ from unittest.mock import patch
 import pytest
 
 from aicodec.infrastructure.cli.commands import prepare
+from aicodec.infrastructure.cli.commands.utils import JsonPreparationError
 
 
 @pytest.fixture
 def valid_json_content(sample_changes_json_content):
     return json.dumps(sample_changes_json_content)
+
 
 
 def test_prepare_run_editor_mode(sample_project, aicodec_config_file, monkeypatch):
@@ -56,7 +58,7 @@ def test_prepare_run_from_clipboard_success(sample_project, aicodec_config_file,
     assert actual_data == expected_data
 
 
-def test_prepare_run_from_clipboard_invalid_json(sample_project, aicodec_config_file, monkeypatch, capsys):
+def test_prepare_run_from_clipboard_invalid_json(sample_project, aicodec_config_file, monkeypatch):
     """Test prepare with invalid JSON from clipboard."""
     monkeypatch.chdir(sample_project)
     monkeypatch.setenv("AICODEC_TEST_MODE", "1")
@@ -68,12 +70,11 @@ def test_prepare_run_from_clipboard_invalid_json(sample_project, aicodec_config_
         from_clipboard=True
     )
 
-    prepare.run(args)
-    captured = capsys.readouterr()
-    assert "Error: Clipboard content is not valid JSON" in captured.out
+    with pytest.raises(JsonPreparationError):
+        prepare.run(args)
 
 
-def test_prepare_run_from_clipboard_schema_fail(sample_project, aicodec_config_file, monkeypatch, capsys):
+def test_prepare_run_from_clipboard_schema_fail(sample_project, aicodec_config_file, monkeypatch):
     """Test prepare with JSON that fails schema validation."""
     monkeypatch.chdir(sample_project)
     bad_json = json.dumps({"foo": "bar"})
@@ -86,9 +87,8 @@ def test_prepare_run_from_clipboard_schema_fail(sample_project, aicodec_config_f
         from_clipboard=True
     )
 
-    prepare.run(args)
-    captured = capsys.readouterr()
-    assert "Error: Clipboard content does not match the expected schema" in captured.out
+    with pytest.raises(JsonPreparationError):
+        prepare.run(args)
 
 
 def test_prepare_overwrite_cancel(sample_project, aicodec_config_file, monkeypatch, capsys):
