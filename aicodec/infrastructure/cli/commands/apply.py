@@ -1,4 +1,3 @@
-import json
 import uuid
 from pathlib import Path
 from typing import Any
@@ -7,7 +6,7 @@ from ....application.services import ReviewService
 from ...config import load_config as load_json_config
 from ...repositories.file_system_repository import FileSystemChangeSetRepository
 from ...web.server import launch_review_server
-from .utils import clean_json_string
+from .utils import clean_prepare_json_string
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -57,12 +56,9 @@ def run(args: Any) -> None:
         print(f"Error: Changes file '{changes_file}' not found.")
         return
 
-    # removing control characters from config
-    changes = json.loads(
-        clean_json_string(
-            Path(changes_file).read_text(encoding="utf-8"))
-    )
-    changes_json_str = json.dumps(changes, indent=4)
+    # logic doubled, if someone directly copies json from llm to changes file
+    changes_json_str = clean_prepare_json_string(
+        Path(changes_file).read_text(encoding="utf-8"))
     Path(changes_file).write_text(changes_json_str, encoding="utf-8")
 
     repo = FileSystemChangeSetRepository()
