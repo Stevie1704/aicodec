@@ -241,27 +241,19 @@ def test_revert_run(temp_config_file, monkeypatch):
 def test_prepare_run_from_clipboard_success(temp_config_file, monkeypatch):
     monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prepare.pyperclip') as mock_pyperclip:
-        with patch('aicodec.infrastructure.cli.commands.prepare.files') as mock_files:
-            with patch('jsonschema.validate'):
-                mock_schema_path = MagicMock()
-                mock_schema_path.read_text.return_value = '{"schema": true}'
-                mock_assets = MagicMock()
-                mock_assets.__truediv__.return_value = mock_schema_path
-                mock_aicodec = MagicMock()
-                mock_aicodec.__truediv__.return_value = mock_assets
-                mock_files.return_value = mock_aicodec
-                valid_json_str = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": "a"}]}'
-                mock_pyperclip.paste.return_value = valid_json_str
+        with patch('jsonschema.validate'):
+            valid_json_str = '{"summary": "...", "changes": [{"filePath": "a.py", "action": "CREATE", "content": "a"}]}'
+            mock_pyperclip.paste.return_value = valid_json_str
 
-                args = MagicMock(config=str(temp_config_file),
-                                 changes=None, from_clipboard=True)
-                prepare.run(args)
+            args = MagicMock(config=str(temp_config_file),
+                             changes=None, from_clipboard=True)
+            prepare.run(args)
 
-                changes_path = temp_config_file.parent / 'changes.json'
-                # Compare parsed data because prepare command pretty-prints the JSON
-                expected_data = json.loads(valid_json_str)
-                actual_data = json.loads(changes_path.read_text())
-                assert actual_data == expected_data
+            changes_path = temp_config_file.parent / 'changes.json'
+            # Compare parsed data because prepare command pretty-prints the JSON
+            expected_data = json.loads(valid_json_str)
+            actual_data = json.loads(changes_path.read_text())
+            assert actual_data == expected_data
 
 
 def test_prepare_run_open_editor(temp_config_file, monkeypatch):
