@@ -24,9 +24,6 @@ jobs:
           - os: windows-latest
             platform: Windows
             arch: amd64
-          - os: macos-13
-            platform: Darwin
-            arch: amd64
           - os: macos-14
             platform: Darwin
             arch: arm64
