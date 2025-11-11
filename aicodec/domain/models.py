@@ -46,5 +46,6 @@ class AggregateConfig:
     directories: list[Path]
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
+    plugins: list[dict[str, str]] = field(default_factory=list)
     use_gitignore: bool = True
     project_root: Path = field(default_factory=Path.cwd)

@@ -14,7 +14,8 @@ def test_aggregate_run_basic(sample_project, aicodec_config_file, monkeypatch):
         directories=None,
         include=[],
         exclude=[],
-        full=False, use_gitignore=None, count_tokens=False
+        full=False, use_gitignore=None, count_tokens=False,
+        plugin=[]
     )
 
     aggregate.run(args)
@@ -39,7 +40,8 @@ def test_aggregate_run_no_gitignore(sample_project, aicodec_config_file, monkeyp
         config=str(aicodec_config_file), directories=None,
         include=[],
         exclude=[],
-        full=False, use_gitignore=False, count_tokens=False
+        full=False, use_gitignore=False, count_tokens=False,
+        plugin=[]
     )
 
     aggregate.run(args)
@@ -61,7 +63,8 @@ def test_aggregate_run_with_overrides(sample_project, aicodec_config_file, monke
         config=str(aicodec_config_file), directories=None,
         include=["dist/**", "*.log"],
         exclude=["src/**", "README.md"],
-        full=True, use_gitignore=None, count_tokens=True
+        full=True, use_gitignore=None, count_tokens=True,
+        plugin=[]
     )
 
     aggregate.run(args)
@@ -84,7 +87,8 @@ def test_aggregate_no_changes(sample_project, aicodec_config_file, monkeypatch, 
         config=str(aicodec_config_file), directories=None,
         include=[],
         exclude=[],
-        full=False, use_gitignore=None, count_tokens=False
+        full=False, use_gitignore=None, count_tokens=False,
+        plugin=[]
     )
 
     # First run
@@ -104,7 +108,8 @@ def test_aggregate_exclude_nested_dir(sample_project, aicodec_config_file, monke
         config=str(aicodec_config_file), directories=None,
         include=[],
         exclude=["ex/dir/**"],
-        full=True, use_gitignore=None, count_tokens=False
+        full=True, use_gitignore=None, count_tokens=False,
+        plugin=[]
     )
 
     aggregate.run(args)
@@ -128,7 +133,8 @@ def test_aggregate_include_nested_dir(sample_project, aicodec_config_file, monke
         config=str(aicodec_config_file), directories=None,
         include=["node_modules/submodule/**"],
         exclude=[],
-        full=True, use_gitignore=None, count_tokens=False
+        full=True, use_gitignore=None, count_tokens=False,
+        plugin=[]
     )
 
     aggregate.run(args)
@@ -139,3 +145,92 @@ def test_aggregate_include_nested_dir(sample_project, aicodec_config_file, monke
 
     assert "node_modules/submodule/subpackage.js" in filepaths
     assert "node_modules/package.js" not in filepaths
+
+
+def test_aggregate_with_plugin(sample_project, aicodec_config_file, monkeypatch):
+    """Test that a configured plugin is executed for a matching file type."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        directories=None,
+        include=["data.hdf"],
+        exclude=[],
+        full=True, use_gitignore=True, count_tokens=False,
+        plugin=[]
+    )
+
+    aggregate.run(args)
+
+    context_file = sample_project / ".aicodec" / "context.json"
+    assert context_file.exists()
+    data = json.loads(context_file.read_text())
+
+    plugin_output_found = False
+    for item in data:
+        if item['filePath'] == 'data.hdf':
+            content_data = json.loads(item['content'])
+            assert content_data['status'] == 'decoded'
+            assert "data.hdf" in content_data['file']
+            plugin_output_found = True
+            break
+    assert plugin_output_found, "Plugin output for data.hdf not found in context.json"
+
+
+def test_aggregate_with_cli_plugin(sample_project, aicodec_config_file, monkeypatch):
+    """Test that a plugin provided via the CLI is executed."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        directories=None,
+        include=["other.dat"],
+        exclude=[],
+        full=True, use_gitignore=True, count_tokens=False,
+        plugin=[".dat=python decoders/hdf_decoder.py {file}"]
+    )
+
+    aggregate.run(args)
+
+    context_file = sample_project / ".aicodec" / "context.json"
+    data = json.loads(context_file.read_text())
+    
+    plugin_output_found = False
+    for item in data:
+        if item['filePath'] == 'other.dat':
+            content_data = json.loads(item['content'])
+            assert content_data['status'] == 'decoded'
+            assert "other.dat" in content_data['file']
+            plugin_output_found = True
+            break
+            
+    assert plugin_output_found, "CLI plugin output for other.dat not found"
+
+
+def test_aggregate_with_cli_plugin_override(sample_project, aicodec_config_file, monkeypatch):
+    """Test that a CLI plugin overrides a config file plugin."""
+    monkeypatch.chdir(sample_project)
+
+    args = Namespace(
+        config=str(aicodec_config_file),
+        directories=None,
+        include=["data.hdf"],
+        exclude=[],
+        full=True, use_gitignore=True, count_tokens=False,
+        plugin=[".hdf=python decoders/hdf_decoder_override.py {file}"]
+    )
+
+    aggregate.run(args)
+
+    context_file = sample_project / ".aicodec" / "context.json"
+    data = json.loads(context_file.read_text())
+
+    plugin_output_found = False
+    for item in data:
+        if item['filePath'] == 'data.hdf':
+            content_data = json.loads(item['content'])
+            assert content_data['status'] == 'decoded from override'
+            plugin_output_found = True
+            break
+            
+    assert plugin_output_found, "CLI override plugin output not found"

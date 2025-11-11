@@ -40,6 +40,13 @@ def register_subparser(subparsers: Any) -> None:
         help="Perform a full aggregation, ignoring previous hashes.",
     )
     agg_parser.add_argument(
+        "--plugin",
+        action="extend",
+        nargs="+",
+        default=[],
+        help="Define a plugin on the fly, e.g., '.ext=command {file}'. Overrides config plugins.",
+    )
+    agg_parser.add_argument(
         "--count-tokens",
         action="store_true",
         help="Count and display the number of tokens in the aggregated output.",
@@ -83,10 +90,26 @@ def run(args: Any) -> None:
     scan_dirs_str = args.directories or config_dirs
     scan_dirs = [(project_root / Path(d)).resolve() for d in scan_dirs_str]
 
+    # Process and merge plugins
+    config_plugins = {
+        ext: cmd for plugin in file_cfg.get("plugins", []) for ext, cmd in plugin.items()
+    }
+    
+    cli_plugins = {}
+    for p_str in args.plugin:
+        if "=" in p_str:
+            ext, command = p_str.split("=", 1)
+            cli_plugins[ext.strip()] = command.strip()
+
+    # CLI plugins override config plugins
+    merged_plugins_map = {**config_plugins, **cli_plugins}
+    final_plugins = [{ext: cmd} for ext, cmd in merged_plugins_map.items()]
+
     config = AggregateConfig(
         directories=scan_dirs,
         include=args.include or file_cfg.get("include", []),
         exclude=args.exclude + file_cfg.get("exclude", []),
+        plugins=final_plugins,
         use_gitignore=use_gitignore,
         project_root=project_root,
     )

@@ -51,8 +51,34 @@ node_modules/
 dist/
 *.log
 *.tmp
+decoders/
 """
     (project_dir / ".gitignore").write_text(gitignore_content.strip())
+
+    # Create files for plugin testing
+    (project_dir / "data.hdf").write_text("dummy hdf content")
+    (project_dir / "other.dat").write_text("dummy dat content")
+    decoder_dir = project_dir / "decoders"
+    decoder_dir.mkdir()
+    (decoder_dir / "__init__.py").write_text("")
+    (decoder_dir / "hdf_decoder.py").write_text(
+        """
+import sys
+import json
+if __name__ == "__main__":
+    file_path = sys.argv[1]
+    print(json.dumps({"status": "decoded", "file": file_path}))
+"""
+    )
+    (decoder_dir / "hdf_decoder_override.py").write_text(
+        """
+import sys
+import json
+if __name__ == "__main__":
+    file_path = sys.argv[1]
+    print(json.dumps({"status": "decoded from override", "file": file_path}))
+"""
+    )
 
     return project_dir
 
@@ -66,7 +92,10 @@ def aicodec_config_file(sample_project):
     config_data = {
         "aggregate": {
             "directories": ["."],
-            "use_gitignore": True
+            "use_gitignore": True,
+            "plugins": [
+                {".hdf": "python decoders/hdf_decoder.py {file}"}
+            ]
         },
         "prompt": {
             "output_file": ".aicodec/prompt.txt",

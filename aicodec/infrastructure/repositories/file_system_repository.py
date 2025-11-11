@@ -1,5 +1,7 @@
 # aicodec/infrastructure/repositories/file_system_repository.py
 import json
+import shlex
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -14,32 +16,75 @@ class FileSystemFileRepository(IFileRepository):
 
     def discover_files(self, config: AggregateConfig) -> list[FileItem]:
         discovered_paths = self._discover_paths(config)
+        plugin_map = {
+            ext: cmd for plugin in config.plugins for ext, cmd in plugin.items()
+        }
         file_items = []
+
         for file_path in discovered_paths:
+            relative_path = str(file_path.relative_to(config.project_root))
+            file_ext = f".{file_path.name.split('.')[-1]}" if '.' in file_path.name else None
+
             try:
-                # Simple binary file check to avoid reading large binary files into memory
-                with open(file_path, 'rb') as f:
-                    if b'\0' in f.read(1024):
-                        print(f"Skipping binary file: {file_path}")
+                content = None
+                # Check if a plugin is configured for this file extension
+                if file_ext and file_ext in plugin_map:
+                    command_template = plugin_map[file_ext]
+                    
+                    try:
+                        # Build the command list safely
+                        cmd_list = shlex.split(command_template)
+                        for i, arg in enumerate(cmd_list):
+                            if "{file}" in arg:
+                                cmd_list[i] = arg.replace("{file}", str(file_path))
+
+                        result = subprocess.run(
+                            cmd_list,
+                            shell=False,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            encoding='utf-8'
+                        )
+                        # Validate the output is valid JSON, but use the raw string as the content
+                        json.loads(result.stdout)
+                        content = result.stdout.strip()
+                    except subprocess.CalledProcessError as e:
+                        print(
+                            f"Warning: Plugin for {file_ext} failed on {relative_path}: {e.stderr}")
+                        continue
+                    except json.JSONDecodeError:
+                        print(
+                            f"Warning: Plugin for {file_ext} on {relative_path} did not return valid JSON.")
+                        continue
+                    except FileNotFoundError as e:
+                        print(f"Warning: Command not found for plugin {file_ext}: {e}")
                         continue
 
-                # Try to read with strict UTF-8, fall back to replace on error
-                try:
-                    with open(file_path, encoding='utf-8', errors='strict') as f:
-                        content = f.read()
-                except UnicodeDecodeError:
-                    relative_path_str = str(
-                        file_path.relative_to(config.project_root))
-                    print(
-                        f"Warning: Could not decode {relative_path_str} as UTF-8. Reading with replacement characters.")
-                    with open(file_path, encoding='utf-8', errors='replace') as f:
-                        content = f.read()
+                # If no plugin was run, fall back to reading as a text file
+                else:
+                    # Simple binary file check
+                    with open(file_path, 'rb') as f:
+                        if b'\0' in f.read(1024):
+                            print(f"Skipping binary file: {relative_path}")
+                            continue
 
-                relative_path = str(file_path.relative_to(config.project_root))
-                file_items.append(
-                    FileItem(file_path=relative_path, content=content))
+                    try:
+                        with open(file_path, encoding='utf-8', errors='strict') as f:
+                            content = f.read()
+                    except UnicodeDecodeError:
+                        print(
+                            f"Warning: Could not decode {relative_path} as UTF-8. Reading with replacement characters.")
+                        with open(file_path, encoding='utf-8', errors='replace') as f:
+                            content = f.read()
+
+                if content is not None:
+                    file_items.append(
+                        FileItem(file_path=relative_path, content=content))
+
             except Exception as e:
-                print(f"Warning: Could not read file {file_path}: {e}")
+                print(f"Warning: Could not process file {relative_path}: {e}")
+
         return file_items
 
     def _discover_paths(self, config: AggregateConfig) -> list[Path]:
@@ -62,7 +107,8 @@ class FileSystemFileRepository(IFileRepository):
         # Apply explicit excludes from config, plus hardcoded ones.
         # These patterns are gitignore-style.
         exclude_patterns = config.exclude + ['.aicodec/**', '.git/**']
-        exclude_spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude_patterns)
+        exclude_spec = pathspec.PathSpec.from_lines(
+            'gitwildmatch', exclude_patterns)
 
         files_after_exclusion = {p for p in base_files if not exclude_spec.match_file(
             str(p.relative_to(project_root)))}
@@ -70,7 +116,8 @@ class FileSystemFileRepository(IFileRepository):
         # Apply explicit includes, which can bring back excluded files.
         explicit_includes = set()
         if config.include:
-            include_spec = pathspec.PathSpec.from_lines('gitwildmatch', config.include)
+            include_spec = pathspec.PathSpec.from_lines(
+                'gitwildmatch', config.include)
             # We check against all_files, so includes can override all excludes.
             explicit_includes = {p for p in all_files if include_spec.match_file(
                 str(p.relative_to(project_root)))}
