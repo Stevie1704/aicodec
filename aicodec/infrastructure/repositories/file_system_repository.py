@@ -46,16 +46,11 @@ class FileSystemFileRepository(IFileRepository):
                             check=True,
                             encoding='utf-8'
                         )
-                        # Validate the output is valid JSON, but use the raw string as the content
-                        json.loads(result.stdout)
+                        # The content is simply the raw output of the plugin
                         content = result.stdout.strip()
                     except subprocess.CalledProcessError as e:
                         print(
                             f"Warning: Plugin for {file_ext} failed on {relative_path}: {e.stderr}")
-                        continue
-                    except json.JSONDecodeError:
-                        print(
-                            f"Warning: Plugin for {file_ext} on {relative_path} did not return valid JSON.")
                         continue
                     except FileNotFoundError as e:
                         print(f"Warning: Command not found for plugin {file_ext}: {e}")

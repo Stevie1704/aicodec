@@ -228,8 +228,10 @@ def test_aggregate_with_cli_plugin_override(sample_project, aicodec_config_file,
     plugin_output_found = False
     for item in data:
         if item['filePath'] == 'data.hdf':
-            content_data = json.loads(item['content'])
-            assert content_data['status'] == 'decoded from override'
+            # The content should now be a Markdown string
+            assert "# HDF5 File" in item['content']
+            assert "- Path: " in item['content']
+            assert "data.hdf" in item['content']
             plugin_output_found = True
             break
             

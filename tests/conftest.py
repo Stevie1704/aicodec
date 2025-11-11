@@ -73,10 +73,9 @@ if __name__ == "__main__":
     (decoder_dir / "hdf_decoder_override.py").write_text(
         """
 import sys
-import json
 if __name__ == "__main__":
     file_path = sys.argv[1]
-    print(json.dumps({"status": "decoded from override", "file": file_path}))
+    print(f"# HDF5 File\\n\\n- Path: {file_path}")
 """
     )
 
