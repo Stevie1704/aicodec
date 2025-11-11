@@ -10,7 +10,14 @@ from .utils import get_list_from_user, get_user_confirmation
 
 def register_subparser(subparsers: Any) -> None:
     init_parser = subparsers.add_parser(
-        "init", help="Initialize a new aicodec project configuration."
+        "init", help="Initialize a new aicodec project."
+    )
+    init_parser.add_argument(
+        "--plugin",
+        action="extend",
+        nargs="+",
+        default=[],
+        help="Define a plugin, e.g., '.ext=command {file}'.",
     )
     init_parser.set_defaults(func=run)
 
@@ -30,6 +37,13 @@ def run(args: Any) -> None:
             console.print("Initialization cancelled.", style="bold red")
             return
 
+    # Process plugins from CLI
+    final_plugins = []
+    for p_str in args.plugin:
+        if "=" in p_str:
+            ext, command = p_str.split("=", 1)
+            final_plugins.append(f"{ext.strip()}={command.strip()}")
+
     config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
 
     console.rule("[bold cyan]Aggregation Settings[/bold cyan]")
@@ -39,11 +53,13 @@ def run(args: Any) -> None:
     )
     config["aggregate"]["exclude"] = []
     config["aggregate"]["include"] = []
+    config["aggregate"]["plugins"] = final_plugins
 
     use_gitignore = get_user_confirmation(
         "Use the .gitignore file for exclusions?", default_yes=True
     )
     config["aggregate"]["use_gitignore"] = use_gitignore
+
 
     if use_gitignore:
         if get_user_confirmation(

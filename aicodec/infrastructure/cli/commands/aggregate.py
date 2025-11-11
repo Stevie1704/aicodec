@@ -91,16 +91,18 @@ def run(args: Any) -> None:
     scan_dirs = [(project_root / Path(d)).resolve() for d in scan_dirs_str]
 
     # Process and merge plugins
-    config_plugins = {
-        ext: cmd for plugin in file_cfg.get("plugins", []) for ext, cmd in plugin.items()
-    }
-    
+    config_plugins = {}
+    for p_str in file_cfg.get("plugins", []):
+        if "=" in p_str:
+            ext, command = p_str.split("=", 1)
+            config_plugins[ext.strip()] = command.strip()
+
     cli_plugins = {}
     for p_str in args.plugin:
         if "=" in p_str:
             ext, command = p_str.split("=", 1)
             cli_plugins[ext.strip()] = command.strip()
-
+    
     # CLI plugins override config plugins
     merged_plugins_map = {**config_plugins, **cli_plugins}
     final_plugins = [{ext: cmd} for ext, cmd in merged_plugins_map.items()]

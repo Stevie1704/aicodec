@@ -93,7 +93,7 @@ def aicodec_config_file(sample_project):
             "directories": ["."],
             "use_gitignore": True,
             "plugins": [
-                {".hdf": "python decoders/hdf_decoder.py {file}"}
+                ".hdf=python decoders/hdf_decoder.py {file}"
             ]
         },
         "prompt": {

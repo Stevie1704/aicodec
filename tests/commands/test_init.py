@@ -1,6 +1,7 @@
 # tests/commands/test_init.py
 import json
-from unittest.mock import MagicMock, patch
+from argparse import Namespace
+from unittest.mock import patch
 
 from aicodec.infrastructure.cli.commands import init
 
@@ -21,7 +22,7 @@ def test_init_run_defaults(tmp_path, monkeypatch):
     ]
 
     with patch('builtins.input', side_effect=user_inputs):
-        init.run(MagicMock())
+        init.run(Namespace(plugin=[]))
 
     config_file = tmp_path / '.aicodec' / 'config.json'
     assert config_file.exists()
@@ -29,6 +30,7 @@ def test_init_run_defaults(tmp_path, monkeypatch):
 
     assert config['aggregate']['use_gitignore'] is True
     assert '.gitignore' in config['aggregate']['exclude']
+    assert config['aggregate']['plugins'] == []
     assert config['prompt']['minimal'] is False
     assert config['prompt']['tech_stack'] == 'Python'
     assert config['prompt']['include_map'] is True
@@ -49,7 +51,7 @@ def test_init_run_overwrite_cancel(tmp_path, monkeypatch):
     config_file.write_text('{"original": true}')
 
     with patch('builtins.input', return_value='n'):
-        init.run(MagicMock())
+        init.run(Namespace(plugin=[]))
 
     assert config_file.read_text() == '{"original": true}'
 
@@ -72,7 +74,7 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     ]
 
     with patch('builtins.input', side_effect=user_inputs):
-        init.run(MagicMock())
+        init.run(Namespace(plugin=[]))
 
     config_file = tmp_path / '.aicodec' / 'config.json'
     config = json.loads(config_file.read_text())
@@ -86,3 +88,30 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     assert config['prompt']['include_map'] is False
     assert config['prepare']['from_clipboard'] is True
     assert config['prompt']['clipboard'] is True
+
+
+def test_init_with_plugins(tmp_path, monkeypatch):
+    """Test `init` with plugins provided via CLI."""
+    monkeypatch.chdir(tmp_path)
+
+    user_inputs = [
+        'y', 'y', 'y', 'n', 'n', 'Python', 'y', 'n', 'y', 'y'
+    ]
+    
+    plugins_to_add = [
+        ".zip=unzip -l {file}",
+        ".tar.gz=tar -ztvf {file}"
+    ]
+
+    with patch('builtins.input', side_effect=user_inputs):
+        init.run(Namespace(plugin=plugins_to_add))
+
+    config_file = tmp_path / '.aicodec' / 'config.json'
+    assert config_file.exists()
+    config = json.loads(config_file.read_text())
+
+    expected_plugins = [
+        ".zip=unzip -l {file}",
+        ".tar.gz=tar -ztvf {file}"
+    ]
+    assert config['aggregate']['plugins'] == expected_plugins
