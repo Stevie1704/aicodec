@@ -26,6 +26,7 @@ nav:
   - 'Guides':
       - 'Best Practices': 'guides/best-practices.md'
       - 'Git Integration': 'guides/git-integration.md'
+      - 'Using Plugins': 'guides/plugins.md'
   - 'Command Reference':
       - 'init': 'commands/init.md'
       - 'aggregate': 'commands/aggregate.md'

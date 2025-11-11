@@ -23,4 +23,6 @@ For a detailed breakdown of every available option, see the **[Configuration Ref
 
 ## Options
 
-This command has no command-line options as it is fully interactive. If a `.aicodec/config.json` file already exists, it will ask for confirmation before overwriting it.
+-   **`--plugin <PATTERN...>`**: Define a plugin, e.g., `".ext=command {file}"`. This allows you to pre-configure plugins when initializing the project. For more details, see [Plugins](../guides/plugins.md).
+
+This command is primarily interactive. If a `.aicodec/config.json` file already exists, it will ask for confirmation before overwriting it.

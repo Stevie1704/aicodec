@@ -45,6 +45,10 @@ This section controls which files are collected into `context.json`.
 -   `"exclude": ["dist/", "**/*.log"]`
     -   A list of gitignore-style glob patterns to **always exclude**. Note that `.git/**` and `.aicodec/**` are always excluded by default.
 
+-   `"plugins": [".zip=unzip -l {file}"]`
+    -   A list of strings defining external scripts to process specific file types. Each string is in the format `".ext=command {file}"`.
+    -   For more details, see [Plugins](guides/plugins.md).
+
 **Note on Precedence:** The `include` rules have higher precedence than `exclude` rules (including `.gitignore`). If a file matches both an include and an exclude pattern, it will be **included**.
 
 ---

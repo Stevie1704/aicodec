@@ -27,4 +27,5 @@ All command-line options override the settings in your `.aicodec/config.json` fi
 -   **`-e, --exclude <PATTERN...>`**: One or more gitignore-style glob patterns to exclude.
 -   **`--full`**: Performs a full aggregation, ignoring the cache of file hashes and including all files that match the criteria, regardless of whether they have changed.
 -   **`--count-tokens`**: Counts the number of tokens in the final `context.json` output using the `cl100k_base` encoding (used by GPT-4) and displays it in the summary.
+-   **`--plugin <PATTERN...>`**: Define a plugin on the fly, e.g., `".ext=command {file}"`. This overrides any plugins defined in `config.json` for the same file extension. For more details, see [Plugins](../guides/plugins.md).
 -   **`--use-gitignore` / `--no-gitignore`**: A mutually exclusive pair of flags to explicitly enable or disable using the `.gitignore` file for exclusions.
