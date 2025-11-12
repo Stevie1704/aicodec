@@ -88,7 +88,13 @@ def run(args: Any) -> None:
         config_dirs = ["."]
 
     scan_dirs_str = args.directories or config_dirs
-    scan_dirs = [(project_root / Path(d)).resolve() for d in scan_dirs_str]
+    scan_dirs = []
+    for d in scan_dirs_str:
+        path = Path(d)
+        if path.is_absolute():
+            scan_dirs.append(path.resolve())
+        else:
+            scan_dirs.append((project_root / path).resolve())
 
     # Process and merge plugins
     config_plugins = {}

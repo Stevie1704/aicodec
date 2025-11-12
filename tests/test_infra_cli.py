@@ -33,11 +33,23 @@ def temp_config_file(tmp_path):
 
 def test_init_run_interactive(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'y', 'src/**', '*.ts', 'n', 'Python', 'y', 'n', 'y', 'n'
+        '',    # Directories to scan
+        'y',   # Use .gitignore
+        'y',   # Update .gitignore
+        'y',   # Exclude .gitignore
+        'y',   # Configure additional patterns
+        'src/**',  # Include patterns
+        '*.ts',    # Exclude patterns
+        'n',   # Minimal prompt
+        'Python',  # Tech stack
+        'y',   # Include map
+        'n',   # From clipboard
+        'y',   # Include code
+        'n',   # Prompt to clipboard
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
-        init.run(MagicMock())
+        init.run(MagicMock(plugin=[]))
 
     config_file = tmp_path / '.aicodec' / 'config.json'
     assert config_file.exists()
@@ -60,11 +72,21 @@ def test_init_run_interactive(tmp_path, monkeypatch):
 
 def test_init_run_interactive_skip_additional(tmp_path, monkeypatch):
     user_inputs = [
-        'y', 'y', 'y', 'n', 'y', 'Python', 'n', 'n', 'y', 'n'
+        '',    # Directories
+        'y',   # Use gitignore
+        'y',   # Update gitignore
+        'y',   # Exclude gitignore
+        'n',   # Skip additional patterns
+        'y',   # Minimal prompt
+        'Python',  # Tech stack
+        'n',   # Include map
+        'n',   # From clipboard
+        'y',   # Include code
+        'n',   # Prompt to clipboard
     ]
     with patch('builtins.input', side_effect=user_inputs):
         monkeypatch.chdir(tmp_path)
-        init.run(MagicMock())
+        init.run(MagicMock(plugin=[]))
 
     config_file = tmp_path / '.aicodec' / 'config.json'
     assert config_file.exists()

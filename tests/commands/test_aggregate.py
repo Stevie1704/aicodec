@@ -236,3 +236,69 @@ def test_aggregate_with_cli_plugin_override(sample_project, aicodec_config_file,
             break
             
     assert plugin_output_found, "CLI override plugin output not found"
+
+
+def test_aggregate_run_with_outside_paths(sample_project_with_outside_dir, monkeypatch):
+    """Test aggregate command with relative and absolute paths outside the project."""
+    project_dir, outside_dir = sample_project_with_outside_dir
+    monkeypatch.chdir(project_dir)
+
+    # 1. Test with a relative path to the outside directory
+    args_relative = Namespace(
+        config=str(project_dir / ".aicodec" / "config.json"),
+        directories=["../other_dir"],
+        include=[],
+        exclude=[],
+        full=True,
+        use_gitignore=None,
+        count_tokens=False,
+        plugin=[]
+    )
+    aggregate.run(args_relative)
+
+    context_file = project_dir / ".aicodec" / "context.json"
+    assert context_file.exists()
+    data = json.loads(context_file.read_text())
+    filepaths = {item['filePath'] for item in data}
+
+    assert "../other_dir/other_file.txt" in filepaths
+    # main.py from the project dir should not be there because we overrode the directories
+    assert "main.py" not in filepaths
+
+    # 2. Test with an absolute path to the outside directory
+    args_absolute = Namespace(
+        config=str(project_dir / ".aicodec" / "config.json"),
+        directories=[str(outside_dir.resolve())],
+        include=[],
+        exclude=[],
+        full=True,
+        use_gitignore=None,
+        count_tokens=False,
+        plugin=[]
+    )
+    aggregate.run(args_absolute)
+
+    assert context_file.exists()
+    data = json.loads(context_file.read_text())
+    filepaths = {item['filePath'] for item in data}
+    assert "../other_dir/other_file.txt" in filepaths
+    assert "main.py" not in filepaths
+
+    # 3. Test with both project dir and outside dir
+    args_both = Namespace(
+        config=str(project_dir / ".aicodec" / "config.json"),
+        directories=[".", "../other_dir"],
+        include=[],
+        exclude=[],
+        full=True,
+        use_gitignore=None,
+        count_tokens=False,
+        plugin=[]
+    )
+    aggregate.run(args_both)
+
+    assert context_file.exists()
+    data = json.loads(context_file.read_text())
+    filepaths = {item['filePath'] for item in data}
+    assert "../other_dir/other_file.txt" in filepaths
+    assert "main.py" in filepaths

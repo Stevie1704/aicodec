@@ -47,7 +47,9 @@ def run(args: Any) -> None:
     config = {"aggregate": {}, "prompt": {}, "prepare": {}, "apply": {}}
 
     console.rule("[bold cyan]Aggregation Settings[/bold cyan]")
-    config["aggregate"]["directories"] = ["."]
+    config["aggregate"]["directories"] = get_list_from_user(
+        "Directories to scan (relative or absolute, defaults to '.' for current directory):"
+    ) or ["."]
     console.print(
         "'.git/**' and '.aicodec/**' are always excluded by default.", style="dim"
     )

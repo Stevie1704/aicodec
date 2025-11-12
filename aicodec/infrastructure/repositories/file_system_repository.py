@@ -1,5 +1,6 @@
 # aicodec/infrastructure/repositories/file_system_repository.py
 import json
+import os
 import shlex
 import subprocess
 from datetime import datetime
@@ -22,7 +23,8 @@ class FileSystemFileRepository(IFileRepository):
         file_items = []
 
         for file_path in discovered_paths:
-            relative_path = str(file_path.relative_to(config.project_root))
+            relative_path = os.path.relpath(
+                file_path, config.project_root).replace(os.sep, '/')
             file_ext = f".{file_path.name.split('.')[-1]}" if '.' in file_path.name else None
 
             try:
@@ -93,7 +95,7 @@ class FileSystemFileRepository(IFileRepository):
             gitignore_spec = self._load_gitignore_spec(config)
             if gitignore_spec:
                 base_files = {p for p in all_files if not gitignore_spec.match_file(
-                    str(p.relative_to(project_root)))}
+                    os.path.relpath(p, project_root))}
             else:
                 base_files = all_files
         else:
@@ -106,7 +108,7 @@ class FileSystemFileRepository(IFileRepository):
             'gitwildmatch', exclude_patterns)
 
         files_after_exclusion = {p for p in base_files if not exclude_spec.match_file(
-            str(p.relative_to(project_root)))}
+            os.path.relpath(p, project_root))}
 
         # Apply explicit includes, which can bring back excluded files.
         explicit_includes = set()
@@ -115,7 +117,7 @@ class FileSystemFileRepository(IFileRepository):
                 'gitwildmatch', config.include)
             # We check against all_files, so includes can override all excludes.
             explicit_includes = {p for p in all_files if include_spec.match_file(
-                str(p.relative_to(project_root)))}
+                os.path.relpath(p, project_root))}
 
         final_files_set = files_after_exclusion | explicit_includes
         return sorted(list(final_files_set))

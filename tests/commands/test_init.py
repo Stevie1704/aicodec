@@ -11,7 +11,10 @@ def test_init_run_defaults(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     user_inputs = [
-        'y', 'y', 'y',  # Standard gitignore prompts
+        '',  # Directories to scan
+        'y',  # Standard gitignore prompts
+        'y',
+        'y',
         'n',  # Configure additional?
         'n',  # Use minimal prompt?
         'Python',  # Tech stack
@@ -61,7 +64,10 @@ def test_init_run_advanced_config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     user_inputs = [
-        'y', 'y', 'y',  # Standard gitignore prompts
+        '',  # Directories to scan
+        'y',  # Standard gitignore prompts
+        'y',
+        'y',
         'y',  # Configure additional?
         'src/**, lib/**',  # include
         'node_modules/, **/*.log',  # exclude
@@ -95,7 +101,17 @@ def test_init_with_plugins(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     user_inputs = [
-        'y', 'y', 'y', 'n', 'n', 'Python', 'y', 'n', 'y', 'y'
+        '',  # Directories to scan
+        'y',  # Standard gitignore prompts
+        'y',
+        'y',
+        'n',  # Configure additional?
+        'n',  # Use minimal prompt?
+        'Python',  # Tech stack
+        'y',  # Include repository map?
+        'n',  # from_clipboard
+        'y',  # include_code
+        'y',  # prompt to clipboard
     ]
     
     plugins_to_add = [

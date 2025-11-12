@@ -146,3 +146,32 @@ def sample_changes_file(tmp_path, sample_changes_json_content):
     changes_file = tmp_path / "changes.json"
     changes_file.write_text(json.dumps(sample_changes_json_content, indent=2))
     return changes_file
+
+
+@pytest.fixture
+def sample_project_with_outside_dir(tmp_path):
+    """Create a project with a directory outside of it for path tests."""
+    base_dir = tmp_path / "base"
+    base_dir.mkdir()
+
+    project_dir = base_dir / "project"
+    project_dir.mkdir()
+    (project_dir / "main.py").write_text("print('hello')")
+
+    outside_dir = base_dir / "other_dir"
+    outside_dir.mkdir()
+    (outside_dir / "other_file.txt").write_text("some data")
+
+    # Create .aicodec/config.json in project_dir
+    config_dir = project_dir / ".aicodec"
+    config_dir.mkdir()
+    config_data = {
+        "aggregate": {
+            "directories": ["."],
+            "use_gitignore": True,
+        }
+    }
+    config_file = config_dir / "config.json"
+    config_file.write_text(json.dumps(config_data, indent=2))
+
+    return project_dir, outside_dir
