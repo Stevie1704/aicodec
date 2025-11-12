@@ -22,7 +22,7 @@ aicodec aggregate --full
 All command-line options override the settings in your `.aicodec/config.json` file.
 
 -   **`-c, --config <PATH>`**: Specifies the path to the configuration file. **Default**: `.aicodec/config.json`.
--   **`-d, --directories <PATH...>`**: One or more root directories to scan for files. Overrides the `directories` setting in the config.
+-   **`-d, --directories <PATH...>`**: One or more root directories to scan for files. These paths can be absolute, relative to the current working directory, or relative to the project root (where `.aicodec/config.json` is located). Overrides the `directories` setting in the config.
 -   **`-i, --include <PATTERN...>`**: One or more gitignore-style glob patterns to explicitly include. These rules override any exclusions.
 -   **`-e, --exclude <PATTERN...>`**: One or more gitignore-style glob patterns to exclude.
 -   **`--full`**: Performs a full aggregation, ignoring the cache of file hashes and including all files that match the criteria, regardless of whether they have changed.

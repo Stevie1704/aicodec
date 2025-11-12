@@ -32,7 +32,7 @@ The `config.json` is organized into sections that correspond to the main command
 This section controls which files are collected into `context.json`.
 
 -   `"directories": ["src", "tests"]`
-    -   A list of root directories to scan for files. `.` refers to the project root.
+    -   A list of root directories to scan for files. These paths can be absolute, relative to the current working directory, or relative to the project root (where `.aicodec/config.json` is located).
     -   **Default**: `["."]`
 
 -   `"use_gitignore": true | false`
