@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aicodec"
-version = "2.5.0"
+version = "2.5.1"
 requires-python = ">= 3.10"
 description = "A lightweight communication layer for developers to interact with LLMs."
 readme = "README.md"
@@ -28,7 +28,9 @@ dependencies = [
  	"jsonschema",
  	"pyperclip",
  	"pathspec",
- 	"tiktoken"
+ 	"tiktoken",
+    "jinja2",
+    "rich"
 ]
 
 [project.urls]
