@@ -3,8 +3,12 @@ from pathlib import Path
 
 import pytest
 
-# Import the function to be tested
+# Import the functions to be tested
 from aicodec.infrastructure.cli.commands.utils import (
+    _aggressive_escape_quotes,
+    _find_closing_brace,
+    _fix_json_string_value,
+    clean_prepare_json_string,
     fix_and_parse_ai_json,
     get_list_from_user,
     get_user_confirmation,
@@ -392,3 +396,332 @@ def test_content_fix_at_end_of_json():
     # This ensures the (?:,|\}) part of the regex works for the '}' case
     assert json.loads(fix_and_parse_ai_json(
         broken_json_string)) == expected_dict
+
+
+# ---- Tests for _fix_json_string_value ----
+
+
+def test_fix_json_string_value_unescaped_quotes():
+    """Tests that unescaped quotes are properly escaped."""
+    value = 'The "Software" is provided "AS IS"'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'The \\"Software\\" is provided \\"AS IS\\"'
+
+
+def test_fix_json_string_value_literal_newlines():
+    """Tests that literal newlines are escaped to \\n."""
+    value = 'Line 1\nLine 2\nLine 3'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'Line 1\\nLine 2\\nLine 3'
+    assert '\n' not in fixed  # No literal newlines should remain
+
+
+def test_fix_json_string_value_literal_tabs():
+    """Tests that literal tabs are escaped to \\t."""
+    value = 'Column1\tColumn2\tColumn3'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'Column1\\tColumn2\\tColumn3'
+    assert '\t' not in fixed  # No literal tabs should remain
+
+
+def test_fix_json_string_value_already_escaped():
+    """Tests that already-escaped quotes are not double-escaped."""
+    value = 'Already \\"escaped\\" quotes'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'Already \\"escaped\\" quotes'
+    # Should not become \\\\"escaped\\\\"
+
+
+def test_fix_json_string_value_mixed_escapes():
+    """Tests a string with both escaped and unescaped quotes."""
+    value = 'Some \\"valid\\" and some "broken" quotes'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'Some \\"valid\\" and some \\"broken\\" quotes'
+
+
+def test_fix_json_string_value_with_arrays():
+    """Tests content that looks like JSON arrays."""
+    value = 'requires = ["setuptools>=68", "wheel"]'
+    fixed = _fix_json_string_value(value)
+    assert fixed == 'requires = [\\"setuptools>=68\\", \\"wheel\\"]'
+
+
+def test_fix_json_string_value_empty_string():
+    """Tests that empty strings are handled correctly."""
+    value = ''
+    fixed = _fix_json_string_value(value)
+    assert fixed == ''
+
+
+# ---- Tests for _find_closing_brace ----
+
+
+def test_find_closing_brace_simple():
+    """Tests finding a closing brace in simple, well-formed JSON."""
+    text = '{ "key": "value" },'
+    result = _find_closing_brace(text, 1)
+    assert result == 17  # Position of the closing }
+    assert text[result] == '}'
+
+
+def test_find_closing_brace_with_newline_indent():
+    """Tests finding closing brace with newline and proper indentation."""
+    text = '''        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "test"
+        },'''
+    result = _find_closing_brace(text, 1)
+    assert result > 0
+    assert text[result] == '}'
+
+
+def test_find_closing_brace_no_newline():
+    """Tests finding closing brace when it comes right after content."""
+    text = '{ "content": "test" }, { "next": "obj" }'
+    result = _find_closing_brace(text, 1)
+    assert result == 20  # Position of first }
+    assert text[result] == '}'
+
+
+def test_find_closing_brace_with_braces_in_content():
+    """Tests that braces inside content (like f-strings) don't confuse the finder."""
+    text = '''        {
+            "content": "f\\"Player {player}, enter your move\\""
+        },'''
+    result = _find_closing_brace(text, 1)
+    assert result > 0
+    assert text[result] == '}'
+    # Verify it didn't stop at the } in {player}
+    assert result > text.find('{player}')
+
+
+def test_find_closing_brace_multiple_objects():
+    """Tests finding the correct closing brace when multiple objects exist."""
+    text = '''        {
+            "filePath": "first.py",
+            "content": "data"
+        }, {
+            "filePath": "second.py",
+            "content": "more"
+        }'''
+    result = _find_closing_brace(text, 1)
+    # Should find the first closing brace, not the second
+    assert result > 0
+    assert result < text.find('"second.py"')
+
+
+# ---- Tests for _aggressive_escape_quotes ----
+
+
+def test_aggressive_escape_quotes_license_content():
+    """Tests escaping quotes in LICENSE-like content."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "LICENSE",
+            "action": "CREATE",
+            "content": "THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    assert '"AS IS"' in parsed['changes'][0]['content']
+    assert 'WITHOUT WARRANTY' in parsed['changes'][0]['content']
+
+
+def test_aggressive_escape_quotes_pyproject_arrays():
+    """Tests escaping quotes in array literals within content."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "pyproject.toml",
+            "action": "CREATE",
+            "content": "requires = ["setuptools>=68", "wheel"]"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert 'setuptools>=68' in content
+    assert 'wheel' in content
+
+
+def test_aggressive_escape_quotes_python_fstrings():
+    """Tests that Python f-strings with braces are handled correctly."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "cli.py",
+            "action": "CREATE",
+            "content": "input(f\\"Player {player}, enter move\\")"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert '{player}' in content
+    assert 'Player' in content
+
+
+def test_aggressive_escape_quotes_multiple_changes():
+    """Tests processing multiple change objects."""
+    json_str = '''{
+    "summary": "Multiple changes",
+    "changes": [
+        {
+            "filePath": "file1.py",
+            "action": "CREATE",
+            "content": "print("hello")"
+        },
+        {
+            "filePath": "file2.py",
+            "action": "CREATE",
+            "content": "data = {"key": "value"}"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    assert len(parsed['changes']) == 2
+    assert 'hello' in parsed['changes'][0]['content']
+    assert 'key' in parsed['changes'][1]['content']
+
+
+def test_aggressive_escape_quotes_summary_with_quotes():
+    """Tests that summary field quotes are also escaped."""
+    json_str = '''{
+    "summary": "This is a "test" summary",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "test"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    assert '"test"' in parsed['summary']
+
+
+def test_aggressive_escape_quotes_multiline_content():
+    """Tests content with literal newlines across multiple lines."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "def func():
+    print("hello")
+    return True"
+        }
+    ]
+}'''
+    result = _aggressive_escape_quotes(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    # Literal newlines should be escaped
+    assert '\\n' in result
+    # But parsed content should have actual newlines
+    assert '\n' in content
+
+
+# ---- Integration Tests for clean_prepare_json_string ----
+
+
+def test_clean_prepare_json_string_valid_json(tmp_path):
+    """Tests that valid JSON passes through correctly."""
+    json_str = '''{
+    "summary": "Valid test",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "print(\\"hello\\")"
+        }
+    ]
+}'''
+    result = clean_prepare_json_string(json_str)
+    parsed = json.loads(result)
+    assert parsed['summary'] == 'Valid test'
+    assert len(parsed['changes']) == 1
+
+
+def test_clean_prepare_json_string_with_unescaped_quotes(tmp_path):
+    """Tests the aggressive mode kicks in for unescaped quotes."""
+    json_str = '''{
+    "summary": "Test with "quotes"",
+    "changes": [
+        {
+            "filePath": "LICENSE",
+            "action": "CREATE",
+            "content": "THE SOFTWARE IS PROVIDED "AS IS""
+        }
+    ]
+}'''
+    result = clean_prepare_json_string(json_str)
+    parsed = json.loads(result)
+    assert '"quotes"' in parsed['summary']
+    assert '"AS IS"' in parsed['changes'][0]['content']
+
+
+def test_clean_prepare_json_string_complex_real_world(tmp_path):
+    """Tests a complex real-world example similar to unvalid.json."""
+    json_str = '''{
+    "summary": "Scaffold a Python project with CLI and AI",
+    "changes": [
+        {
+            "filePath": "LICENSE",
+            "action": "CREATE",
+            "content": "MIT License\\n\\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software"
+        },
+        {
+            "filePath": "pyproject.toml",
+            "action": "CREATE",
+            "content": "[build-system]\\nrequires = ["setuptools>=68", "wheel"]\\nbuild-backend = "setuptools.build_meta""
+        },
+        {
+            "filePath": "cli.py",
+            "action": "CREATE",
+            "content": "def _read_move(player: str):\\n    while True:\\n        raw = input(f\\"Player {player}, enter your move: \\").strip()"
+        }
+    ]
+}'''
+    result = clean_prepare_json_string(json_str)
+    parsed = json.loads(result)
+
+    # Verify all three files were processed
+    assert len(parsed['changes']) == 3
+
+    # Verify LICENSE content
+    license_content = parsed['changes'][0]['content']
+    assert '"Software"' in license_content
+
+    # Verify pyproject.toml content
+    pyproject_content = parsed['changes'][1]['content']
+    assert 'setuptools>=68' in pyproject_content
+    assert 'wheel' in pyproject_content
+
+    # Verify cli.py content
+    cli_content = parsed['changes'][2]['content']
+    assert '{player}' in cli_content
+    assert 'Player' in cli_content
+
+
+def test_clean_prepare_json_string_schema_validation():
+    """Tests that the result is validated against the schema."""
+    # Missing required fields should raise an error
+    invalid_json = '{"summary": "test"}'  # Missing "changes"
+
+    with pytest.raises(Exception) as exc_info:
+        clean_prepare_json_string(invalid_json)
+
+    assert 'validation' in str(exc_info.value).lower() or 'required' in str(exc_info.value).lower()
