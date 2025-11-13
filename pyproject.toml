@@ -30,7 +30,8 @@ dependencies = [
  	"pathspec",
  	"tiktoken",
     "jinja2",
-    "rich"
+    "rich",
+    "json-repair"
 ]
 
 [project.urls]

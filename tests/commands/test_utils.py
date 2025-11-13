@@ -5,7 +5,8 @@ import pytest
 
 # Import the function to be tested
 from aicodec.infrastructure.cli.commands.utils import (
-    fix_and_parse_ai_json,
+    JsonPreparationError,
+    clean_prepare_json_string,
     get_list_from_user,
     get_user_confirmation,
     parse_json_file,
@@ -166,229 +167,169 @@ def test_parse_invalid_json_file(tmp_path: Path, capsys):
     assert str(file_path) in captured.err
 
 
-def test_perfectly_valid_json():
-    """Tests that already-valid JSON passes through correctly."""
-    valid_json_string = """
-    {
-      "summary": "This is a valid summary.",
-      "changes": [
+# --- Tests for clean_prepare_json_string ---
+
+# A valid JSON structure that conforms to the schema
+VALID_PAYLOAD = {
+    "summary": "This is a valid summary.",
+    "changes": [
         {
-          "filePath": "src/main.py",
-          "action": "REPLACE",
-          "content": "print(\\"Hello World!\\n\\tThis is indented.\\")"
+            "filePath": "src/main.py",
+            "action": "REPLACE",
+            "content": "print('Hello, World!')",
         }
-      ]
-    }
-    """
-    expected_dict = {
-        "summary": "This is a valid summary.",
-        "changes": [
-            {"filePath": "src/main.py", "action": "REPLACE",
-                "content": 'print("Hello World!\n\tThis is indented.")'}
-        ],
-    }
-    assert json.loads(fix_and_parse_ai_json(
-        valid_json_string)) == expected_dict
+    ],
+}
+
+# A dictionary that will be converted to a pretty-printed JSON string
+VALID_JSON_STRING = json.dumps(VALID_PAYLOAD, indent=4)
 
 
-def test_markdown_over_escaping_global_fix():
-    """Tests the global replacement of Markdown escape characters."""
-    broken_json_string = r"""
+def test_clean_prepare_json_with_valid_json():
+    """Tests that a perfectly valid JSON string passes through correctly."""
+    llm_output = json.dumps(VALID_PAYLOAD)  # Compact JSON
+    result = clean_prepare_json_string(llm_output)
+    assert json.loads(result) == VALID_PAYLOAD
+    assert result == VALID_JSON_STRING  # Ensure it's pretty-printed
+
+
+def test_clean_prepare_json_with_trailing_comma():
+    """Tests repair of a JSON string with a trailing comma."""
+    broken_json = """
     {
-      "summary": "This is \_a\_ test\. With \*stars\* and \`code\`.",
-      "changes": [
-        {
-          "filePath": "\[path]/to/file\.txt",
-          "action": "REPLACE",
-          "content": "# This is a \!heading\nSee \#1 and \+plus or \-minus."
-        }
-      ]
-    }
-    """
-    expected_dict = {
-        "summary": "This is _a_ test. With *stars* and `code`.",
-        "changes": [
-            {
-                "filePath": "[path]/to/file.txt",
-                "action": "REPLACE",
-                "content": "# This is a !heading\nSee #1 and +plus or -minus.",
-            }
-        ],
-    }
-    # Note: The \n in content is fixed by the targeted replacer
-    assert json.loads(fix_and_parse_ai_json(
-        broken_json_string)) == expected_dict
-
-
-def test_unescaped_quotes_in_summary_and_content():
-    """Tests fixing unescaped double-quotes in targeted fields."""
-    broken_json_string = """
-    {
-      "summary": "This is a "broken" summary.",
-      "changes": [
-        {
-          "filePath": "src/main.py",
-          "action": "REPLACE",
-          "content": "print("Hello "World"")"
-        }
-      ]
-    }
-    """
-    expected_dict = {
-        "summary": 'This is a "broken" summary.',
-        "changes": [{"filePath": "src/main.py", "action": "REPLACE", "content": 'print("Hello "World"")'}],
-    }
-    assert json.loads(fix_and_parse_ai_json(
-        broken_json_string)) == expected_dict
-
-
-def test_literal_newlines_and_tabs_in_content():
-    """Tests fixing unescaped control characters (newlines, tabs) in content."""
-    # Using triple-quotes to create literal newlines and tabs
-    broken_json_string = """
-    {
-      "summary": "Fixing newlines.",
-      "changes": [
-        {
-          "filePath": "src/main.py",
-          "action": "REPLACE",
-          "content": "def hello():
-    print("Hello")
-	print("\tThis is a real tab char.")"
-        }
-      ]
-    }
-    """
-    expected_dict = {
-        "summary": "Fixing newlines.",
-        "changes": [
-            {
-                "filePath": "src/main.py",
-                "action": "REPLACE",
-                "content": 'def hello():\n    print("Hello")\n\tprint("\tThis is a real tab char.")',
-            }
-        ],
-    }
-    assert json.loads(fix_and_parse_ai_json(
-        broken_json_string)) == expected_dict
-
-
-def test_unescaped_backslashes_in_content():
-    """Tests fixing unescaped backslashes (e.g., Windows paths)."""
-    # Let's create a more realistic broken string for this test
-    # The AI would send literal backslashes, which we must represent
-    # in Python by escaping them (e.g., 'C:\\Users' to represent 'C:\Users').
-    broken_path_string = r"""
-    {
-      "summary": "Fixing paths.",
-      "changes": [
-        {
-          "filePath": "C:\\Windows\\System32",
-          "action": "REPLACE",
-          "content": "path = "C:\Users\test\new_folder"
-print("This is a valid escape: \n")"
-        }
-      ]
-    }
-    """
-
-    parsed = json.loads(fix_and_parse_ai_json(broken_path_string))
-    assert parsed is not None
-    # The parsed string "C:\\\\Users..." becomes "C:\\Users..." in Python
-    assert (
-        parsed["changes"][0][
-            "content"] == 'path = "C:\\Users\test\new_folder"\nprint("This is a valid escape: \n")'
-    )
-
-
-def test_all_errors_combined_multiple_entries():
-    """Tests a complex string with all error types and multiple change entries."""
-    broken_json_string = r"""
-    {
-      "summary": "This \_summary\_ has "quotes" and a \. (dot).",
-      "changes": [
-        {
-          "filePath": "\[file1].py",
-          "action": "REPLACE",
-          "content": "def func1():
-    print("This is "func1"")"
-        },
-        {
-          "filePath": "src/path\.txt",
-          "action": "CREATE",
-          "content": "path = "C:\Windows"
-This is a \*star\*."
-        }
-      ]
-    }
-    """
-    expected_dict = {
-        "summary": 'This _summary_ has "quotes" and a . (dot).',
-        "changes": [
-            {"filePath": "[file1].py", "action": "REPLACE",
-                "content": 'def func1():\n    print("This is "func1"")'},
-            {"filePath": "src/path.txt", "action": "CREATE",
-                "content": 'path = "C:\\Windows"\nThis is a *star*.'},
-        ],
-    }
-    assert json.loads(fix_and_parse_ai_json(
-        broken_json_string)) == expected_dict
-
-
-def test_preserves_already_valid_escapes():
-    """Tests that the function doesn't double-escape valid JSON."""
-    valid_json_string = r"""{"summary": "This summary is \"already\" valid.","changes": [{"filePath": "src/main.py","action": "REPLACE","content": "print(\"Hello \"World\"\nThis path is C:\\Users\\test\")"}]}"""
-    expected_dict = {
-        "summary": 'This summary is "already" valid.',
-        "changes": [
-            {
-                "filePath": "src/main.py",
-                "action": "REPLACE",
-                "content": 'print("Hello \"World\"\nThis path is C:\\Users\\test")',
-            }
-        ],
-    }
-    assert json.loads(fix_and_parse_ai_json(
-        valid_json_string)) == expected_dict
-
-
-def test_empty_summary_and_content():
-    """Tests behavior with empty strings in targeted fields."""
-    json_string = """
-    {
-      "summary": "",
+      "summary": "A summary.",
       "changes": [
         {
           "filePath": "file.txt",
           "action": "CREATE",
-          "content": ""
-        }
+          "content": "Hello"
+        },
       ]
     }
     """
-    expected_dict = {"summary": "", "changes": [
-        {"filePath": "file.txt", "action": "CREATE", "content": ""}]}
-    assert json.loads(fix_and_parse_ai_json(json_string)) == expected_dict
+    result = clean_prepare_json_string(broken_json)
+    # The repaired JSON should not have the trailing comma in the list
+    expected_payload = {
+        "summary": "A summary.",
+        "changes": [
+            {"filePath": "file.txt", "action": "CREATE", "content": "Hello"}
+        ],
+    }
+    assert json.loads(result) == expected_payload
 
 
-def test_content_fix_at_end_of_json():
-    """Tests that the 'content' regex correctly matches the last item."""
-    broken_json_string = r"""
+def test_clean_prepare_json_with_missing_quotes():
+    """Tests repair of a JSON string with missing quotes around keys."""
+    broken_json = """
     {
-      "summary": "Final test.",
-      "changes": [
+      summary: "A summary.",
+      changes: [
         {
-          "filePath": "last_file.py",
-          "action": "REPLACE",
-          "content": "print("This is the "end"")"
+          filePath: "file.txt",
+          action: "CREATE",
+          content: "Hello"
         }
       ]
     }
     """
-    expected_dict = {
-        "summary": "Final test.",
-        "changes": [{"filePath": "last_file.py", "action": "REPLACE", "content": 'print("This is the "end"")'}],
+    result = clean_prepare_json_string(broken_json)
+    expected_payload = {
+        "summary": "A summary.",
+        "changes": [
+            {"filePath": "file.txt", "action": "CREATE", "content": "Hello"}
+        ],
     }
-    # This ensures the (?:,|\}) part of the regex works for the '}' case
-    assert json.loads(fix_and_parse_ai_json(
-        broken_json_string)) == expected_dict
+    assert json.loads(result) == expected_payload
+
+
+def test_clean_prepare_json_with_single_quotes():
+    """Tests repair of a JSON string that uses single quotes."""
+    broken_json = """
+    {
+      'summary': 'A summary.',
+      'changes': [
+        {
+          'filePath': 'file.txt',
+          'action': 'CREATE',
+          'content': 'Hello'
+        }
+      ]
+    }
+    """
+    result = clean_prepare_json_string(broken_json)
+    expected_payload = {
+        "summary": "A summary.",
+        "changes": [
+            {"filePath": "file.txt", "action": "CREATE", "content": "Hello"}
+        ],
+    }
+    assert json.loads(result) == expected_payload
+
+
+def test_validation_error_missing_field():
+    """Tests that a validation error is raised for a missing required field."""
+    # Missing the 'summary' field
+    invalid_payload = {
+        "changes": [
+            {"filePath": "file.txt", "action": "CREATE", "content": "Hello"}
+        ]
+    }
+    invalid_json = json.dumps(invalid_payload)
+
+    with pytest.raises(JsonPreparationError) as excinfo:
+        clean_prepare_json_string(invalid_json)
+
+    assert "Repaired JSON failed validation" in str(excinfo.value)
+    assert "'summary' is a required property" in str(excinfo.value)
+
+
+def test_validation_error_wrong_data_type():
+    """Tests that a validation error is raised for an incorrect data type."""
+    # 'changes' should be a list, not a string
+    invalid_payload = {
+        "summary": "A summary.",
+        "changes": "this should be a list of objects",
+    }
+    invalid_json = json.dumps(invalid_payload)
+
+    with pytest.raises(JsonPreparationError) as excinfo:
+        clean_prepare_json_string(invalid_json)
+
+    assert "Repaired JSON failed validation" in str(excinfo.value)
+    assert "'this should be a list of objects' is not of type 'array'" in str(
+        excinfo.value
+    )
+
+
+def test_unrepairable_json():
+    """Tests that an error is raised for completely un-repairable JSON."""
+    unrepairable_json = "this is not json at all"
+
+    with pytest.raises(JsonPreparationError) as excinfo:
+        clean_prepare_json_string(unrepairable_json)
+
+    assert "Failed to parse or repair the JSON" in str(excinfo.value)
+
+
+def test_schema_loading_error(monkeypatch):
+    """
+    Tests that a fatal error is raised if the JSON schema cannot be loaded.
+    """
+    # Mock the `files()` object from importlib.resources to raise a FileNotFoundError
+    def mock_files(package):
+        class MockPath:
+            def __truediv__(self, other):
+                return self
+
+            def read_text(self, encoding):
+                raise FileNotFoundError("Mocked: Schema file not found.")
+        return MockPath()
+
+    monkeypatch.setattr(
+        "aicodec.infrastructure.cli.commands.utils.files", mock_files)
+
+    with pytest.raises(JsonPreparationError) as excinfo:
+        clean_prepare_json_string(VALID_JSON_STRING)
+
+    assert "Fatal: Could not load the internal JSON schema" in str(
+        excinfo.value)
