@@ -8,9 +8,7 @@ from ...web.server import launch_review_server
 
 
 def register_subparser(subparsers: Any) -> None:
-    revert_parser = subparsers.add_parser(
-        "revert", help="Review and revert previously applied changes."
-    )
+    revert_parser = subparsers.add_parser("revert", help="Review and revert previously applied changes.")
     revert_parser.add_argument(
         "-c",
         "--config",
@@ -30,6 +28,13 @@ def register_subparser(subparsers: Any) -> None:
         action="store_true",
         help="Revert all changes directly without launching the review UI.",
     )
+    revert_parser.add_argument(
+        "-f",
+        "--files",
+        type=str,
+        nargs="+",
+        help="Revert changes only for the specified file(s). Accepts one or more file paths.",
+    )
     revert_parser.set_defaults(func=run)
 
 
@@ -38,9 +43,7 @@ def run(args: Any) -> None:
     output_dir_cfg = file_cfg.get("apply", {}).get("output_dir")
     output_dir = args.output_dir or output_dir_cfg
     if not output_dir:
-        print(
-            "Error: Missing required configuration. Provide 'output_dir' via CLI or config."
-        )
+        print("Error: Missing required configuration. Provide 'output_dir' via CLI or config.")
         return
 
     output_dir_path = Path(output_dir).resolve()
@@ -53,14 +56,35 @@ def run(args: Any) -> None:
     repo = FileSystemChangeSetRepository()
     service = ReviewService(repo, output_dir_path, revert_file, mode="revert")
 
-    if args.all:
-        print("Reverting all changes without review...")
+    if args.all or args.files:
+        if args.files:
+            print(f"Reverting changes for {len(args.files)} file(s)...")
+        else:
+            print("Reverting all changes without review...")
+
         context = service.get_review_context()
         changes_to_revert = context.get("changes", [])
 
         if not changes_to_revert:
             print("No changes to revert.")
             return
+
+        # Filter changes if specific files were requested
+        if args.files:
+            # Normalize file paths for comparison
+            target_files = {Path(f).as_posix() for f in args.files}
+            changes_to_revert = [c for c in changes_to_revert if Path(c["filePath"]).as_posix() in target_files]
+
+            if not changes_to_revert:
+                print(f"No changes found for the specified file(s): {', '.join(args.files)}")
+                return
+
+            if len(changes_to_revert) < len(args.files):
+                found_files = {c["filePath"] for c in changes_to_revert}
+                missing_files = target_files - {Path(f).as_posix() for f in found_files}
+                print(f"Warning: No changes found for: {', '.join(missing_files)}")
+
+            print(f"Found {len(changes_to_revert)} change(s) to revert.")
 
         changes_payload = [
             {
@@ -78,9 +102,7 @@ def run(args: Any) -> None:
         skipped_count = sum(1 for r in results if r["status"] == "SKIPPED")
         failure_count = sum(1 for r in results if r["status"] == "FAILURE")
 
-        print(
-            f"Revert complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed."
-        )
+        print(f"Revert complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed.")
         if failure_count > 0:
             print("Failures:")
             for r in results:

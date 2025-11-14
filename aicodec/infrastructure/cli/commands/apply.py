@@ -10,9 +10,7 @@ from .utils import clean_prepare_json_string
 
 
 def register_subparser(subparsers: Any) -> None:
-    apply_parser = subparsers.add_parser(
-        "apply", help="Review and apply changes from an LLM."
-    )
+    apply_parser = subparsers.add_parser("apply", help="Review and apply changes from an LLM.")
     apply_parser.add_argument(
         "-c",
         "--config",
@@ -37,6 +35,13 @@ def register_subparser(subparsers: Any) -> None:
         action="store_true",
         help="Apply all changes directly without launching the review UI.",
     )
+    apply_parser.add_argument(
+        "-f",
+        "--files",
+        type=str,
+        nargs="+",
+        help="Apply changes only for the specified file(s). Accepts one or more file paths.",
+    )
     apply_parser.set_defaults(func=run)
 
 
@@ -48,34 +53,51 @@ def run(args: Any) -> None:
     changes_file = args.changes or changes_file_cfg
 
     if not all([output_dir, changes_file]):
-        print(
-            "Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config."
-        )
+        print("Error: Missing required configuration. Provide 'output_dir' and 'changes' via CLI or config.")
         return
     if not Path(changes_file).exists():
         print(f"Error: Changes file '{changes_file}' not found.")
         return
 
     # logic doubled, if someone directly copies json from llm to changes file
-    changes_json_str = clean_prepare_json_string(
-        Path(changes_file).read_text(encoding="utf-8"))
+    changes_json_str = clean_prepare_json_string(Path(changes_file).read_text(encoding="utf-8"))
     Path(changes_file).write_text(changes_json_str, encoding="utf-8")
 
     repo = FileSystemChangeSetRepository()
-    service = ReviewService(
-        repo, Path(output_dir).resolve(), Path(changes_file).resolve(), mode="apply"
-    )
+    service = ReviewService(repo, Path(output_dir).resolve(), Path(changes_file).resolve(), mode="apply")
 
-    if args.all:
+    if args.all or args.files:
         session_id = str(uuid.uuid4())
         print(f"Starting new apply session: {session_id}")
-        print("Applying all changes without review...")
+
+        if args.files:
+            print(f"Applying changes for {len(args.files)} file(s)...")
+        else:
+            print("Applying all changes without review...")
+
         context = service.get_review_context()
         changes_to_apply = context.get("changes", [])
 
         if not changes_to_apply:
             print("No changes to apply.")
             return
+
+        # Filter changes if specific files were requested
+        if args.files:
+            # Normalize file paths for comparison
+            target_files = {Path(f).as_posix() for f in args.files}
+            changes_to_apply = [c for c in changes_to_apply if Path(c["filePath"]).as_posix() in target_files]
+
+            if not changes_to_apply:
+                print(f"No changes found for the specified file(s): {', '.join(args.files)}")
+                return
+
+            if len(changes_to_apply) < len(args.files):
+                found_files = {c["filePath"] for c in changes_to_apply}
+                missing_files = target_files - {Path(f).as_posix() for f in found_files}
+                print(f"Warning: No changes found for: {', '.join(missing_files)}")
+
+            print(f"Found {len(changes_to_apply)} change(s) to apply.")
 
         changes_payload = [
             {
@@ -92,9 +114,7 @@ def run(args: Any) -> None:
         skipped_count = sum(1 for r in results if r["status"] == "SKIPPED")
         failure_count = sum(1 for r in results if r["status"] == "FAILURE")
 
-        print(
-            f"Apply complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed."
-        )
+        print(f"Apply complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed.")
         if failure_count > 0:
             print("Failures:")
             for r in results:
