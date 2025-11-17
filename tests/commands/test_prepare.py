@@ -22,7 +22,8 @@ def test_prepare_run_editor_mode(sample_project, aicodec_config_file, monkeypatc
     args = Namespace(
         config=str(aicodec_config_file),
         changes=None,
-        from_clipboard=False
+        from_clipboard=False,
+        skip_editor=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prepare.open_file_in_editor') as mock_open:
@@ -101,7 +102,8 @@ def test_prepare_overwrite_cancel(sample_project, aicodec_config_file, monkeypat
     args = Namespace(
         config=str(aicodec_config_file),
         changes=None,
-        from_clipboard=False
+        from_clipboard=False,
+        skip_editor=False
     )
 
     with patch('builtins.input', return_value='n'):

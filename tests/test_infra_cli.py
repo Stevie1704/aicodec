@@ -282,6 +282,6 @@ def test_prepare_run_open_editor(temp_config_file, monkeypatch):
     monkeypatch.chdir(temp_config_file.parent.parent)
     with patch('aicodec.infrastructure.cli.commands.prepare.open_file_in_editor') as mock_open_editor:
         args = MagicMock(config=str(temp_config_file),
-                         changes=None, from_clipboard=False)
+                         changes=None, from_clipboard=False, skip_editor=False)
         prepare.run(args)
         mock_open_editor.assert_called_once()

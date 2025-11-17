@@ -87,6 +87,12 @@ def register_subparser(subparsers: Any) -> None:
         help="Exclude the repository map from the prompt (overrides config)."
     )
 
+    prompt_parser.add_argument(
+        "--skip-editor",
+        action="store_true",
+        help="Skip opening the file in an external editor (useful when called from IDEs)."
+    )
+
     prompt_parser.set_defaults(func=run)
 
 
@@ -131,7 +137,17 @@ def run(args: Any) -> None:
     schema_path = files("aicodec") / "assets" / "decoder_schema.json"
     schema_content = parse_json_file(schema_path)
 
-    tech_stack = prompt_cfg.get("tech_stack", False) or args.tech_stack
+    # Use CLI argument if it's not the default placeholder, otherwise fall back to config
+    if args.tech_stack != "[REPLACE THIS WITH YOUR tech-stack]":
+        tech_stack = args.tech_stack
+    else:
+        tech_stack = prompt_cfg.get("tech_stack", args.tech_stack)
+
+    # Use CLI argument if it's not the default placeholder, otherwise fall back to config
+    if args.task != "[REPLACE THIS WITH YOUR CODING TASK]":
+        task = args.task
+    else:
+        task = prompt_cfg.get("task", args.task)
 
     prompt_templates_path = files("aicodec") / "assets" / "prompts"
     env = jinja2.Environment(
@@ -153,7 +169,7 @@ def run(args: Any) -> None:
 
     prompt_context = {
         "language_and_tech_stack": tech_stack,
-        "user_task_description": args.task,
+        "user_task_description": task,
         "code_context": code_context,
         "repo_map_content": repo_map_content,
         "json_schema": schema_content,
@@ -180,18 +196,23 @@ def run(args: Any) -> None:
             print(
                 f"Clipboard not available. Prompt has been saved to '{output_path}' instead."
             )
-            if not open_file_in_editor(output_path):
-                print("Could not open an editor automatically.")
-                print(
-                    f"Please open the file and copy its contents to your LLM: {output_path}"
-                )
+            # Skip opening editor if --skip-editor flag is provided
+            if not args.skip_editor:
+                if not open_file_in_editor(output_path):
+                    print("Could not open an editor automatically.")
+                    print(
+                        f"Please open the file and copy its contents to your LLM: {output_path}"
+                    )
     else:
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(prompt, encoding="utf-8")
         print(f'Successfully generated prompt at "{output_path}".')
-        if not open_file_in_editor(output_path):
-            print("Could not open an editor automatically.")
-            print(
-                f"Please open the file and copy its contents to your LLM: {output_path}"
-            )
+
+        # Skip opening editor if --skip-editor flag is provided
+        if not args.skip_editor:
+            if not open_file_in_editor(output_path):
+                print("Could not open an editor automatically.")
+                print(
+                    f"Please open the file and copy its contents to your LLM: {output_path}"
+                )

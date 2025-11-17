@@ -11,7 +11,8 @@ def test_prepare_run_from_clipboard_pyperclip_exception(sample_project, aicodec_
     args = Namespace(
         config=str(aicodec_config_file),
         changes=None,
-        from_clipboard=True
+        from_clipboard=True,
+        skip_editor=False
     )
 
     # When pyperclip.paste() raises an exception, the app should fall back

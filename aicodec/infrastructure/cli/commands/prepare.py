@@ -6,7 +6,7 @@ import pyperclip
 
 from ...config import load_config as load_json_config
 from ...utils import open_file_in_editor
-from .utils import clean_prepare_json_string, get_user_confirmation
+from .utils import JsonPreparationError, clean_prepare_json_string, get_user_confirmation
 
 
 def register_subparser(subparsers: Any) -> None:
@@ -30,6 +30,12 @@ def register_subparser(subparsers: Any) -> None:
         "--from-clipboard",
         action="store_true",
         help="Paste content directly from the system clipboard.",
+    )
+    prep_parser.add_argument(
+        "--skip-editor",
+        action="store_true",
+        help="Skip opening the file in an external editor (useful when called from IDEs).",
+        default=False,
     )
     prep_parser.set_defaults(func=run)
 
@@ -80,7 +86,39 @@ def run(args: Any) -> None:
         # Ensure the file is empty before opening it for the user to paste into.
         changes_path.write_text("", encoding="utf-8")
         print(f'Successfully created empty file at "{changes_path}".')
+
+        # Skip opening editor if --skip-editor flag is provided
+        if args.skip_editor:
+            print(f'Please edit "{changes_path}" and save your changes.')
+            return
+
         if not open_file_in_editor(changes_path):
             print("Could not open an editor automatically.")
             print(
                 f"Please paste your JSON changes into the file at: {changes_path}")
+        else:
+            # Editor was opened successfully, now clean the file after user closes it
+            print("Cleaning and validating the JSON file...")
+            try:
+                # Read the content that the user entered
+                user_content = changes_path.read_text(encoding="utf-8")
+
+                if not user_content.strip():
+                    print("Warning: The file is empty. No changes were made.")
+                    return
+
+                # Clean and validate the content
+                formatted_json = clean_prepare_json_string(user_content)
+
+                # Write the cleaned content back
+                changes_path.write_text(formatted_json, encoding="utf-8")
+                print(f'Successfully cleaned and validated "{changes_path}".')
+
+            except JsonPreparationError as e:
+                print(f"\n{e}")
+                print(f"\nThe original content remains in: {changes_path}")
+                print("Please fix the JSON manually or run the prepare command again.")
+            except Exception as e:
+                print(
+                    f"Error: Unexpected error while processing the JSON file: {e}")
+                print(f"The original content remains in: {changes_path}")

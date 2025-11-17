@@ -16,7 +16,8 @@ def test_prompt_run_basic(sample_project, aicodec_config_file, monkeypatch):
         task="A test task",
         minimal=False, tech_stack=None, output_file=None, clipboard=False,
         exclude_output_instructions=False, is_new_project=False, exclude_code=False,
-        include_map=None  # Use default from config (False)
+        include_map=None,  # Use default from config (False)
+        skip_editor=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
@@ -72,7 +73,8 @@ def test_prompt_run_exclude_map_flag(sample_project, aicodec_config_file, monkey
         task="A test task",
         minimal=False, tech_stack=None, output_file=None, clipboard=False,
         exclude_output_instructions=False, is_new_project=False, exclude_code=True,
-        include_map=False  # Explicitly exclude via --exclude-map
+        include_map=False,  # Explicitly exclude via --exclude-map
+        skip_editor=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
@@ -98,7 +100,8 @@ def test_prompt_run_from_config(sample_project, aicodec_config_file, monkeypatch
         task="A test task",
         minimal=False, tech_stack=None, output_file=None, clipboard=False,
         exclude_output_instructions=False, is_new_project=False, exclude_code=True,
-        include_map=None  # Use config
+        include_map=None,  # Use config
+        skip_editor=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
@@ -117,7 +120,8 @@ def test_prompt_warns_if_map_missing(sample_project, aicodec_config_file, monkey
         task="A test task",
         minimal=False, tech_stack=None, output_file=None, clipboard=False,
         exclude_output_instructions=False, is_new_project=False, exclude_code=True,
-        include_map=True  # Request map that doesn't exist
+        include_map=True,  # Request map that doesn't exist
+        skip_editor=False
     )
 
     with patch('aicodec.infrastructure.cli.commands.prompt.open_file_in_editor', return_value=True):
