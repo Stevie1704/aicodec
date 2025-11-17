@@ -6,6 +6,7 @@ import pytest
 # Import the function to be tested
 from aicodec.infrastructure.cli.commands.utils import (
     fix_and_parse_ai_json,
+    fix_unclosed_brackets,
     get_list_from_user,
     get_user_confirmation,
     parse_json_file,
@@ -392,3 +393,148 @@ def test_content_fix_at_end_of_json():
     # This ensures the (?:,|\}) part of the regex works for the '}' case
     assert json.loads(fix_and_parse_ai_json(
         broken_json_string)) == expected_dict
+
+
+# ---- Tests for fix_unclosed_brackets ----
+
+
+def test_fix_unclosed_brackets_complete_json():
+    """Tests that complete valid JSON is not modified."""
+    valid_json = '{"summary": "Test", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "test"}]}'
+    result = fix_unclosed_brackets(valid_json)
+    assert result == valid_json
+    # Verify it's still valid JSON
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_missing_closing_brace():
+    """Tests fixing JSON missing the final closing brace."""
+    incomplete_json = '{"summary": "Test", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "test"}]'
+    result = fix_unclosed_brackets(incomplete_json)
+    expected = '{"summary": "Test", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "test"}]}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_missing_array_and_object():
+    """Tests fixing JSON missing both array closing bracket and object closing brace."""
+    incomplete_json = '{"summary": "Test", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "test"}'
+    result = fix_unclosed_brackets(incomplete_json)
+    # Should add ] then }
+    expected = '{"summary": "Test", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "test"}]}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_multiple_missing():
+    """Tests fixing JSON with multiple missing closing brackets."""
+    incomplete_json = '{"summary": "Test", "changes": [{"filePath": "test.py"'
+    result = fix_unclosed_brackets(incomplete_json)
+    # Should add } for inner object, ] for array, } for outer object
+    expected = '{"summary": "Test", "changes": [{"filePath": "test.py"}]}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_with_nested_objects():
+    """Tests fixing JSON with nested objects."""
+    incomplete_json = '{"summary": "Test", "changes": [{"filePath": "test.py", "metadata": {"nested": "value"'
+    result = fix_unclosed_brackets(incomplete_json)
+    # Should close the nested object, the change object, the array, and the root object
+    expected = '{"summary": "Test", "changes": [{"filePath": "test.py", "metadata": {"nested": "value"}}]}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_respects_strings():
+    """Tests that brackets inside strings are not counted."""
+    # The content contains { and [ which should be ignored
+    json_with_brackets_in_strings = '{"summary": "Test with {brackets} and [arrays]", "changes": []'
+    result = fix_unclosed_brackets(json_with_brackets_in_strings)
+    expected = '{"summary": "Test with {brackets} and [arrays]", "changes": []}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_respects_escaped_quotes():
+    """Tests that escaped quotes in strings are handled correctly."""
+    # The content has escaped quotes which should not affect string detection
+    json_with_escaped_quotes = r'{"summary": "Test with \"escaped\" quotes", "changes": []'
+    result = fix_unclosed_brackets(json_with_escaped_quotes)
+    expected = r'{"summary": "Test with \"escaped\" quotes", "changes": []}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_complex_content():
+    """Tests fixing JSON with complex content including code."""
+    incomplete_json = r'{"summary": "Add function", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "def foo():\n    return {\"key\": \"value\"}"'
+    result = fix_unclosed_brackets(incomplete_json)
+    # The brackets inside the escaped content string should be ignored
+    expected = r'{"summary": "Add function", "changes": [{"filePath": "test.py", "action": "CREATE", "content": "def foo():\n    return {\"key\": \"value\"}"}]}'
+    assert result == expected
+    # Verify it's valid JSON now
+    parsed = json.loads(result)
+    assert parsed is not None
+    # Verify the content is preserved correctly
+    assert parsed["changes"][0]["content"] == 'def foo():\n    return {"key": "value"}'
+
+
+def test_fix_unclosed_brackets_empty_arrays():
+    """Tests fixing JSON with empty arrays."""
+    incomplete_json = '{"summary": "Test", "changes": ['
+    result = fix_unclosed_brackets(incomplete_json)
+    expected = '{"summary": "Test", "changes": []}'
+    assert result == expected
+    # Verify it's valid JSON now
+    assert json.loads(result) is not None
+
+
+def test_fix_unclosed_brackets_decoder_schema_structure():
+    """Tests fixing a real-world example matching the decoder schema."""
+    incomplete_json = '''{
+    "summary": "Update configuration file",
+    "changes": [
+        {
+            "filePath": "config.json",
+            "action": "REPLACE",
+            "content": "{\\"setting\\": \\"value\\"}"
+        }
+    '''
+    result = fix_unclosed_brackets(incomplete_json)
+    # Should add ] for changes array and } for root object
+    parsed = json.loads(result)
+    assert parsed["summary"] == "Update configuration file"
+    assert len(parsed["changes"]) == 1
+    assert parsed["changes"][0]["filePath"] == "config.json"
+    assert parsed["changes"][0]["action"] == "REPLACE"
+
+
+def test_fix_unclosed_brackets_multiple_changes():
+    """Tests fixing JSON with multiple change entries."""
+    incomplete_json = '''{
+    "summary": "Multiple changes",
+    "changes": [
+        {
+            "filePath": "file1.py",
+            "action": "CREATE",
+            "content": "content1"
+        },
+        {
+            "filePath": "file2.py",
+            "action": "REPLACE",
+            "content": "content2"
+        }
+    '''
+    result = fix_unclosed_brackets(incomplete_json)
+    parsed = json.loads(result)
+    assert parsed["summary"] == "Multiple changes"
+    assert len(parsed["changes"]) == 2
+    assert parsed["changes"][0]["filePath"] == "file1.py"
+    assert parsed["changes"][1]["filePath"] == "file2.py"

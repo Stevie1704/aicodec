@@ -28,8 +28,7 @@ def get_user_confirmation(prompt: str, default_yes: bool = True) -> bool:
 
 def get_list_from_user(prompt: str) -> list[str]:
     """Gets a comma-separated list of items from the user."""
-    response = input(
-        f"{prompt} (comma-separated, press Enter to skip): ").strip()
+    response = input(f"{prompt} (comma-separated, press Enter to skip): ").strip()
     if not response:
         return []
     return [item.strip() for item in response.split(",")]
@@ -39,14 +38,82 @@ def parse_json_file(file_path: Path) -> str:
     """Reads and returns the content of a JSON file as a formatted string."""
     try:
         content = file_path.read_text(encoding="utf-8")
-        return json.dumps(json.loads(content), separators=(',', ':'))
+        return json.dumps(json.loads(content), separators=(",", ":"))
     except FileNotFoundError:
         print(f"Error: JSON file '{file_path}' not found.", file=sys.stderr)
         sys.exit(1)
     except json.JSONDecodeError as e:
-        print(
-            f"Error: Failed to parse JSON file '{file_path}': {e}", file=sys.stderr)
+        print(f"Error: Failed to parse JSON file '{file_path}': {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def fix_unclosed_brackets(json_str: str) -> str:
+    """
+    Fixes unclosed brackets in a JSON string based on the decoder schema structure.
+
+    The decoder schema has the following structure:
+    {
+        "summary": "...",
+        "changes": [
+            {
+                "filePath": "...",
+                "action": "...",
+                "content": "..."
+            }
+        ]
+    }
+
+    This function analyzes the bracket structure and adds missing closing brackets
+    at the end if needed.
+
+    Args:
+        json_str: The potentially malformed JSON string
+
+    Returns:
+        The JSON string with fixed bracket closures
+    """
+    # Stack to track open brackets
+    stack = []
+    in_string = False
+    escape_next = False
+
+    for char in json_str:
+        if escape_next:
+            escape_next = False
+            continue
+
+        if char == "\\":
+            escape_next = True
+            continue
+
+        if char == '"':
+            in_string = not in_string
+            continue
+
+        if in_string:
+            continue
+
+        if char in "{[":
+            stack.append(char)
+        elif char in "}]":
+            if stack:
+                opening = stack.pop()
+                # Verify matching brackets
+                if (char == "}" and opening != "{") or (char == "]" and opening != "["):
+                    # Mismatched bracket - this is a more severe error
+                    # For now, we'll still try to fix by assuming the closing bracket is correct
+                    pass
+
+    # Add missing closing brackets at the end
+    result = json_str
+    while stack:
+        opening = stack.pop()
+        if opening == "{":
+            result += "}"
+        elif opening == "[":
+            result += "]"
+
+    return result
 
 
 def clean_prepare_json_string(llm_json: str) -> dict:
@@ -62,6 +129,8 @@ def clean_prepare_json_string(llm_json: str) -> dict:
         print(f"Error: Could not load the internal JSON schema. {e}")
         return
     cleaned_str = clean_json_string(llm_json)
+    # Fix unclosed brackets before attempting to parse
+    cleaned_str = fix_unclosed_brackets(cleaned_str)
     try:
         cleaned_json = json.loads(cleaned_str)
     except json.JSONDecodeError:
@@ -70,13 +139,11 @@ def clean_prepare_json_string(llm_json: str) -> dict:
         try:
             cleaned_json = json.loads(cleaned_str)
         except json.JSONDecodeError as e:
-            raise JsonPreparationError(
-                f"Error: Failed to parse JSON after attempting to fix it. {e}") from e
+            raise JsonPreparationError(f"Error: Failed to parse JSON after attempting to fix it. {e}") from e
     try:
         validate(instance=cleaned_json, schema=schema)
     except ValidationError as e:
-        raise JsonPreparationError(
-            f"Error: JSON validation failed. {e}") from e
+        raise JsonPreparationError(f"Error: JSON validation failed. {e}") from e
     return json.dumps(cleaned_json, indent=4)
 
 
@@ -91,15 +158,15 @@ def clean_json_string(s: str) -> str:
     """
 
     # 1. Replace the actual non-breaking space character with a regular space
-    s = re.sub(r'\xa0', ' ', s)
+    s = re.sub(r"\xa0", " ", s)
 
     # 2. Replace the literal text sequence "\\u00a0" with a regular space
     # (The first \ escapes the second \ for the regex)
-    s = re.sub(r'\\u00a0', ' ', s)
+    s = re.sub(r"\\u00a0", " ", s)
 
     # 3. Remove other control characters, preserving \t, \n, \r
     #    (Ranges: 0-8, 11-12, 14-31, and 127)
-    s = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', s)
+    s = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", s)
 
     return s
 
@@ -114,33 +181,27 @@ JSON_STRAY_BACKSLASH_PATTERN = re.compile(r'(\\+)(?:([^"\\/bfnrtu])|$)')
 # It correctly captures the start/end quotes as groups 1 and 3.
 TARGET_FIELD_PATTERN_TEMPLATE = r'("{field_name}":\s*")(.*?)("\s*(?:,|}}))'
 
-JSON_SUMMARY_PATTERN = re.compile(
-    TARGET_FIELD_PATTERN_TEMPLATE.format(field_name="summary"),
-    re.DOTALL
-)
-JSON_CONTENT_PATTERN = re.compile(
-    TARGET_FIELD_PATTERN_TEMPLATE.format(field_name="content"),
-    re.DOTALL
-)
+JSON_SUMMARY_PATTERN = re.compile(TARGET_FIELD_PATTERN_TEMPLATE.format(field_name="summary"), re.DOTALL)
+JSON_CONTENT_PATTERN = re.compile(TARGET_FIELD_PATTERN_TEMPLATE.format(field_name="content"), re.DOTALL)
 
 # --- 2. Markdown Escape Map ---
 MARKDOWN_ESCAPES = {
-    r'\_': '_',
-    r'\*': '*',
-    r'\.': '.',
-    r'\#': '#',
-    r'\-': '-',
-    r'\+': '+',
-    r'\!': '!',
-    r'\`': '`',
-    r'\[': '[',
-    r'\]': ']',
-    r'\(': '(',
-    r'\)': ')',
-    r'\{': '{',
-    r'\}': '}',
-    r'\>': '>',
-    r'\|': '|',
+    r"\_": "_",
+    r"\*": "*",
+    r"\.": ".",
+    r"\#": "#",
+    r"\-": "-",
+    r"\+": "+",
+    r"\!": "!",
+    r"\`": "`",
+    r"\[": "[",
+    r"\]": "]",
+    r"\(": "(",
+    r"\)": ")",
+    r"\{": "{",
+    r"\}": "}",
+    r"\>": ">",
+    r"\|": "|",
 }
 
 # --- 3. Helper Functions for Clean Code ---
@@ -161,12 +222,12 @@ def _backslash_replacer(match: re.Match) -> str:
     """
     slashes = match.group(1)
     # char is group 2, or empty string if end-of-line
-    char = match.group(2) or ''
+    char = match.group(2) or ""
 
     if len(slashes) % 2 == 1:
         # Odd number of slashes: \U -> \\U or \\\U -> \\\\U
         # This is a stray slash that needs escaping.
-        slashes += '\\'
+        slashes += "\\"
 
     # Even number of slashes (e.g., \\U) is already escaped.
     # Return the (potentially fixed) slashes and the character.
@@ -184,9 +245,9 @@ def _fix_json_string_content(content: str) -> str:
     """
     # STEP (A): Escape control characters.
     # This MUST run before fixing backslashes.
-    fixed_content = content.replace('\r', '\\r')
-    fixed_content = fixed_content.replace('\n', '\\n')
-    fixed_content = fixed_content.replace('\t', '\\t')
+    fixed_content = content.replace("\r", "\\r")
+    fixed_content = fixed_content.replace("\n", "\\n")
+    fixed_content = fixed_content.replace("\t", "\\t")
 
     # STEP (B): Fix unescaped backslashes (ROBUSTLY).
     # This correctly handles \\U vs \U and ignores the \\n, \\r, \\t
@@ -196,7 +257,7 @@ def _fix_json_string_content(content: str) -> str:
     # STEP (C): Fix unescaped double-quotes.
     # This logic is correct, as it only escapes a " if it's
     # NOT already preceded by a (single) backslash.
-    fixed_content = re.sub(r'(?<!\\)"', r'\"', fixed_content)
+    fixed_content = re.sub(r'(?<!\\)"', r"\"", fixed_content)
 
     return fixed_content
 
@@ -206,13 +267,14 @@ def _json_string_value_replacer(match: re.Match) -> str:
     The main re.sub replacer function for summary_regex and content_regex.
     It extracts the content, fixes it, and reassembles the string.
     """
-    pre = match.group(1)   # ("summary": "
+    pre = match.group(1)  # ("summary": "
     content = match.group(2)  # ... the broken content ...
     post = match.group(3)  # ",
 
     fixed_content = _fix_json_string_content(content)
 
     return f"{pre}{fixed_content}{post}"
+
 
 # --- 4. Main Public Function ---
 
