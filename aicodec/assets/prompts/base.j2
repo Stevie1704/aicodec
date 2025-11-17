@@ -29,10 +29,10 @@ The relevant codebase is provided below as a JSON array. Each object in the arra
 {%- endif -%}
 {%- if include_output_instructions -%}
 <output_instructions>
-Your response MUST be a single, raw JSON object that is valid RFC 8259 JSON.
+Your response MUST be a single, raw JSON object that is valid RFC 8259 JSON inside one markdown code block tagged as json.
 Do **not** include any conversational text, explanations, code fences, markdown, comments, or extra formatting before or after the JSON object.
 CRITICAL: Return ONLY valid JSON. Follow these rules strictly:
-1. NO markdown code blocks (no ```json or ```)
+1. Wrap the JSON in exactly one markdown code block: ```json … ```
 2. Escape special characters in strings:
    - Use \" for literal quotes
    - Use \\ for literal backslashes (e.g., Windows paths: "C:\\Users\\Test")
