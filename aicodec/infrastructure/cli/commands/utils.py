@@ -47,6 +47,275 @@ def parse_json_file(file_path: Path) -> str:
         sys.exit(1)
 
 
+def _schema_aware_json_fix(text: str) -> str:
+    """
+    Schema-aware JSON fixing for the decoder_schema.json structure.
+
+    Expected structure:
+    {
+        "summary": "...",
+        "changes": [
+            {"filePath": "...", "action": "...", "content": "..."},
+            ...
+        ]
+    }
+
+    This function handles unescaped quotes in summary and content fields by:
+    1. Parsing the JSON structure character by character
+    2. Identifying field boundaries using JSON structural characters
+    3. Escaping quotes within string values
+    """
+    import re
+
+    # First apply basic cleaning
+    text = clean_json_string(text)
+
+    # State machine to track where we are in the JSON structure
+    result = []
+    i = 0
+
+    def skip_whitespace(pos):
+        """Skip whitespace and return next non-whitespace position"""
+        while pos < len(text) and text[pos] in ' \t\n\r':
+            result.append(text[pos])
+            pos += 1
+        return pos
+
+    def read_and_fix_string_value(pos, field_name=None):
+        """
+        Read a JSON string value starting at pos (after opening ").
+        Escape any unescaped quotes within it.
+
+        Args:
+            pos: Position after the opening quote
+            field_name: Optional field name for context (e.g., "content", "summary")
+
+        Returns (fixed_value, position_at_closing_quote, found_closing_quote)
+        """
+        value_chars = []
+        escaped = False
+
+        while pos < len(text):
+            char = text[pos]
+
+            if escaped:
+                # This character is escaped, keep it as-is
+                value_chars.append(char)
+                escaped = False
+                pos += 1
+                continue
+
+            if char == '\\':
+                # Check if this is a valid escape sequence
+                if pos + 1 < len(text) and text[pos + 1] in '"\\/:bfnrtu':
+                    # Valid escape sequence, keep it
+                    value_chars.append(char)
+                    escaped = True
+                else:
+                    # Invalid/stray backslash, escape it
+                    value_chars.append('\\\\')
+                pos += 1
+                continue
+
+            if char == '"':
+                # This is an unescaped quote - could be the end or needs escaping
+                # Check if this looks like the end of the string value
+                # by looking at what comes after
+                lookahead_start = pos + 1
+                lookahead_end = min(len(text), pos + 50)
+                lookahead = text[lookahead_start:lookahead_end]
+
+                # For the "content" field, be more conservative since it can contain
+                # any text including TOML/Python code with brackets
+                # Only accept } as a definite end (end of change object)
+                if field_name == "content":
+                    # For content field, only end on } or next field marker
+                    if re.match(r'^}', lookahead) or re.match(r'^\s+}', lookahead):
+                        return ''.join(value_chars), pos, True
+                    if re.match(r'^,\s*"filePath"', lookahead):
+                        return ''.join(value_chars), pos, True
+                else:
+                    # For other fields, we can be less strict
+                    # Check for definite end patterns
+                    if re.match(r'^[}\]]', lookahead) or re.match(r'^\s+[}\]]', lookahead):
+                        # Definitely the end (closing object or array)
+                        return ''.join(value_chars), pos, True
+
+                    # Check for likely end: comma followed by whitespace and a known field name
+                    if re.match(r'^,\s*"(summary|changes|filePath|action|content)"', lookahead):
+                        # Very likely the end (next JSON field)
+                        return ''.join(value_chars), pos, True
+
+                # Otherwise, this is an unescaped quote inside the value - escape it
+                value_chars.append('\\"')
+                pos += 1
+                continue
+
+            # Control characters need to be escaped
+            if char == '\n':
+                value_chars.append('\\n')
+            elif char == '\r':
+                value_chars.append('\\r')
+            elif char == '\t':
+                value_chars.append('\\t')
+            else:
+                # Regular character
+                value_chars.append(char)
+
+            pos += 1
+
+        # Reached end without finding closing quote - return what we have
+        return ''.join(value_chars), pos, False
+
+    def read_field_name(pos):
+        """Read a field name (expects to be at opening quote)"""
+        if pos >= len(text) or text[pos] != '"':
+            return None, pos
+
+        result.append(text[pos])  # opening "
+        pos += 1
+
+        # Read until closing quote (field names shouldn't have escaped chars typically)
+        while pos < len(text):
+            char = text[pos]
+            result.append(char)
+            if char == '"':
+                return text[pos], pos + 1
+            pos += 1
+
+        return None, pos
+
+    # Expect opening {
+    i = skip_whitespace(i)
+    if i >= len(text) or text[i] != '{':
+        raise JsonPreparationError("Expected opening { at start")
+    result.append('{')
+    i += 1
+
+    # Read summary field
+    i = skip_whitespace(i)
+    field_name, i = read_field_name(i)
+
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == ':':
+        result.append(':')
+        i += 1
+
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == '"':
+        result.append('"')
+        i += 1
+        # Read and fix the summary value
+        fixed_value, i, found_quote = read_and_fix_string_value(i)
+        result.append(fixed_value)
+        if found_quote and i < len(text) and text[i] == '"':
+            result.append('"')
+            i += 1
+        elif not found_quote:
+            # Add missing closing quote
+            result.append('"')
+
+    # Expect comma after summary
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == ',':
+        result.append(',')
+        i += 1
+
+    # Read changes field name
+    i = skip_whitespace(i)
+    field_name, i = read_field_name(i)
+
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == ':':
+        result.append(':')
+        i += 1
+
+    # Expect opening [
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == '[':
+        result.append('[')
+        i += 1
+
+    # Process each change object
+    first_change = True
+    while i < len(text):
+        i = skip_whitespace(i)
+
+        # Check if array ends
+        if i < len(text) and text[i] == ']':
+            result.append(']')
+            i += 1
+            break
+
+        # Add comma between objects
+        if not first_change:
+            if i < len(text) and text[i] == ',':
+                result.append(',')
+                i += 1
+            i = skip_whitespace(i)
+        first_change = False
+
+        # Expect opening {
+        if i >= len(text) or text[i] != '{':
+            break
+        result.append('{')
+        i += 1
+
+        # Read the three fields: filePath, action, content
+        for field_idx in range(3):
+            i = skip_whitespace(i)
+
+            # Add comma between fields
+            if field_idx > 0:
+                if i < len(text) and text[i] == ',':
+                    result.append(',')
+                    i += 1
+                i = skip_whitespace(i)
+
+            # Read field name
+            current_field_name, i = read_field_name(i)
+
+            # Expect colon
+            i = skip_whitespace(i)
+            if i < len(text) and text[i] == ':':
+                result.append(':')
+                i += 1
+
+            # Read field value (always a string in our schema)
+            i = skip_whitespace(i)
+            if i < len(text) and text[i] == '"':
+                result.append('"')
+                i += 1
+                # Read and fix the value, passing field context
+                # Determine if this is the content field (field_idx == 2, or check the name)
+                ctx_field = "content" if field_idx == 2 else None
+                fixed_value, i, found_quote = read_and_fix_string_value(i, ctx_field)
+                result.append(fixed_value)
+                if found_quote and i < len(text) and text[i] == '"':
+                    result.append('"')
+                    i += 1
+                elif not found_quote:
+                    # Add missing closing quote
+                    result.append('"')
+
+        # Expect closing }
+        i = skip_whitespace(i)
+        if i < len(text) and text[i] == '}':
+            result.append('}')
+            i += 1
+
+    # Expect closing }
+    i = skip_whitespace(i)
+    if i < len(text) and text[i] == '}':
+        result.append('}')
+        i += 1
+
+    # Append any remaining content
+    result.append(text[i:])
+
+    return ''.join(result)
+
+
 def clean_prepare_json_string(llm_json: str) -> dict:
     """
     Cleans and validates a JSON string generated by an LLM for the prepare command.
@@ -79,7 +348,13 @@ def clean_prepare_json_string(llm_json: str) -> dict:
             try:
                 cleaned_json = json.loads(cleaned_str)
             except json.JSONDecodeError as e2:
-                raise JsonPreparationError(f"Error: Failed to parse JSON after all fixing attempts. {e2}") from e2
+                # Final attempt: schema-aware fixing
+                print(f"Aggressive escaping failed ({e2}). Applying schema-aware JSON fix...")
+                try:
+                    cleaned_str = _schema_aware_json_fix(llm_json)
+                    cleaned_json = json.loads(cleaned_str)
+                except (json.JSONDecodeError, JsonPreparationError) as e3:
+                    raise JsonPreparationError(f"Error: Failed to parse JSON after all fixing attempts. {e3}") from e3
 
     try:
         validate(instance=cleaned_json, schema=schema)

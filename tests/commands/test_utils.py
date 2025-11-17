@@ -8,6 +8,7 @@ from aicodec.infrastructure.cli.commands.utils import (
     _aggressive_escape_quotes,
     _find_closing_brace,
     _fix_json_string_value,
+    _schema_aware_json_fix,
     clean_prepare_json_string,
     fix_and_parse_ai_json,
     get_list_from_user,
@@ -725,3 +726,288 @@ def test_clean_prepare_json_string_schema_validation():
         clean_prepare_json_string(invalid_json)
 
     assert 'validation' in str(exc_info.value).lower() or 'required' in str(exc_info.value).lower()
+
+
+# ---- Tests for _schema_aware_json_fix ----
+
+
+def test_schema_aware_json_fix_simple_valid():
+    """Tests that already-valid JSON passes through correctly."""
+    json_str = '''{
+    "summary": "Test summary",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "print(\\"hello\\")"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert parsed['summary'] == 'Test summary'
+    assert len(parsed['changes']) == 1
+    assert parsed['changes'][0]['filePath'] == 'test.py'
+
+
+def test_schema_aware_json_fix_unescaped_quotes_in_summary():
+    """Tests fixing unescaped quotes in the summary field."""
+    json_str = '''{
+    "summary": "This is a "test" summary with "quotes"",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "test"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert parsed['summary'] == 'This is a "test" summary with "quotes"'
+
+
+def test_schema_aware_json_fix_unescaped_quotes_in_content():
+    """Tests fixing unescaped quotes in content fields."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "def func():\\n    print("hello world")"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert 'hello world' in parsed['changes'][0]['content']
+    assert 'print' in parsed['changes'][0]['content']
+
+
+def test_schema_aware_json_fix_license_content():
+    """Tests fixing LICENSE-style content with multiple quotes."""
+    json_str = '''{
+    "summary": "Add LICENSE",
+    "changes": [
+        {
+            "filePath": "LICENSE",
+            "action": "CREATE",
+            "content": "THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT."
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert '"AS IS"' in content
+    assert 'WITHOUT WARRANTY' in content
+    assert 'MERCHANTABILITY' in content
+
+
+def test_schema_aware_json_fix_multiple_files():
+    """Tests processing multiple change objects."""
+    json_str = '''{
+    "summary": "Multiple files",
+    "changes": [
+        {
+            "filePath": "file1.py",
+            "action": "CREATE",
+            "content": "x = "value1""
+        },
+        {
+            "filePath": "file2.py",
+            "action": "CREATE",
+            "content": "y = "value2""
+        },
+        {
+            "filePath": "file3.py",
+            "action": "CREATE",
+            "content": "z = "value3""
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert len(parsed['changes']) == 3
+    assert 'value1' in parsed['changes'][0]['content']
+    assert 'value2' in parsed['changes'][1]['content']
+    assert 'value3' in parsed['changes'][2]['content']
+
+
+def test_schema_aware_json_fix_pyproject_with_arrays():
+    """Tests fixing TOML content with array literals."""
+    json_str = '''{
+    "summary": "Add pyproject.toml",
+    "changes": [
+        {
+            "filePath": "pyproject.toml",
+            "action": "CREATE",
+            "content": "[build-system]\\nrequires = ["setuptools>=68.0", "wheel>=0.40"]\\nbuild-backend = "setuptools.build_meta"\\n\\n[project]\\nname = "myproject"\\nversion = "1.0.0""
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    # These should all be present in the content
+    assert 'setuptools>=68.0' in content
+    assert 'wheel>=0.40' in content
+    assert 'setuptools.build_meta' in content
+    assert 'myproject' in content
+
+
+def test_schema_aware_json_fix_python_fstrings():
+    """Tests handling Python f-strings with braces."""
+    json_str = '''{
+    "summary": "Add CLI",
+    "changes": [
+        {
+            "filePath": "cli.py",
+            "action": "CREATE",
+            "content": "def prompt():\\n    name = input(f\\"Enter your name: \\")\\n    print(f\\"Hello {name}!\\")"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert '{name}' in content
+    assert 'Enter your name:' in content
+
+
+@pytest.mark.xfail(reason="Known limitation: TOML inline tables with } followed by quotes are ambiguous with JSON structure")
+def test_schema_aware_json_fix_inline_tables():
+    """Tests handling TOML inline tables with braces.
+
+    This is a known limitation: When content contains TOML inline tables like
+    {text = "MIT"}, the closing } followed by a quote creates ambiguity about
+    whether the } is part of the content or closes the JSON object.
+
+    This test documents the limitation and will pass if/when the edge case is resolved.
+    """
+    json_str = '''{
+    "summary": "Add config",
+    "changes": [
+        {
+            "filePath": "pyproject.toml",
+            "action": "CREATE",
+            "content": "[project]\\nlicense = {text = "MIT"}\\nauthors = [{name = "John", email = "john@example.com"}]"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    # Verify the structure is preserved
+    assert 'MIT' in content
+    assert 'John' in content
+    assert 'john@example.com' in content
+
+
+def test_schema_aware_json_fix_literal_newlines():
+    """Tests that literal newlines in content are properly escaped."""
+    json_str = """{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "line1
+line2
+line3"
+        }
+    ]
+}"""
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    # After parsing, the content should have newlines
+    assert 'line1\nline2\nline3' in content or 'line1\\nline2\\nline3' in content
+
+
+def test_schema_aware_json_fix_empty_content():
+    """Tests handling of empty content field."""
+    json_str = '''{
+    "summary": "Delete file",
+    "changes": [
+        {
+            "filePath": "old.py",
+            "action": "DELETE",
+            "content": ""
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert parsed['changes'][0]['content'] == ''
+    assert parsed['changes'][0]['action'] == 'DELETE'
+
+
+def test_schema_aware_json_fix_special_characters():
+    """Tests handling various special characters in content."""
+    json_str = '''{
+    "summary": "Add special chars",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "# Symbols: @, #, $, %, &, *, +, -, =\\ntext = "includes \\"nested\\" quotes""
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert '@' in content
+    assert '#' in content
+    assert '$' in content
+
+
+def test_schema_aware_json_fix_single_line_json():
+    """Tests fixing single-line (compact) JSON."""
+    json_str = '{"summary":"Test","changes":[{"filePath":"test.py","action":"CREATE","content":"print("hello")"}]}'
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    assert parsed['summary'] == 'Test'
+    assert 'hello' in parsed['changes'][0]['content']
+
+
+def test_schema_aware_json_fix_preserves_valid_escapes():
+    """Tests that already-escaped quotes are not double-escaped."""
+    json_str = '''{
+    "summary": "Test",
+    "changes": [
+        {
+            "filePath": "test.py",
+            "action": "CREATE",
+            "content": "already = \\"escaped\\"\\nand "unescaped""
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    # Should contain both the already-escaped and newly-escaped quotes
+    assert 'already = "escaped"' in content
+    assert 'and "unescaped"' in content
+
+
+def test_schema_aware_json_fix_readme_with_markdown():
+    """Tests handling README content with markdown syntax."""
+    json_str = '''{
+    "summary": "Add README",
+    "changes": [
+        {
+            "filePath": "README.md",
+            "action": "CREATE",
+            "content": "# My Project\\n\\nThis is a "modern" Python project.\\n\\n## Features\\n- Feature 1\\n- Feature 2\\n\\n```python\\nprint(\\"hello\\")\\n```"
+        }
+    ]
+}'''
+    result = _schema_aware_json_fix(json_str)
+    parsed = json.loads(result)
+    content = parsed['changes'][0]['content']
+    assert '# My Project' in content
+    assert '"modern"' in content
+    assert 'Feature 1' in content
