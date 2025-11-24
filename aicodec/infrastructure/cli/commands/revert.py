@@ -47,66 +47,94 @@ def run(args: Any) -> None:
         return
 
     output_dir_path = Path(output_dir).resolve()
-    revert_file = output_dir_path / ".aicodec" / "revert.json"
+    reverts_dir = output_dir_path / ".aicodec" / "reverts"
 
-    if not revert_file.is_file():
+    # Check for revert files
+    if not reverts_dir.exists():
         print("Error: No revert data found. Run 'aicodec apply' first.")
         return
 
+    revert_files = sorted(reverts_dir.glob("revert-*.json"), reverse=True)  # Newest first
+
+    if not revert_files:
+        print("Error: No revert data found. Run 'aicodec apply' first.")
+        return
+
+    print(f"Found {len(revert_files)} apply operation(s) to revert.")
+
     repo = FileSystemChangeSetRepository()
-    service = ReviewService(repo, output_dir_path, revert_file, mode="revert")
 
     if args.all or args.files:
         if args.files:
-            print(f"Reverting changes for {len(args.files)} file(s)...")
+            print(f"Reverting changes for {len(args.files)} file(s) across all sessions...")
         else:
-            print("Reverting all changes without review...")
+            print("Reverting all changes from entire session...")
 
-        context = service.get_review_context()
-        changes_to_revert = context.get("changes", [])
+        all_results = []
+        total_changes_reverted = 0
 
-        if not changes_to_revert:
-            print("No changes to revert.")
-            return
+        # Process each revert file in reverse order (newest first)
+        for revert_file in revert_files:
+            print(f"\nProcessing {revert_file.name}...")
 
-        # Filter changes if specific files were requested
-        if args.files:
-            # Normalize file paths for comparison
-            target_files = {Path(f).as_posix() for f in args.files}
-            changes_to_revert = [c for c in changes_to_revert if Path(c["filePath"]).as_posix() in target_files]
+            service = ReviewService(repo, output_dir_path, revert_file, mode="revert")
+            context = service.get_review_context()
+            changes_to_revert = context.get("changes", [])
 
             if not changes_to_revert:
-                print(f"No changes found for the specified file(s): {', '.join(args.files)}")
-                return
+                print(f"  No changes in {revert_file.name}")
+                continue
 
-            if len(changes_to_revert) < len(args.files):
-                found_files = {c["filePath"] for c in changes_to_revert}
-                missing_files = target_files - {Path(f).as_posix() for f in found_files}
-                print(f"Warning: No changes found for: {', '.join(missing_files)}")
+            # Filter changes if specific files were requested
+            if args.files:
+                target_files = {Path(f).as_posix() for f in args.files}
+                changes_to_revert = [c for c in changes_to_revert if Path(c["filePath"]).as_posix() in target_files]
 
-            print(f"Found {len(changes_to_revert)} change(s) to revert.")
+                if not changes_to_revert:
+                    print(f"  No matching changes in {revert_file.name}")
+                    continue
 
-        changes_payload = [
-            {
-                "filePath": c["filePath"],
-                "action": c["action"],
-                "content": c["proposed_content"],
-            }
-            for c in changes_to_revert
-        ]
+            print(f"  Reverting {len(changes_to_revert)} change(s)...")
 
-        # In revert mode, session_id is None
-        results = service.apply_changes(changes_payload, None)
+            changes_payload = [
+                {
+                    "filePath": c["filePath"],
+                    "action": c["action"],
+                    "content": c["proposed_content"],
+                }
+                for c in changes_to_revert
+            ]
 
-        success_count = sum(1 for r in results if r["status"] == "SUCCESS")
-        skipped_count = sum(1 for r in results if r["status"] == "SKIPPED")
-        failure_count = sum(1 for r in results if r["status"] == "FAILURE")
+            # In revert mode, session_id is None
+            results = service.apply_changes(changes_payload, None)
+            all_results.extend(results)
+            total_changes_reverted += len([r for r in results if r["status"] == "SUCCESS"])
 
-        print(f"Revert complete. {success_count} succeeded, {skipped_count} skipped, {failure_count} failed.")
-        if failure_count > 0:
+            # Delete the revert file after successful processing
+            success_count = sum(1 for r in results if r["status"] == "SUCCESS")
+            if success_count > 0:
+                revert_file.unlink()
+                print(f"  Deleted {revert_file.name}")
+
+        # Summary
+        total_success = sum(1 for r in all_results if r["status"] == "SUCCESS")
+        total_skipped = sum(1 for r in all_results if r["status"] == "SKIPPED")
+        total_failure = sum(1 for r in all_results if r["status"] == "FAILURE")
+
+        print(f"\nRevert complete. {total_success} succeeded, {total_skipped} skipped, {total_failure} failed.")
+        if total_failure > 0:
             print("Failures:")
-            for r in results:
+            for r in all_results:
                 if r["status"] == "FAILURE":
                     print(f"  - {r['filePath']}: {r['reason']}")
+
+        # Check if reverts directory is empty and delete it
+        if not any(reverts_dir.iterdir()):
+            reverts_dir.rmdir()
+            print("\nAll reverts completed. Cleared reverts directory.")
     else:
+        # Use UI mode - use the newest revert file
+        newest_revert = revert_files[0]
+        print(f"Opening review UI for {newest_revert.name}...")
+        service = ReviewService(repo, output_dir_path, newest_revert, mode="revert")
         launch_review_server(service, mode="revert")

@@ -229,11 +229,26 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
     def _save_revert_data(self, new_revert_changes: list[Change], output_dir: Path, session_id: str | None) -> None:
         if not session_id:
-            session_id = f"revert-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            session_id = f"apply-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        revert_dir = output_dir / '.aicodec'
-        revert_dir.mkdir(parents=True, exist_ok=True)
-        revert_file_path = revert_dir / "revert.json"
+        # Create reverts subdirectory
+        reverts_dir = output_dir / '.aicodec' / 'reverts'
+        reverts_dir.mkdir(parents=True, exist_ok=True)
+
+        # Find the next sequential number
+        existing_reverts = sorted(reverts_dir.glob('revert-*.json'))
+        next_num = 1
+        if existing_reverts:
+            # Extract numbers from existing files
+            for revert_file in existing_reverts:
+                try:
+                    num_str = revert_file.stem.split('-')[1]  # Extract number from "revert-XXX"
+                    num = int(num_str)
+                    next_num = max(next_num, num + 1)
+                except (IndexError, ValueError):
+                    continue
+
+        revert_file_path = reverts_dir / f"revert-{next_num:03d}.json"
 
         revert_changes_as_dicts = []
         for c in new_revert_changes:
@@ -247,6 +262,7 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
             "summary": f"Revert data for apply session {session_id}.",
             "changes": revert_changes_as_dicts,
             "session_id": session_id,
+            "apply_number": next_num,
             "last_updated": datetime.now().isoformat()
         }
 

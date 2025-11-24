@@ -246,18 +246,27 @@ def test_apply_run(temp_config_file, monkeypatch):
 
 def test_revert_run(temp_config_file, monkeypatch):
     monkeypatch.chdir(temp_config_file.parent.parent)
+
+    # Create reverts directory with a revert file
+    reverts_dir = temp_config_file.parent / "reverts"
+    reverts_dir.mkdir(exist_ok=True)
+    revert_file = reverts_dir / "revert-001.json"
+    revert_file.write_text(json.dumps({
+        "summary": "Test revert",
+        "changes": [{"filePath": "a.py", "action": "DELETE", "content": ""}]
+    }))
+
     with patch('aicodec.infrastructure.cli.commands.revert.ReviewService') as mock_review_service:
         with patch('aicodec.infrastructure.cli.commands.revert.launch_review_server') as mock_launch_server:
-            with patch('pathlib.Path.is_file', return_value=True):
-                args = MagicMock(config=str(temp_config_file),
-                                 output_dir=str(
-                                     temp_config_file.parent.parent),
-                                 all=False, files=None)
-                revert.run(args)
+            args = MagicMock(config=str(temp_config_file),
+                             output_dir=str(
+                                 temp_config_file.parent.parent),
+                             all=False, files=None)
+            revert.run(args)
 
-                mock_review_service.assert_called_once()
-                mock_launch_server.assert_called_once_with(
-                    mock_review_service.return_value, mode='revert')
+            mock_review_service.assert_called_once()
+            mock_launch_server.assert_called_once_with(
+                mock_review_service.return_value, mode='revert')
 
 
 def test_prepare_run_from_clipboard_success(temp_config_file, monkeypatch):

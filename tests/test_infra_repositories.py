@@ -176,8 +176,13 @@ class TestFileSystemChangeSetRepository:
         assert 'Directory traversal' in results[3]['reason']
         assert results[4]['status'] == 'SKIPPED'
 
-        revert_file = tmp_path / '.aicodec' / 'revert.json'
-        assert revert_file.exists()
+        # Check revert file in new location (reverts subfolder)
+        reverts_dir = tmp_path / '.aicodec' / 'reverts'
+        assert reverts_dir.exists()
+        revert_files = list(reverts_dir.glob('revert-*.json'))
+        assert len(revert_files) == 1
+
+        revert_file = revert_files[0]
         with revert_file.open('r') as f:
             revert_data = json.load(f)
         assert len(revert_data['changes']) == 3

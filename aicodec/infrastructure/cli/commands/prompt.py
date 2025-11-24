@@ -1,4 +1,5 @@
 # aicodec/infrastructure/cli/commands/prompt.py
+import shutil
 import sys
 from importlib.resources import files
 from pathlib import Path
@@ -100,6 +101,15 @@ def run(args: Any) -> None:
     """Handles the generation of a prompt file."""
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
+
+    # Clear reverts folder to start a new session
+    reverts_dir = Path(".aicodec") / "reverts"
+    if reverts_dir.exists() and reverts_dir.is_dir():
+        revert_files = list(reverts_dir.glob('revert-*.json'))
+        if revert_files:
+            print(f"Starting new session. Clearing {len(revert_files)} old revert file(s)...")
+            shutil.rmtree(reverts_dir)
+            print("Reverts cleared.")
 
     if args.exclude_code or args.is_new_project:
         include_code_context = False

@@ -10,9 +10,9 @@ from aicodec.infrastructure.cli.commands import revert
 
 @pytest.fixture
 def setup_revert_file(sample_project):
-    revert_dir = sample_project / ".aicodec"
-    revert_dir.mkdir(exist_ok=True)
-    revert_file = revert_dir / "revert.json"
+    reverts_dir = sample_project / ".aicodec" / "reverts"
+    reverts_dir.mkdir(parents=True, exist_ok=True)
+    revert_file = reverts_dir / "revert-001.json"
     revert_file.write_text(
         json.dumps({"summary": "revert data", "changes": [{"filePath": "a.py", "action": "DELETE", "content": ""}]})
     )
@@ -61,7 +61,8 @@ def test_revert_run_with_override(sample_project, aicodec_config_file, setup_rev
 
         review_service = mock_launch.call_args[0][0]
         assert review_service.output_dir == sample_project.resolve()
-        assert review_service.changes_file == (sample_project / ".aicodec" / "revert.json").resolve()
+        # Check for the new revert file location (newest revert file)
+        assert review_service.changes_file == (sample_project / ".aicodec" / "reverts" / "revert-001.json").resolve()
 
 
 def test_revert_run_all_flag(sample_project, aicodec_config_file, setup_revert_file, monkeypatch, capsys):
@@ -87,7 +88,7 @@ def test_revert_run_all_flag(sample_project, aicodec_config_file, setup_revert_f
         mock_service_instance.apply_changes.assert_called_once()
 
         captured = capsys.readouterr()
-        assert "Reverting all changes without review..." in captured.out
+        assert "Reverting all changes from entire session..." in captured.out
         assert "Revert complete" in captured.out
 
 
@@ -132,8 +133,8 @@ def test_revert_run_with_files_single(sample_project, aicodec_config_file, setup
         assert call_args[0]["filePath"] == "a.py"
 
         captured = capsys.readouterr()
-        assert "Reverting changes for 1 file(s)..." in captured.out
-        assert "Found 1 change(s) to revert." in captured.out
+        assert "Reverting changes for 1 file(s) across all sessions..." in captured.out
+        assert "Reverting 1 change(s)..." in captured.out
         assert "Revert complete" in captured.out
 
 
@@ -181,8 +182,8 @@ def test_revert_run_with_files_multiple(sample_project, aicodec_config_file, set
         assert call_args[1]["filePath"] == "b.py"
 
         captured = capsys.readouterr()
-        assert "Reverting changes for 2 file(s)..." in captured.out
-        assert "Found 2 change(s) to revert." in captured.out
+        assert "Reverting changes for 2 file(s) across all sessions..." in captured.out
+        assert "Reverting 2 change(s)..." in captured.out
 
 
 def test_revert_run_with_files_not_found(sample_project, aicodec_config_file, setup_revert_file, monkeypatch, capsys):
@@ -203,7 +204,8 @@ def test_revert_run_with_files_not_found(sample_project, aicodec_config_file, se
         mock_service_instance.apply_changes.assert_not_called()
 
         captured = capsys.readouterr()
-        assert "No changes found for the specified file(s): nonexistent.py" in captured.out
+        # The new behavior says "No matching changes in revert-XXX.json"
+        assert "No matching changes in revert-001.json" in captured.out
 
 
 def test_revert_run_with_files_partial_match(
@@ -234,5 +236,6 @@ def test_revert_run_with_files_partial_match(
         assert call_args[0]["filePath"] == "a.py"
 
         captured = capsys.readouterr()
-        assert "Warning: No changes found for: nonexistent.py" in captured.out
-        assert "Found 1 change(s) to revert." in captured.out
+        # The new behavior shows "Reverting 1 change(s)..." for the matched file
+        assert "Reverting 1 change(s)..." in captured.out
+        assert "Revert complete" in captured.out
