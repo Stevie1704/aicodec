@@ -37,15 +37,27 @@ class TestVersionComparison:
 class TestPrebuiltDetection:
     """Test detection of pre-built installations."""
 
+    @patch("platform.system")
     @patch("pathlib.Path.exists")
-    def test_is_prebuilt_install_true(self, mock_exists):
-        """Test detection when pre-built binary exists."""
+    def test_is_prebuilt_install_true_linux(self, mock_exists, mock_system):
+        """Test detection when pre-built binary exists on Linux."""
+        mock_system.return_value = "Linux"
         mock_exists.return_value = True
         assert update.is_prebuilt_install() is True
 
+    @patch("platform.system")
     @patch("pathlib.Path.exists")
-    def test_is_prebuilt_install_false(self, mock_exists):
+    def test_is_prebuilt_install_true_windows(self, mock_exists, mock_system):
+        """Test detection when pre-built binary exists on Windows."""
+        mock_system.return_value = "Windows"
+        mock_exists.return_value = True
+        assert update.is_prebuilt_install() is True
+
+    @patch("platform.system")
+    @patch("pathlib.Path.exists")
+    def test_is_prebuilt_install_false(self, mock_exists, mock_system):
         """Test detection when pre-built binary doesn't exist."""
+        mock_system.return_value = "Linux"
         mock_exists.return_value = False
         assert update.is_prebuilt_install() is False
 
@@ -79,8 +91,16 @@ class TestDownloadUrlGeneration:
 
     @patch("platform.system")
     @patch("platform.machine")
-    def test_get_download_url_unsupported_os(self, mock_machine, mock_system, capsys):
+    def test_get_download_url_windows_amd64(self, mock_machine, mock_system):
         mock_system.return_value = "Windows"
+        mock_machine.return_value = "x86_64"
+        url = update.get_download_url()
+        assert url == "https://github.com/Stevie1704/aicodec/releases/latest/download/aicodec-windows-amd64.zip"
+
+    @patch("platform.system")
+    @patch("platform.machine")
+    def test_get_download_url_unsupported_os(self, mock_machine, mock_system, capsys):
+        mock_system.return_value = "FreeBSD"
         mock_machine.return_value = "x86_64"
         url = update.get_download_url()
         assert url is None
@@ -207,7 +227,7 @@ class TestUpdateCommand:
     def test_run_already_latest(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test when already running latest version."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.10.0"  # Same as pyproject.toml
+        mock_get_latest.return_value = "2.11.0"  # Same as pyproject.toml
         args = Namespace(check=False)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -222,7 +242,7 @@ class TestUpdateCommand:
     def test_run_check_only(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test --check flag (no installation)."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.0"
+        mock_get_latest.return_value = "2.12.0"
         args = Namespace(check=True)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -239,7 +259,7 @@ class TestUpdateCommand:
     def test_run_cancelled_by_user(self, mock_is_prebuilt, mock_get_latest, mock_input, capsys):
         """Test when user cancels the update."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.0"
+        mock_get_latest.return_value = "2.12.0"
         mock_input.return_value = "n"
         args = Namespace(check=False)
 
@@ -257,7 +277,7 @@ class TestUpdateCommand:
     def test_run_successful_update(self, mock_is_prebuilt, mock_get_latest, mock_input, mock_update_binary, capsys):
         """Test successful update process."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.0"
+        mock_get_latest.return_value = "2.12.0"
         mock_input.return_value = "y"
         mock_update_binary.return_value = True
         args = Namespace(check=False)
@@ -266,7 +286,7 @@ class TestUpdateCommand:
         update.run(args)
 
         captured = capsys.readouterr()
-        assert "Successfully updated to version 2.11.0" in captured.out
+        assert "Successfully updated to version 2.12.0" in captured.out
 
     @patch("aicodec.infrastructure.cli.commands.update.update_binary")
     @patch("builtins.input")
@@ -275,7 +295,7 @@ class TestUpdateCommand:
     def test_run_update_failed(self, mock_is_prebuilt, mock_get_latest, mock_input, mock_update_binary, capsys):
         """Test when update fails."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.0"
+        mock_get_latest.return_value = "2.12.0"
         mock_input.return_value = "y"
         mock_update_binary.return_value = False
         args = Namespace(check=False)

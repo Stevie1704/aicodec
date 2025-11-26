@@ -64,8 +64,18 @@ def compare_versions(current: str, latest: str) -> int:
 
 def is_prebuilt_install() -> bool:
     """Check if aicodec is installed as a pre-built binary."""
-    install_dir = Path("/opt/aicodec")
-    return install_dir.exists() and (install_dir / "aicodec").exists()
+    os_name = platform.system().lower()
+
+    if os_name == "windows":
+        # Windows installation is in user profile directory
+        install_dir = Path.home() / "aicodec"
+        binary_name = "aicodec.exe"
+    else:
+        # Linux/macOS installation is in /opt/aicodec
+        install_dir = Path("/opt/aicodec")
+        binary_name = "aicodec"
+
+    return install_dir.exists() and (install_dir / binary_name).exists()
 
 
 def get_download_url() -> str | None:
@@ -78,6 +88,8 @@ def get_download_url() -> str | None:
         os_name = "darwin"
     elif os_name == "linux":
         os_name = "linux"
+    elif os_name == "windows":
+        os_name = "windows"
     else:
         print(f"Unsupported OS: {os_name}", file=sys.stderr)
         return None
@@ -102,6 +114,17 @@ def update_binary() -> bool:
     if not download_url:
         return False
 
+    # Determine platform-specific settings
+    os_name = platform.system().lower()
+    if os_name == "windows":
+        install_dir = Path.home() / "aicodec"
+        binary_name = "aicodec.exe"
+        needs_sudo = False
+    else:
+        install_dir = Path("/opt/aicodec")
+        binary_name = "aicodec"
+        needs_sudo = True
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         zip_file = tmpdir_path / "aicodec.zip"
@@ -120,43 +143,52 @@ def update_binary() -> bool:
             # Find the binary (should be in the extracted directory)
             binary_path = None
             for item in tmpdir_path.iterdir():
-                if item.is_file() and item.name == "aicodec":
+                if item.is_file() and item.name == binary_name:
                     binary_path = item
                     break
                 elif item.is_dir():
                     # Check inside subdirectory
                     for subitem in item.iterdir():
-                        if subitem.name == "aicodec":
+                        if subitem.name == binary_name:
                             binary_path = subitem
                             break
 
             if not binary_path:
-                print("Error: Could not find aicodec binary in downloaded package", file=sys.stderr)
+                print(f"Error: Could not find {binary_name} binary in downloaded package", file=sys.stderr)
                 return False
 
-            # Make it executable
-            os.chmod(binary_path, 0o755)  # nosec B103 - Standard executable permissions (rwxr-xr-x)
+            # Make it executable (not needed on Windows, but doesn't hurt)
+            if os_name != "windows":
+                os.chmod(binary_path, 0o755)  # nosec B103 - Standard executable permissions (rwxr-xr-x)
 
             # Replace the existing binary
             print("Installing update...")
-            install_dir = Path("/opt/aicodec")
-            target_binary = install_dir / "aicodec"
+            target_binary = install_dir / binary_name
 
-            # Use sudo to replace the binary
-            try:
-                subprocess.run(
-                    ["sudo", "cp", str(binary_path), str(target_binary)],
-                    check=True,
-                    capture_output=True
-                )
-                subprocess.run(
-                    ["sudo", "chmod", "+x", str(target_binary)],
-                    check=True,
-                    capture_output=True
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"Error installing update (sudo required): {e.stderr.decode()}", file=sys.stderr)
-                return False
+            if needs_sudo:
+                # Use sudo on Linux/macOS
+                try:
+                    subprocess.run(
+                        ["sudo", "cp", str(binary_path), str(target_binary)],
+                        check=True,
+                        capture_output=True
+                    )
+                    subprocess.run(
+                        ["sudo", "chmod", "+x", str(target_binary)],
+                        check=True,
+                        capture_output=True
+                    )
+                except subprocess.CalledProcessError as e:
+                    print(f"Error installing update (sudo required): {e.stderr.decode()}", file=sys.stderr)
+                    return False
+            else:
+                # Direct copy on Windows (no sudo needed)
+                try:
+                    import shutil
+                    shutil.copy2(binary_path, target_binary)
+                except Exception as e:
+                    print(f"Error installing update: {e}", file=sys.stderr)
+                    return False
 
             print("✅ Update installed successfully!")
             return True
