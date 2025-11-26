@@ -7,6 +7,23 @@ GITHUB_REPO="Stevie1704/aicodec"
 INSTALL_DIR="/opt/${TOOL_NAME}"
 LINK_DIR="/usr/local/bin"
 
+# --- Check if sudo is available ---
+USE_SUDO=""
+if command -v sudo &> /dev/null; then
+    USE_SUDO="sudo"
+else
+    echo "ℹ️  sudo not found, attempting installation without it (you may need to be root)"
+fi
+
+# --- Helper function to run commands with or without sudo ---
+run_elevated() {
+    if [ -n "$USE_SUDO" ]; then
+        $USE_SUDO "$@"
+    else
+        "$@"
+    fi
+}
+
 # --- Dependency Check Function ---
 check_and_install() {
     for tool in curl unzip; do
@@ -15,11 +32,11 @@ check_and_install() {
             read -p "Do you want to attempt to install it? [Y/n] " choice
             if [[ "$choice" =~ ^[Yy]$ || -z "$choice" ]]; then
                 if command -v apt-get &> /dev/null; then
-                    sudo apt-get update && sudo apt-get install -y "$tool"
+                    run_elevated apt-get update && run_elevated apt-get install -y "$tool"
                 elif command -v dnf &> /dev/null; then
-                    sudo dnf install -y "$tool"
+                    run_elevated dnf install -y "$tool"
                 elif command -v pacman &> /dev/null; then
-                    sudo pacman -Syu --noconfirm "$tool"
+                    run_elevated pacman -Syu --noconfirm "$tool"
                 else
                     echo "❌ Could not find a known package manager. Please install '$tool' manually."
                     exit 1
@@ -58,16 +75,16 @@ unzip -o "${ZIP_FILE}" -d "${TMP_UNZIP_DIR}"
 
 # 3. Move folder to /opt
 echo "⚙️  Installing application to ${INSTALL_DIR}..."
-sudo mv "${TMP_UNZIP_DIR}" "${INSTALL_DIR}"
+run_elevated mv "${TMP_UNZIP_DIR}" "${INSTALL_DIR}"
 
 # 4. Make the binary executable
 #    THIS IS THE NEW, CRITICAL STEP!
 echo "⚙️  Setting execute permissions..."
-sudo chmod +x "${INSTALL_DIR}/${TOOL_NAME}"
+run_elevated chmod +x "${INSTALL_DIR}/${TOOL_NAME}"
 
 # 5. Create symbolic link
 echo "⚙️  Creating command link in ${LINK_DIR}..."
-sudo ln -sf "${INSTALL_DIR}/${TOOL_NAME}" "${LINK_DIR}/${TOOL_NAME}"
+run_elevated ln -sf "${INSTALL_DIR}/${TOOL_NAME}" "${LINK_DIR}/${TOOL_NAME}"
 
 # 6. Clean up and verify
 rm "${ZIP_FILE}"
