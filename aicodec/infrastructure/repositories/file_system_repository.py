@@ -171,10 +171,11 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
                 return "<Cannot read binary file>"
         return ""
 
-    def apply_changes(self, changes: list[Change], output_dir: Path, mode: str, session_id: str | None) -> list[dict]:
+    def apply_changes(self, changes: list[Change], output_dir: Path, aicodec_root: Path, mode: str, session_id: str | None) -> list[dict]:
         results = []
         new_revert_changes = []
         output_path_abs = output_dir.resolve()
+        aicodec_root_abs = aicodec_root.resolve()
 
         for change in changes:
             target_path = output_path_abs.joinpath(change.file_path).resolve()
@@ -223,16 +224,16 @@ class FileSystemChangeSetRepository(IChangeSetRepository):
 
         if mode == 'apply' and new_revert_changes:
             self._save_revert_data(
-                new_revert_changes, output_path_abs, session_id)
+                new_revert_changes, aicodec_root_abs, session_id)
 
         return results
 
-    def _save_revert_data(self, new_revert_changes: list[Change], output_dir: Path, session_id: str | None) -> None:
+    def _save_revert_data(self, new_revert_changes: list[Change], aicodec_root: Path, session_id: str | None) -> None:
         if not session_id:
             session_id = f"apply-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # Create reverts subdirectory
-        reverts_dir = output_dir / '.aicodec' / 'reverts'
+        # Create reverts subdirectory in the .aicodec folder where config.json is located
+        reverts_dir = aicodec_root / '.aicodec' / 'reverts'
         reverts_dir.mkdir(parents=True, exist_ok=True)
 
         # Find the next sequential number

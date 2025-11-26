@@ -75,10 +75,11 @@ class AggregationService:
 class ReviewService:
     """Orchestrates the review and application of changes."""
 
-    def __init__(self, change_repo: IChangeSetRepository, output_dir: Path, changes_file: Path, mode: str):
+    def __init__(self, change_repo: IChangeSetRepository, output_dir: Path, changes_file: Path, aicodec_root: Path, mode: str):
         self.change_repo = change_repo
         self.output_dir = output_dir
         self.changes_file = changes_file
+        self.aicodec_root = aicodec_root
         self.mode = mode
 
     def get_review_context(self) -> dict:
@@ -135,7 +136,7 @@ class ReviewService:
     def apply_changes(self, changes_to_apply_data: list[dict], session_id: str | None) -> list[dict]:
         """Applies a list of changes to the filesystem."""
         changes_to_apply = [Change.from_dict(c) for c in changes_to_apply_data]
-        return self.change_repo.apply_changes(changes_to_apply, self.output_dir, self.mode, session_id)
+        return self.change_repo.apply_changes(changes_to_apply, self.output_dir, self.aicodec_root, self.mode, session_id)
 
     def save_editable_changes(self, change_set_data: dict) -> None:
         """Saves changes from the UI back to the changes file."""

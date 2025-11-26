@@ -110,7 +110,7 @@ class TestReviewService:
 
     @pytest.fixture
     def review_service(self, mock_change_repo, tmp_path):
-        return ReviewService(mock_change_repo, tmp_path, tmp_path / 'changes.json', 'apply')
+        return ReviewService(mock_change_repo, tmp_path, tmp_path / 'changes.json', tmp_path, 'apply')
 
     def test_get_review_context(self, review_service, mock_change_repo, tmp_path):
         change = Change(file_path='a.py',
@@ -155,9 +155,10 @@ class TestReviewService:
         assert len(call_args[0]) == 1
         assert isinstance(call_args[0][0], Change)
         assert call_args[0][0].file_path == 'a.py'
-        assert call_args[1] == tmp_path
-        assert call_args[2] == 'apply'
-        assert call_args[3] == session_id
+        assert call_args[1] == tmp_path  # output_dir
+        assert call_args[2] == tmp_path  # aicodec_root
+        assert call_args[3] == 'apply'
+        assert call_args[4] == session_id
 
     def test_save_editable_changes(self, review_service, mock_change_repo):
         change_set_data = {'summary': 's', 'changes': []}

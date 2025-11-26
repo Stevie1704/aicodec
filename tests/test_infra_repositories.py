@@ -163,7 +163,7 @@ class TestFileSystemChangeSetRepository:
         ]
 
         results = change_repo.apply_changes(
-            changes, tmp_path, 'apply', 'session-123')
+            changes, tmp_path, tmp_path, 'apply', 'session-123')
 
         assert (tmp_path / 'new_file.txt').read_text() == 'Hello'
         assert (tmp_path / 'existing.txt').read_text() == 'New Content'
@@ -191,3 +191,45 @@ class TestFileSystemChangeSetRepository:
         assert revert_actions['new_file.txt'] == 'DELETE'
         assert revert_actions['existing.txt'] == 'REPLACE'
         assert revert_actions['to_delete.txt'] == 'CREATE'
+
+    def test_apply_changes_with_different_output_dir(self, change_repo, tmp_path):
+        """Test that revert folder is created in aicodec_root when output_dir is different."""
+        # Setup: Create a different output directory from the aicodec root
+        aicodec_root = tmp_path / 'project_root'
+        output_dir = tmp_path / 'different_output'
+        aicodec_root.mkdir()
+        output_dir.mkdir()
+
+        # Create a test file in the output directory
+        (output_dir / 'test.txt').write_text('Old Content')
+
+        changes = [
+            Change(file_path='test.txt',
+                   action=ChangeAction.REPLACE, content='New Content'),
+        ]
+
+        results = change_repo.apply_changes(
+            changes, output_dir, aicodec_root, 'apply', 'session-456')
+
+        # Verify the change was applied to output_dir
+        assert (output_dir / 'test.txt').read_text() == 'New Content'
+        assert results[0]['status'] == 'SUCCESS'
+
+        # Verify the revert folder is created in aicodec_root, not output_dir
+        reverts_dir_in_aicodec_root = aicodec_root / '.aicodec' / 'reverts'
+        reverts_dir_in_output = output_dir / '.aicodec' / 'reverts'
+
+        assert reverts_dir_in_aicodec_root.exists(), "Revert folder should be in aicodec_root"
+        assert not reverts_dir_in_output.exists(), "Revert folder should NOT be in output_dir"
+
+        # Verify the revert data is correct
+        revert_files = list(reverts_dir_in_aicodec_root.glob('revert-*.json'))
+        assert len(revert_files) == 1
+
+        revert_file = revert_files[0]
+        with revert_file.open('r') as f:
+            revert_data = json.load(f)
+        assert len(revert_data['changes']) == 1
+        assert revert_data['changes'][0]['filePath'] == 'test.txt'
+        assert revert_data['changes'][0]['action'] == 'REPLACE'
+        assert revert_data['changes'][0]['content'] == 'Old Content'

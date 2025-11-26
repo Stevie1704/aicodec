@@ -64,7 +64,8 @@ def run(args: Any) -> None:
     Path(changes_file).write_text(changes_json_str, encoding="utf-8")
 
     repo = FileSystemChangeSetRepository()
-    service = ReviewService(repo, Path(output_dir).resolve(), Path(changes_file).resolve(), mode="apply")
+    aicodec_root = Path(args.config).resolve().parent.parent  # .aicodec/config.json -> .aicodec -> project root
+    service = ReviewService(repo, Path(output_dir).resolve(), Path(changes_file).resolve(), aicodec_root, mode="apply")
 
     if args.all or args.files:
         session_id = str(uuid.uuid4())

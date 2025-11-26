@@ -47,7 +47,8 @@ def run(args: Any) -> None:
         return
 
     output_dir_path = Path(output_dir).resolve()
-    reverts_dir = output_dir_path / ".aicodec" / "reverts"
+    aicodec_root = Path(args.config).resolve().parent.parent  # .aicodec/config.json -> .aicodec -> project root
+    reverts_dir = aicodec_root / ".aicodec" / "reverts"
 
     # Check for revert files
     if not reverts_dir.exists():
@@ -77,7 +78,7 @@ def run(args: Any) -> None:
         for revert_file in revert_files:
             print(f"\nProcessing {revert_file.name}...")
 
-            service = ReviewService(repo, output_dir_path, revert_file, mode="revert")
+            service = ReviewService(repo, output_dir_path, revert_file, aicodec_root, mode="revert")
             context = service.get_review_context()
             changes_to_revert = context.get("changes", [])
 
@@ -136,5 +137,5 @@ def run(args: Any) -> None:
         # Use UI mode - use the newest revert file
         newest_revert = revert_files[0]
         print(f"Opening review UI for {newest_revert.name}...")
-        service = ReviewService(repo, output_dir_path, newest_revert, mode="revert")
+        service = ReviewService(repo, output_dir_path, newest_revert, aicodec_root, mode="revert")
         launch_review_server(service, mode="revert")
