@@ -1,7 +1,6 @@
 # tests/commands/test_update.py
 import json
 from argparse import Namespace
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -177,32 +176,107 @@ class TestUpdateBinary:
         result = update.update_binary()
         assert result is False
 
-    @patch("subprocess.run")
+    @patch("time.sleep")
+    @patch("subprocess.Popen")
+    @patch("builtins.open", new_callable=MagicMock)
     @patch("zipfile.ZipFile")
     @patch("urllib.request.urlretrieve")
     @patch("aicodec.infrastructure.cli.commands.update.get_download_url")
-    @patch("pathlib.Path.iterdir")
+    @patch("aicodec.infrastructure.cli.commands.update.is_sudo_available")
+    @patch("aicodec.infrastructure.cli.commands.update.can_write_to_path")
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.unlink")
+    @patch("pathlib.Path.write_text")
     @patch("os.chmod")
     def test_update_binary_success(
-        self, mock_chmod, mock_iterdir, mock_get_url, mock_retrieve, mock_zipfile, mock_subprocess
+        self, mock_chmod, mock_write_text, mock_unlink, mock_exists, mock_can_write,
+        mock_sudo_available, mock_get_url, mock_retrieve, mock_zipfile, mock_open,
+        mock_popen, mock_sleep
     ):
-        """Test successful update process."""
+        """Test successful update process with helper script."""
         mock_get_url.return_value = "https://example.com/aicodec.zip"
+        mock_exists.return_value = True  # Simulate that the new binary was extracted
+        mock_sudo_available.return_value = True  # Sudo is available
+        mock_can_write.return_value = False  # Need sudo for write
 
-        # Mock the extracted binary file
-        mock_binary = MagicMock(spec=Path)
-        mock_binary.is_file.return_value = True
-        mock_binary.name = "aicodec"
-        mock_binary.__str__.return_value = "/tmp/aicodec"  # nosec B108 - Mock string for testing only
+        # Mock the zip file extraction
+        mock_zip = MagicMock()
+        mock_zip.namelist.return_value = ["aicodec"]
+        mock_zip.open.return_value.__enter__.return_value.read.return_value = b"binary_content"
+        mock_zipfile.return_value.__enter__.return_value = mock_zip
 
-        mock_iterdir.return_value = [mock_binary]
-        mock_subprocess.return_value = MagicMock()
+        # Mock file open for writing binary
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+
+        mock_popen.return_value = MagicMock()
 
         result = update.update_binary()
         assert result is True
 
-        # Verify sudo commands were called
-        assert mock_subprocess.call_count == 2  # cp and chmod
+        # Verify Popen was called to launch the helper script
+        assert mock_popen.called
+        # Verify sleep was called (waiting before exit)
+        assert mock_sleep.called
+
+    @patch("time.sleep")
+    @patch("subprocess.Popen")
+    @patch("builtins.open", new_callable=MagicMock)
+    @patch("zipfile.ZipFile")
+    @patch("urllib.request.urlretrieve")
+    @patch("aicodec.infrastructure.cli.commands.update.get_download_url")
+    @patch("aicodec.infrastructure.cli.commands.update.is_sudo_available")
+    @patch("aicodec.infrastructure.cli.commands.update.can_write_to_path")
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.unlink")
+    @patch("pathlib.Path.write_text")
+    @patch("os.chmod")
+    def test_update_binary_no_sudo_but_has_write_permission(
+        self, mock_chmod, mock_write_text, mock_unlink, mock_exists, mock_can_write,
+        mock_sudo_available, mock_get_url, mock_retrieve, mock_zipfile, mock_open,
+        mock_popen, mock_sleep
+    ):
+        """Test successful update in devcontainer (no sudo but has write permissions)."""
+        mock_get_url.return_value = "https://example.com/aicodec.zip"
+        mock_exists.return_value = True
+        mock_sudo_available.return_value = False  # No sudo available (devcontainer)
+        mock_can_write.return_value = True  # But has write permissions
+
+        # Mock the zip file extraction
+        mock_zip = MagicMock()
+        mock_zip.namelist.return_value = ["aicodec"]
+        mock_zip.open.return_value.__enter__.return_value.read.return_value = b"binary_content"
+        mock_zipfile.return_value.__enter__.return_value = mock_zip
+
+        # Mock file open for writing binary
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+
+        mock_popen.return_value = MagicMock()
+
+        result = update.update_binary()
+        assert result is True
+
+        # Verify update succeeded without sudo
+        assert mock_popen.called
+
+    @patch("aicodec.infrastructure.cli.commands.update.get_download_url")
+    @patch("aicodec.infrastructure.cli.commands.update.is_sudo_available")
+    @patch("aicodec.infrastructure.cli.commands.update.can_write_to_path")
+    def test_update_binary_no_sudo_no_write_permission(
+        self, mock_can_write, mock_sudo_available, mock_get_url, capsys
+    ):
+        """Test update failure when no sudo and no write permissions."""
+        mock_get_url.return_value = "https://example.com/aicodec.zip"
+        mock_sudo_available.return_value = False  # No sudo
+        mock_can_write.return_value = False  # No write permissions
+
+        result = update.update_binary()
+        assert result is False
+
+        captured = capsys.readouterr()
+        assert "Insufficient permissions" in captured.err
+        assert "sudo is not available" in captured.err
 
 
 class TestUpdateCommand:
@@ -227,7 +301,7 @@ class TestUpdateCommand:
     def test_run_already_latest(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test when already running latest version."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.0"  # Same as pyproject.toml
+        mock_get_latest.return_value = "2.11.2"  # Same as pyproject.toml
         args = Namespace(check=False)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -282,11 +356,13 @@ class TestUpdateCommand:
         mock_update_binary.return_value = True
         args = Namespace(check=False)
 
-        # Successful update doesn't exit, just returns
-        update.run(args)
+        # Successful update exits so helper script can replace binary
+        with pytest.raises(SystemExit) as exc_info:
+            update.run(args)
 
+        assert exc_info.value.code == 0
         captured = capsys.readouterr()
-        assert "Successfully updated to version 2.12.0" in captured.out
+        assert "A new version is available" in captured.out
 
     @patch("aicodec.infrastructure.cli.commands.update.update_binary")
     @patch("builtins.input")
