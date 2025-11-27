@@ -364,9 +364,11 @@ def update_binary() -> bool:
 def run(args: Any) -> None:
     """Handle the update command."""
     current_version = __version__
+    is_prebuilt = is_prebuilt_install()
 
-    # Check if running as pre-built binary
-    if not is_prebuilt_install():
+    # For --check flag, allow checking updates regardless of installation type
+    # For actual updates, only allow pre-built binary installations
+    if not args.check and not is_prebuilt:
         print("❌ Update command is only available for pre-built binary installations.")
         print("   You appear to be running from a Python package installation.")
         print("   Use 'pip install --upgrade aicodec' instead.")
@@ -398,10 +400,14 @@ def run(args: Any) -> None:
     print(f"\n🎉 A new version is available: {latest_version}")
 
     if args.check:
-        print("   Run 'aicodec update' to install the update.")
+        # Provide appropriate update instructions based on installation type
+        if is_prebuilt:
+            print("   Run 'aicodec update' to install the update.")
+        else:
+            print("   Run 'pip install --upgrade aicodec' to install the update.")
         sys.exit(0)
 
-    # Ask for confirmation
+    # Ask for confirmation (only for prebuilt installations)
     try:
         response = input("\nDo you want to update now? [Y/n] ").strip().lower()
         if response and response not in ("y", "yes"):

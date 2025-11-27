@@ -284,7 +284,7 @@ class TestUpdateCommand:
 
     @patch("aicodec.infrastructure.cli.commands.update.is_prebuilt_install")
     def test_run_not_prebuilt(self, mock_is_prebuilt, capsys):
-        """Test error when not running from pre-built binary."""
+        """Test error when not running from pre-built binary (without --check)."""
         mock_is_prebuilt.return_value = False
         args = Namespace(check=False)
 
@@ -298,10 +298,27 @@ class TestUpdateCommand:
 
     @patch("aicodec.infrastructure.cli.commands.update.get_latest_version")
     @patch("aicodec.infrastructure.cli.commands.update.is_prebuilt_install")
+    def test_run_check_with_pip_installation(self, mock_is_prebuilt, mock_get_latest, capsys):
+        """Test --check flag works with pip installations."""
+        mock_is_prebuilt.return_value = False  # Pip installation
+        mock_get_latest.return_value = "2.12.0"
+        args = Namespace(check=True)
+
+        with pytest.raises(SystemExit) as exc_info:
+            update.run(args)
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "A new version is available" in captured.out
+        assert "pip install --upgrade aicodec" in captured.out
+        assert "aicodec update" not in captured.out  # Should not suggest binary update for pip
+
+    @patch("aicodec.infrastructure.cli.commands.update.get_latest_version")
+    @patch("aicodec.infrastructure.cli.commands.update.is_prebuilt_install")
     def test_run_already_latest(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test when already running latest version."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.2"  # Same as pyproject.toml
+        mock_get_latest.return_value = "2.11.3"  # Same as pyproject.toml
         args = Namespace(check=False)
 
         with pytest.raises(SystemExit) as exc_info:
