@@ -137,37 +137,55 @@ def create_update_script(new_binary_path: Path, target_binary: Path, needs_sudo:
     if os_name == "windows":
         # Create PowerShell script for Windows
         script_path = new_binary_path.parent / "update_helper.ps1"
-        script_content = f"""# Wait for the main process to exit
-Start-Sleep -Seconds 2
+        log_path = new_binary_path.parent / "update_log.txt"
+        script_content = f"""# Log file for debugging
+$logFile = "{log_path}"
+"Update started at $(Get-Date)" | Out-File -FilePath $logFile
+
+# Wait for the main process to exit
+Start-Sleep -Seconds 3
+"Waited 3 seconds for process to exit" | Out-File -FilePath $logFile -Append
 
 # Get the current process ID to exclude
 $parentPid = $PID
 
 # Wait for aicodec.exe to fully exit (check for any aicodec process except this script)
-$maxAttempts = 10
+$maxAttempts = 15
 $attempt = 0
 while ($attempt -lt $maxAttempts) {{
     $processes = Get-Process -Name "aicodec" -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne $parentPid }}
     if ($processes.Count -eq 0) {{
+        "No aicodec processes found after $attempt attempts" | Out-File -FilePath $logFile -Append
         break
     }}
+    "Still waiting for aicodec to exit (attempt $attempt)" | Out-File -FilePath $logFile -Append
     Start-Sleep -Seconds 1
     $attempt++
 }}
 
+if ($attempt -eq $maxAttempts) {{
+    "WARNING: Timed out waiting for aicodec to exit" | Out-File -FilePath $logFile -Append
+}}
+
 # Replace the binary
 try {{
-    Copy-Item -Path "{new_binary_path}" -Destination "{target_binary}" -Force
-    Write-Host "Update installed successfully!"
+    "Attempting to copy from {new_binary_path} to {target_binary}" | Out-File -FilePath $logFile -Append
+    Copy-Item -Path "{new_binary_path}" -Destination "{target_binary}" -Force -ErrorAction Stop
+    "✅ Update installed successfully!" | Out-File -FilePath $logFile -Append
+    Write-Host "✅ Update installed successfully!"
     Write-Host "You can now run 'aicodec --version' to verify the update."
+    Write-Host "Log file: {log_path}"
 }} catch {{
-    Write-Host "Error installing update: $_"
-    Write-Host "Please try running the update command again."
+    "ERROR: Failed to install update: $_" | Out-File -FilePath $logFile -Append
+    Write-Host "❌ Error installing update: $_"
+    Write-Host "Check log file for details: {log_path}"
     exit 1
 }}
 
 # Clean up
 Remove-Item -Path "{new_binary_path}" -ErrorAction SilentlyContinue
+"Update completed at $(Get-Date)" | Out-File -FilePath $logFile -Append
+Start-Sleep -Seconds 2
 Remove-Item -Path $PSCommandPath -ErrorAction SilentlyContinue
 """
         script_path.write_text(script_content, encoding='utf-8')
@@ -175,69 +193,102 @@ Remove-Item -Path $PSCommandPath -ErrorAction SilentlyContinue
     else:
         # Create shell script for Unix/Linux/macOS
         script_path = new_binary_path.parent / "update_helper.sh"
+        log_path = new_binary_path.parent / "update_log.txt"
 
         # Determine if we should use sudo
         use_sudo = needs_sudo and sudo_available
 
         if use_sudo:
             script_content = f"""#!/bin/bash
+# Log file for debugging
+LOG_FILE="{log_path}"
+echo "Update started at $(date)" > "$LOG_FILE"
+
 # Wait for the main process to exit
-sleep 2
+sleep 3
+echo "Waited 3 seconds for process to exit" >> "$LOG_FILE"
 
 # Wait for aicodec process to fully exit
-max_attempts=10
+max_attempts=15
 attempt=0
 while [ $attempt -lt $max_attempts ]; do
-    if ! pgrep -x "aicodec" > /dev/null; then
+    if ! pgrep -x "aicodec" > /dev/null 2>&1; then
+        echo "No aicodec processes found after $attempt attempts" >> "$LOG_FILE"
         break
     fi
+    echo "Still waiting for aicodec to exit (attempt $attempt)" >> "$LOG_FILE"
     sleep 1
     attempt=$((attempt + 1))
 done
 
+if [ $attempt -eq $max_attempts ]; then
+    echo "WARNING: Timed out waiting for aicodec to exit" >> "$LOG_FILE"
+fi
+
 # Replace the binary using sudo
-sudo mv "{new_binary_path}" "{target_binary}"
+echo "Attempting to move from {new_binary_path} to {target_binary}" >> "$LOG_FILE"
+sudo mv "{new_binary_path}" "{target_binary}" 2>> "$LOG_FILE"
 if [ $? -eq 0 ]; then
-    sudo chmod +x "{target_binary}"
-    echo "✅ Update installed successfully!"
+    sudo chmod +x "{target_binary}" 2>> "$LOG_FILE"
+    echo "✅ Update installed successfully!" | tee -a "$LOG_FILE"
     echo "You can now run 'aicodec --version' to verify the update."
+    echo "Log file: {log_path}"
 else
-    echo "❌ Error installing update. Please try again."
+    echo "❌ Error installing update. Check log file: {log_path}" | tee -a "$LOG_FILE"
     exit 1
 fi
 
 # Clean up
+rm -f "{new_binary_path}"
+echo "Update completed at $(date)" >> "$LOG_FILE"
+sleep 2
 rm -f "$0"
 """
         else:
             # For environments without sudo (devcontainers, etc.)
             script_content = f"""#!/bin/bash
+# Log file for debugging
+LOG_FILE="{log_path}"
+echo "Update started at $(date)" > "$LOG_FILE"
+
 # Wait for the main process to exit
-sleep 2
+sleep 3
+echo "Waited 3 seconds for process to exit" >> "$LOG_FILE"
 
 # Wait for aicodec process to fully exit
-max_attempts=10
+max_attempts=15
 attempt=0
 while [ $attempt -lt $max_attempts ]; do
-    if ! pgrep -x "aicodec" > /dev/null; then
+    if ! pgrep -x "aicodec" > /dev/null 2>&1; then
+        echo "No aicodec processes found after $attempt attempts" >> "$LOG_FILE"
         break
     fi
+    echo "Still waiting for aicodec to exit (attempt $attempt)" >> "$LOG_FILE"
     sleep 1
     attempt=$((attempt + 1))
 done
 
+if [ $attempt -eq $max_attempts ]; then
+    echo "WARNING: Timed out waiting for aicodec to exit" >> "$LOG_FILE"
+fi
+
 # Replace the binary without sudo
-mv "{new_binary_path}" "{target_binary}"
+echo "Attempting to move from {new_binary_path} to {target_binary}" >> "$LOG_FILE"
+mv "{new_binary_path}" "{target_binary}" 2>> "$LOG_FILE"
 if [ $? -eq 0 ]; then
-    chmod +x "{target_binary}"
-    echo "✅ Update installed successfully!"
+    chmod +x "{target_binary}" 2>> "$LOG_FILE"
+    echo "✅ Update installed successfully!" | tee -a "$LOG_FILE"
     echo "You can now run 'aicodec --version' to verify the update."
+    echo "Log file: {log_path}"
 else
-    echo "❌ Error installing update. Please try again."
+    echo "❌ Error installing update. Check log file: {log_path}" | tee -a "$LOG_FILE"
     exit 1
 fi
 
 # Clean up
+rm -f "{new_binary_path}"
+echo "Update completed at $(date)" >> "$LOG_FILE"
+sleep 2
 rm -f "$0"
 """
 
@@ -323,27 +374,28 @@ def update_binary() -> bool:
 
         # Launch the update script
         print("Launching update installer...")
+        log_path = install_dir / "update_log.txt"
+
         if os_name == "windows":
             # Launch PowerShell script in background on Windows
-            # Use DETACHED_PROCESS to run without a console window
-            DETACHED_PROCESS = 0x00000008
+            # Use CREATE_NO_WINDOW instead of DETACHED_PROCESS for better background execution
+            CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen(
                 ["powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(script_path)],
-                creationflags=DETACHED_PROCESS,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                creationflags=CREATE_NO_WINDOW,
+                # Don't redirect output - let it go to the console/log file
             )
         else:
             # Launch shell script in background on Unix
             subprocess.Popen(
                 ["/bin/bash", str(script_path)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                # Don't redirect output - let it go to the console/log file
                 start_new_session=True
             )
 
         print("\n✅ Update downloaded successfully!")
         print("   The installer will complete after this program exits.")
+        print(f"   Check the log file for details: {log_path}")
         print("   Exiting in 2 seconds...")
 
         import time

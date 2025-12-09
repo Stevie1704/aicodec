@@ -318,7 +318,7 @@ class TestUpdateCommand:
     def test_run_already_latest(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test when already running latest version."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.3"  # Same as pyproject.toml
+        mock_get_latest.return_value = "2.11.4"  # Same as pyproject.toml
         args = Namespace(check=False)
 
         with pytest.raises(SystemExit) as exc_info:
