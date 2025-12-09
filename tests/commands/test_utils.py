@@ -3,15 +3,15 @@ from pathlib import Path
 
 import pytest
 
-# Import the function to be tested
+# Import the functions to be tested
+# Ensure balance_json_structure is exported in your utils.py
 from aicodec.infrastructure.cli.commands.utils import (
+    balance_json_structure,
     fix_and_parse_ai_json,
     get_list_from_user,
     get_user_confirmation,
     parse_json_file,
 )
-
-# Import the functions to be tested
 
 # ---- Tests for get_user_confirmation ----
 
@@ -86,19 +86,7 @@ def test_get_list_from_user(monkeypatch, user_input, expected_list):
     assert result == expected_list
 
 
-# ---- Tests for load_default_prompt_template ----
-
-
-@pytest.fixture
-def mock_prompt_files(tmp_path):
-    """Fixture to create a mock file structure for prompt templates."""
-    # Create a structure that mimics aicodec/assets/prompts
-    prompt_dir = tmp_path / "aicodec" / "assets" / "prompts"
-    prompt_dir.mkdir(parents=True)
-    (prompt_dir / "minimal.txt").write_text("Minimal prompt content.")
-    (prompt_dir / "full.txt").write_text("Full prompt content.")
-    # We return the path to the top-level 'aicodec' directory
-    return tmp_path / "aicodec"
+# ---- Tests for parse_json_file ----
 
 
 def test_parse_valid_json_file(tmp_path: Path):
@@ -133,7 +121,6 @@ def test_parse_file_not_found(tmp_path: Path, capsys):
         parse_json_file(non_existent_file)
 
     # Assert the exit code is 1
-    assert e.type is SystemExit
     assert e.value.code == 1
 
     # Assert the correct error message was printed to stderr
@@ -157,13 +144,15 @@ def test_parse_invalid_json_file(tmp_path: Path, capsys):
         parse_json_file(file_path)
 
     # Assert the exit code is 1
-    assert e.type is SystemExit
     assert e.value.code == 1
 
     # Assert the correct error message was printed to stderr
     captured = capsys.readouterr()
     assert "Failed to parse JSON" in captured.err
     assert str(file_path) in captured.err
+
+
+# ---- Tests for fix_and_parse_ai_json (Regex logic) ----
 
 
 def test_perfectly_valid_json():
@@ -215,7 +204,6 @@ def test_markdown_over_escaping_global_fix():
             }
         ],
     }
-    # Note: The \n in content is fixed by the targeted replacer
     assert json.loads(fix_and_parse_ai_json(
         broken_json_string)) == expected_dict
 
@@ -254,7 +242,7 @@ def test_literal_newlines_and_tabs_in_content():
           "action": "REPLACE",
           "content": "def hello():
     print("Hello")
-	print("\tThis is a real tab char.")"
+\tprint("\tThis is a real tab char.")"
         }
       ]
     }
@@ -275,9 +263,6 @@ def test_literal_newlines_and_tabs_in_content():
 
 def test_unescaped_backslashes_in_content():
     """Tests fixing unescaped backslashes (e.g., Windows paths)."""
-    # Let's create a more realistic broken string for this test
-    # The AI would send literal backslashes, which we must represent
-    # in Python by escaping them (e.g., 'C:\\Users' to represent 'C:\Users').
     broken_path_string = r"""
     {
       "summary": "Fixing paths.",
@@ -294,7 +279,6 @@ print("This is a valid escape: \n")"
 
     parsed = json.loads(fix_and_parse_ai_json(broken_path_string))
     assert parsed is not None
-    # The parsed string "C:\\\\Users..." becomes "C:\\Users..." in Python
     assert (
         parsed["changes"][0][
             "content"] == 'path = "C:\\Users\test\new_folder"\nprint("This is a valid escape: \n")'
@@ -389,6 +373,59 @@ def test_content_fix_at_end_of_json():
         "summary": "Final test.",
         "changes": [{"filePath": "last_file.py", "action": "REPLACE", "content": 'print("This is the "end"")'}],
     }
-    # This ensures the (?:,|\}) part of the regex works for the '}' case
     assert json.loads(fix_and_parse_ai_json(
         broken_json_string)) == expected_dict
+
+
+# ---- Tests for balance_json_structure (Truncation logic) ----
+
+
+def test_simple_object_truncation():
+    """Should close a simple missing brace."""
+    broken = '{"key": "value"'
+    fixed = balance_json_structure(broken)
+    assert fixed == '{"key": "value"}'
+    json.loads(fixed)
+
+
+def test_array_truncation():
+    """Should close a missing bracket."""
+    broken = '{"items": [1, 2, 3'
+    fixed = balance_json_structure(broken)
+    assert fixed == '{"items": [1, 2, 3]}'
+    json.loads(fixed)
+
+
+def test_string_truncation():
+    """Should close an unclosed string and then the object."""
+    broken = '{"summary": "This is truncated'
+    fixed = balance_json_structure(broken)
+    assert fixed == '{"summary": "This is truncated"}'
+    json.loads(fixed)
+
+
+def test_truncation_ending_in_backslash():
+    """Should handle truncation exactly at an escape character."""
+    # Represents: {"path": "C:\
+    broken = r'{"path": "C:\\'
+    fixed = balance_json_structure(broken)
+    # Should result in "C:\\" (escaped backslash)
+    assert fixed == r'{"path": "C:\\"}'
+    json.loads(fixed)
+
+
+def test_nested_complex_structure():
+    """Should close multiple levels of nesting."""
+    broken = '{"changes": [{"filePath": "main.py", "action": "CREATE"'
+    fixed = balance_json_structure(broken)
+    assert fixed.endswith('}]}')
+    data = json.loads(fixed)
+    assert data['changes'][0]['action'] == "CREATE"
+
+
+def test_ignore_brackets_in_strings():
+    """Should not be confused by brackets inside strings."""
+    broken = '{"key": "value with } inside"'
+    fixed = balance_json_structure(broken)
+    assert fixed == '{"key": "value with } inside"}'
+    json.loads(fixed)
