@@ -72,7 +72,7 @@
                         "then": {
                             "properties": {
                                 "content": {
-                                    "minLength": 1
+                                    "minLength": 0
                                 }
                             }
                         }
