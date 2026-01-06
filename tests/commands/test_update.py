@@ -301,7 +301,7 @@ class TestUpdateCommand:
     def test_run_check_with_pip_installation(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test --check flag works with pip installations."""
         mock_is_prebuilt.return_value = False  # Pip installation
-        mock_get_latest.return_value = "2.12.0"
+        mock_get_latest.return_value = "99.0.0"  # Higher than any current version
         args = Namespace(check=True)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -313,12 +313,13 @@ class TestUpdateCommand:
         assert "pip install --upgrade aicodec" in captured.out
         assert "aicodec update" not in captured.out  # Should not suggest binary update for pip
 
+    @patch("aicodec.infrastructure.cli.commands.update.__version__", "2.12.0")
     @patch("aicodec.infrastructure.cli.commands.update.get_latest_version")
     @patch("aicodec.infrastructure.cli.commands.update.is_prebuilt_install")
     def test_run_already_latest(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test when already running latest version."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.11.4"  # Same as pyproject.toml
+        mock_get_latest.return_value = "2.12.0"  # Same as mocked current version
         args = Namespace(check=False)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -333,7 +334,7 @@ class TestUpdateCommand:
     def test_run_check_only(self, mock_is_prebuilt, mock_get_latest, capsys):
         """Test --check flag (no installation)."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.12.0"
+        mock_get_latest.return_value = "99.0.0"  # Higher than any current version
         args = Namespace(check=True)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -350,7 +351,7 @@ class TestUpdateCommand:
     def test_run_cancelled_by_user(self, mock_is_prebuilt, mock_get_latest, mock_input, capsys):
         """Test when user cancels the update."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.12.0"
+        mock_get_latest.return_value = "99.0.0"  # Higher than any current version
         mock_input.return_value = "n"
         args = Namespace(check=False)
 
@@ -368,7 +369,7 @@ class TestUpdateCommand:
     def test_run_successful_update(self, mock_is_prebuilt, mock_get_latest, mock_input, mock_update_binary, capsys):
         """Test successful update process."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.12.0"
+        mock_get_latest.return_value = "99.0.0"  # Higher than any current version
         mock_input.return_value = "y"
         mock_update_binary.return_value = True
         args = Namespace(check=False)
@@ -388,7 +389,7 @@ class TestUpdateCommand:
     def test_run_update_failed(self, mock_is_prebuilt, mock_get_latest, mock_input, mock_update_binary, capsys):
         """Test when update fails."""
         mock_is_prebuilt.return_value = True
-        mock_get_latest.return_value = "2.12.0"
+        mock_get_latest.return_value = "99.0.0"  # Higher than any current version
         mock_input.return_value = "y"
         mock_update_binary.return_value = False
         args = Namespace(check=False)
