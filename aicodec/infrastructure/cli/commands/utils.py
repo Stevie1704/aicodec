@@ -49,6 +49,48 @@ def parse_json_file(file_path: Path) -> str:
         sys.exit(1)
 
 
+def extract_json_from_text(text: str) -> str:
+    """
+    Extracts JSON content from text that may be wrapped in markdown code blocks.
+
+    Handles these cases:
+    1. JSON inside ```json ... ``` or ``` ... ``` code blocks (with or without closing ```)
+    2. Raw JSON starting with { or [
+    3. JSON preceded by text/explanation
+
+    Returns the extracted JSON string, or the original text if no JSON found.
+    """
+    # Try to extract from markdown code block first
+    # Pattern matches ```json or ``` followed by content, optionally closed with ```
+    markdown_pattern = re.compile(
+        r'```(?:json)?\s*\n?(.*?)(?:```|$)',
+        re.DOTALL
+    )
+    match = markdown_pattern.search(text)
+    if match:
+        extracted = match.group(1).strip()
+        if extracted and (extracted.startswith('{') or extracted.startswith('[')):
+            return extracted
+
+    # No markdown block found, try to find raw JSON
+    # Find the first { or [ and extract from there
+    first_brace = text.find('{')
+    first_bracket = text.find('[')
+
+    if first_brace == -1 and first_bracket == -1:
+        return text  # No JSON structure found, return as-is
+
+    # Determine which comes first
+    if first_brace == -1:
+        start = first_bracket
+    elif first_bracket == -1:
+        start = first_brace
+    else:
+        start = min(first_brace, first_bracket)
+
+    return text[start:].strip()
+
+
 def balance_json_structure(json_str: str) -> str:
     """
     Robustly completes truncated JSON by closing strings, arrays, and objects.
@@ -119,11 +161,14 @@ def clean_prepare_json_string(llm_json: str) -> str:
     except json.JSONDecodeError:
         print("Given JSON is invalid. Attempting to repair...")
 
-        # 2. Balance structure first (User's preferred order)
-        # This ensures that regexes in step 3 can find the closing quotes.
-        balanced_str = balance_json_structure(cleaned_str)
+        # 2. Extract JSON from markdown code blocks or surrounding text
+        extracted_str = extract_json_from_text(cleaned_str)
 
-        # 3. Apply Markdown/Regex fixes on the balanced string
+        # 3. Balance structure (close any unclosed brackets/strings)
+        # This ensures that regexes in step 4 can find the closing quotes.
+        balanced_str = balance_json_structure(extracted_str)
+
+        # 4. Apply Markdown/Regex fixes on the balanced string
         # This fixes issues like unescaped quotes inside the now-closed strings.
         fixed_str = fix_and_parse_ai_json(balanced_str)
 
@@ -214,21 +259,21 @@ MARKDOWN_ESCAPES = {
 
 
 def _fix_global_markdown_escapes(text: str) -> str:
-    """Fixes all Markdown "over-escaping" (e.g., \_ -> _) globally."""
+    r"""Fixes all Markdown "over-escaping" (e.g., \_ -> _) globally."""
     for escaped, unescaped in MARKDOWN_ESCAPES.items():
         text = text.replace(escaped, unescaped)
     return text
 
 
-def _backslash_replacer(match: re.Match) -> str:
+def _backslash_replacer(match: re.Match[str]) -> str:
     """
     Replacer function for JSON_STRAY_BACKSLASH_PATTERN.
     Escapes a stray backslash only if it's part of an ODD-numbered
     sequence of backslashes.
     """
-    slashes = match.group(1)
+    slashes: str = match.group(1)
     # char is group 2, or empty string if end-of-line
-    char = match.group(2) or ''
+    char: str = match.group(2) or ''
 
     if len(slashes) % 2 == 1:
         # Odd number of slashes: \U -> \\U or \\\U -> \\\\U
@@ -268,14 +313,14 @@ def _fix_json_string_content(content: str) -> str:
     return fixed_content
 
 
-def _json_string_value_replacer(match: re.Match) -> str:
+def _json_string_value_replacer(match: re.Match[str]) -> str:
     """
     The main re.sub replacer function for summary_regex and content_regex.
     It extracts the content, fixes it, and reassembles the string.
     """
-    pre = match.group(1)   # ("summary": "
-    content = match.group(2)  # ... the broken content ...
-    post = match.group(3)  # ",
+    pre: str = match.group(1)   # ("summary": "
+    content: str = match.group(2)  # ... the broken content ...
+    post: str = match.group(3)  # ",
 
     fixed_content = _fix_json_string_content(content)
 
@@ -285,7 +330,7 @@ def _json_string_value_replacer(match: re.Match) -> str:
 
 
 def fix_and_parse_ai_json(text: str) -> str | None:
-    """
+    r"""
     Fixes common AI-generated JSON errors for a specific schema.
 
     1. Fixes Markdown "over-escaping" (e.g., \_) globally.
