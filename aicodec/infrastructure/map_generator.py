@@ -1,6 +1,7 @@
 # aicodec/infrastructure/map_generator.py
 from collections.abc import Collection
 from pathlib import Path
+from typing import Any
 
 
 def generate_repo_map(file_paths: Collection[str]) -> str:
@@ -8,7 +9,7 @@ def generate_repo_map(file_paths: Collection[str]) -> str:
     if not file_paths:
         return ""
 
-    tree = {}
+    tree: dict[str, Any] = {}
     relative_paths = sorted(file_paths)
 
     for path in relative_paths:
