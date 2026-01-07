@@ -2,6 +2,7 @@
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -84,6 +85,42 @@ def can_write_to_path(path: Path) -> bool:
         return os.access(path.parent, os.W_OK)
     except Exception:
         return False
+
+
+def get_running_binary_path() -> tuple[Path | None, Path | None]:
+    """Find the actual path of the currently running aicodec binary.
+
+    This resolves symlinks and finds the real binary location,
+    which may differ from the default /opt/aicodec/ location.
+
+    Returns:
+        A tuple of (real_path, symlink_path) where symlink_path is set
+        only if the binary was found via a symlink.
+    """
+    os_name = platform.system().lower()
+    binary_name = "aicodec.exe" if os_name == "windows" else "aicodec"
+
+    # First, try to find aicodec in PATH
+    aicodec_in_path = shutil.which(binary_name)
+    if aicodec_in_path:
+        path_in_path = Path(aicodec_in_path)
+        # Resolve symlinks to get the real path
+        real_path = path_in_path.resolve()
+        if real_path.exists() and real_path.is_file():
+            # Check if it's a symlink
+            symlink_path = path_in_path if path_in_path.is_symlink() else None
+            return real_path, symlink_path
+
+    # Fallback: Check default installation locations
+    if os_name == "windows":
+        default_path = Path.home() / "aicodec" / binary_name
+    else:
+        default_path = Path("/opt/aicodec") / binary_name
+
+    if default_path.exists():
+        return default_path.resolve(), None
+
+    return None, None
 
 
 def is_prebuilt_install() -> bool:
@@ -307,19 +344,42 @@ def update_binary() -> bool:
 
     # Determine platform-specific settings
     os_name = platform.system().lower()
+
+    # Find the actual binary location that needs to be updated
+    running_binary_path, symlink_path = get_running_binary_path()
+
     if os_name == "windows":
-        install_dir = Path.home() / "aicodec"
+        default_install_dir = Path.home() / "aicodec"
         binary_name = "aicodec.exe"
         new_binary_name = "aicodec.new.exe"
         needs_sudo = False
         sudo_available = False
+
+        # Use the actual binary's directory, or fall back to default
+        if running_binary_path:
+            install_dir = running_binary_path.parent
+            target_binary_path = running_binary_path
+        else:
+            install_dir = default_install_dir
+            target_binary_path = install_dir / binary_name
     else:
-        install_dir = Path("/opt/aicodec")
+        default_install_dir = Path("/opt/aicodec")
         binary_name = "aicodec"
         new_binary_name = "aicodec.new"
 
+        # Use the actual binary's directory, or fall back to default
+        if running_binary_path:
+            install_dir = running_binary_path.parent
+            target_binary_path = running_binary_path
+            print(f"Found aicodec binary at: {target_binary_path}")
+            if symlink_path:
+                print(f"  (via symlink: {symlink_path})")
+        else:
+            install_dir = default_install_dir
+            target_binary_path = install_dir / binary_name
+            print(f"Using default installation path: {target_binary_path}")
+
         # Check if we need sudo and if it's available
-        target_binary_path = install_dir / binary_name
         has_write_permission = can_write_to_path(target_binary_path)
         sudo_available = is_sudo_available()
 
@@ -330,6 +390,7 @@ def update_binary() -> bool:
         if needs_sudo and not sudo_available:
             if not has_write_permission:
                 print("❌ Error: Insufficient permissions to update aicodec.", file=sys.stderr)
+                print(f"   Target binary: {target_binary_path}", file=sys.stderr)
                 print("   The installation directory requires elevated permissions but sudo is not available.", file=sys.stderr)
                 print("   This can happen in containers or restricted environments.", file=sys.stderr)
                 print("   Please contact your system administrator or reinstall aicodec in a user-writable location.", file=sys.stderr)
@@ -369,8 +430,8 @@ def update_binary() -> bool:
 
         # Create update helper script
         print("Preparing update installer...")
-        target_binary = install_dir / binary_name
-        script_path = create_update_script(new_binary_path, target_binary, needs_sudo, sudo_available)
+        print(f"Target binary: {target_binary_path}")
+        script_path = create_update_script(new_binary_path, target_binary_path, needs_sudo, sudo_available)
 
         # Launch the update script
         print("Launching update installer...")

@@ -33,6 +33,70 @@ class TestVersionComparison:
         assert "Could not parse version strings" in captured.err
 
 
+class TestRunningBinaryPathDetection:
+    """Test detection of the running binary path."""
+
+    @patch("shutil.which")
+    @patch("platform.system")
+    def test_get_running_binary_path_found_in_path(self, mock_system, mock_which, tmp_path):
+        """Test detection when binary is found in PATH."""
+        mock_system.return_value = "Linux"
+        binary = tmp_path / "aicodec"
+        binary.write_text("dummy")
+        mock_which.return_value = str(binary)
+
+        real_path, symlink_path = update.get_running_binary_path()
+        assert real_path == binary.resolve()
+        assert symlink_path is None
+
+    @patch("shutil.which")
+    @patch("platform.system")
+    def test_get_running_binary_path_via_symlink(self, mock_system, mock_which, tmp_path):
+        """Test detection when binary is accessed via symlink."""
+        mock_system.return_value = "Linux"
+        # Create a real binary
+        real_binary = tmp_path / "real" / "aicodec"
+        real_binary.parent.mkdir(parents=True)
+        real_binary.write_text("dummy")
+        # Create a symlink to it
+        symlink = tmp_path / "bin" / "aicodec"
+        symlink.parent.mkdir(parents=True)
+        symlink.symlink_to(real_binary)
+
+        mock_which.return_value = str(symlink)
+
+        real_path, symlink_path = update.get_running_binary_path()
+        assert real_path == real_binary.resolve()
+        assert symlink_path == symlink
+
+    @patch("shutil.which")
+    @patch("platform.system")
+    @patch("pathlib.Path.exists")
+    def test_get_running_binary_path_fallback_to_default(self, mock_exists, mock_system, mock_which):
+        """Test fallback to default path when not found in PATH."""
+        mock_system.return_value = "Linux"
+        mock_which.return_value = None
+        mock_exists.return_value = True
+
+        real_path, symlink_path = update.get_running_binary_path()
+        # Should return the default /opt/aicodec/aicodec path
+        assert real_path is not None
+        assert symlink_path is None
+
+    @patch("shutil.which")
+    @patch("platform.system")
+    @patch("pathlib.Path.exists")
+    def test_get_running_binary_path_not_found(self, mock_exists, mock_system, mock_which):
+        """Test when binary is not found anywhere."""
+        mock_system.return_value = "Linux"
+        mock_which.return_value = None
+        mock_exists.return_value = False
+
+        real_path, symlink_path = update.get_running_binary_path()
+        assert real_path is None
+        assert symlink_path is None
+
+
 class TestPrebuiltDetection:
     """Test detection of pre-built installations."""
 
