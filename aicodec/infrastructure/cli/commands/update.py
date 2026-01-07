@@ -123,8 +123,40 @@ def get_running_binary_path() -> tuple[Path | None, Path | None]:
     return None, None
 
 
+def is_frozen_binary() -> bool:
+    """Check if we're running from a frozen/compiled binary (PyInstaller, Nuitka, etc.).
+
+    This checks if the current process is a standalone compiled binary,
+    not a Python script running via the interpreter.
+    """
+    # PyInstaller sets sys.frozen = True
+    if getattr(sys, 'frozen', False):
+        return True
+
+    # Nuitka compiled binaries: sys.executable is the binary itself, not python
+    # Check if the executable name contains 'python'
+    executable_name = Path(sys.executable).name.lower()
+    if 'python' not in executable_name:
+        # Additional check: frozen binaries typically don't have a __file__ in __main__
+        # or the executable matches the expected binary name
+        if 'aicodec' in executable_name:
+            return True
+
+    return False
+
+
 def is_prebuilt_install() -> bool:
-    """Check if aicodec is installed as a pre-built binary."""
+    """Check if we're running from a pre-built binary installation.
+
+    This checks BOTH:
+    1. That we're actually running from a frozen/compiled binary (not pip)
+    2. That the binary exists in the expected location
+    """
+    # First, check if we're actually running from a frozen binary
+    if not is_frozen_binary():
+        return False
+
+    # Then verify the binary exists in the expected location
     os_name = platform.system().lower()
 
     if os_name == "windows":
@@ -409,18 +441,39 @@ def update_binary() -> bool:
         print("Extracting...")
         import zipfile
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-            # Extract the binary directly
-            for member in zip_ref.namelist():
-                if member.endswith(binary_name) or member == binary_name:
-                    with zip_ref.open(member) as source:
-                        with open(new_binary_path, 'wb') as target:
-                            target.write(source.read())
-                    break
+            # List contents for debugging
+            members = zip_ref.namelist()
+            print(f"Zip contains: {members}")
+
+            # Extract all files to install directory
+            # This ensures metadata files (like .dist-info) are also extracted
+            binary_found = False
+            for member in members:
+                # Skip directories
+                if member.endswith('/'):
+                    continue
+
+                # Determine the target path
+                # Strip any leading directory from the zip (e.g., "aicodec-linux-amd64/aicodec" -> "aicodec")
+                base_name = Path(member).name
+
+                if base_name == binary_name:
+                    # Extract binary to temporary name first
+                    target_path = new_binary_path
+                    binary_found = True
+                else:
+                    # Extract other files (metadata, etc.) directly to install directory
+                    target_path = install_dir / base_name
+
+                with zip_ref.open(member) as source:
+                    with open(target_path, 'wb') as target:
+                        target.write(source.read())
+                print(f"  Extracted: {base_name}")
 
         # Clean up zip file
         zip_file.unlink()
 
-        if not new_binary_path.exists():
+        if not binary_found or not new_binary_path.exists():
             print(f"Error: Could not find {binary_name} binary in downloaded package", file=sys.stderr)
             return False
 

@@ -33,6 +33,29 @@ class TestVersionComparison:
         assert "Could not parse version strings" in captured.err
 
 
+class TestFrozenBinaryDetection:
+    """Test detection of frozen/compiled binary."""
+
+    @patch("sys.executable", "/opt/aicodec/aicodec")
+    def test_is_frozen_binary_nuitka(self):
+        """Test detection of Nuitka compiled binary."""
+        # When sys.executable is 'aicodec' (not python), it's a frozen binary
+        assert update.is_frozen_binary() is True
+
+    @patch("sys.executable", "/usr/bin/python3")
+    def test_is_frozen_binary_pip_install(self):
+        """Test detection of pip installation (not frozen)."""
+        # When sys.executable is python, it's not a frozen binary
+        with patch.object(update.sys, 'frozen', False, create=True):
+            assert update.is_frozen_binary() is False
+
+    @patch("sys.executable", "/usr/bin/python3")
+    def test_is_frozen_binary_pyinstaller(self):
+        """Test detection of PyInstaller binary via sys.frozen."""
+        with patch.object(update.sys, 'frozen', True, create=True):
+            assert update.is_frozen_binary() is True
+
+
 class TestRunningBinaryPathDetection:
     """Test detection of the running binary path."""
 
@@ -100,26 +123,42 @@ class TestRunningBinaryPathDetection:
 class TestPrebuiltDetection:
     """Test detection of pre-built installations."""
 
+    @patch("aicodec.infrastructure.cli.commands.update.is_frozen_binary")
     @patch("platform.system")
     @patch("pathlib.Path.exists")
-    def test_is_prebuilt_install_true_linux(self, mock_exists, mock_system):
-        """Test detection when pre-built binary exists on Linux."""
+    def test_is_prebuilt_install_true_linux(self, mock_exists, mock_system, mock_frozen):
+        """Test detection when running from pre-built binary on Linux."""
+        mock_frozen.return_value = True
         mock_system.return_value = "Linux"
         mock_exists.return_value = True
         assert update.is_prebuilt_install() is True
 
+    @patch("aicodec.infrastructure.cli.commands.update.is_frozen_binary")
     @patch("platform.system")
     @patch("pathlib.Path.exists")
-    def test_is_prebuilt_install_true_windows(self, mock_exists, mock_system):
-        """Test detection when pre-built binary exists on Windows."""
+    def test_is_prebuilt_install_true_windows(self, mock_exists, mock_system, mock_frozen):
+        """Test detection when running from pre-built binary on Windows."""
+        mock_frozen.return_value = True
         mock_system.return_value = "Windows"
         mock_exists.return_value = True
         assert update.is_prebuilt_install() is True
 
+    @patch("aicodec.infrastructure.cli.commands.update.is_frozen_binary")
     @patch("platform.system")
     @patch("pathlib.Path.exists")
-    def test_is_prebuilt_install_false(self, mock_exists, mock_system):
+    def test_is_prebuilt_install_false_not_frozen(self, mock_exists, mock_system, mock_frozen):
+        """Test detection when running from pip (not frozen binary)."""
+        mock_frozen.return_value = False  # Running from pip
+        mock_system.return_value = "Linux"
+        mock_exists.return_value = True  # Binary exists but we're not running from it
+        assert update.is_prebuilt_install() is False
+
+    @patch("aicodec.infrastructure.cli.commands.update.is_frozen_binary")
+    @patch("platform.system")
+    @patch("pathlib.Path.exists")
+    def test_is_prebuilt_install_false_no_binary(self, mock_exists, mock_system, mock_frozen):
         """Test detection when pre-built binary doesn't exist."""
+        mock_frozen.return_value = True
         mock_system.return_value = "Linux"
         mock_exists.return_value = False
         assert update.is_prebuilt_install() is False
