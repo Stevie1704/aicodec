@@ -14,6 +14,7 @@ from .commands import (
     prompt,
     revert,
     schema,
+    uninstall,
     update,
 )
 
@@ -46,6 +47,7 @@ def main() -> None:  # pragma: no cover
     init.register_subparser(subparsers)
     schema.register_subparser(subparsers)
     update.register_subparser(subparsers)
+    uninstall.register_subparser(subparsers)
     aggregate.register_subparser(subparsers)
     buildmap.register_subparser(subparsers)
     prompt.register_subparser(subparsers)
@@ -60,7 +62,7 @@ def main() -> None:  # pragma: no cover
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    if args.command not in ["init", "schema", "update"]:
+    if args.command not in ["init", "schema", "update", "uninstall"]:
         check_config_exists(args.config)
 
     # Call the function associated with the command
