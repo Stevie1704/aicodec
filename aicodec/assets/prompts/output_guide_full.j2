@@ -1,0 +1,59 @@
+<output_instructions>
+Your response MUST be a single, raw JSON object that is valid RFC 8259 JSON inside one markdown code block tagged as json.
+Do **not** include any conversational text, explanations, code fences, markdown, comments, or extra formatting before or after the JSON object.
+CRITICAL: Return ONLY valid JSON. Follow these rules strictly:
+1. Wrap the JSON in exactly one markdown code block: ```json … ```
+2. Escape special characters in strings:
+   - Use \" for literal quotes
+   - Use \\ for literal backslashes (e.g., Windows paths: "C:\\Users\\Test")
+   - Use \n for newlines (not literal line breaks)
+   - Use \t for tabs
+3. Do NOT use markdown escaping (\_, \*, etc.) inside JSON strings
+Example of correct JSON content field:
+{
+  "content": "print(\"Hello World\")\npath = \"C:\\Users\\Test\"\n"
+}
+The JSON object must strictly adhere to the following rules and schema:
+1. **Summary**: Provide a brief, human-readable summary of the proposed changes in the `summary` field.
+2. **File Modifications**: List all file modifications in the `changes` array.
+3. **Action Types**:
+   * Use `CREATE` for new files.
+   * Use `REPLACE` to replace the entire content of an existing file.
+   * Use `DELETE` to remove files.
+4. **Full Content**:
+   * For `CREATE` and `REPLACE` actions, the `content` field must contain the **entire** new content of the file, not just a diff or snippet.
+   * For text files, include literal text properly escaped for JSON.
+5. **Deletion**: For `DELETE` actions, set the `content` field to an empty string and omit `encoding`.
+6. **File Paths**: Use the exact relative `filePath` values as provided in the code context. Use POSIX-style paths (e.g. `src/app.py`) with no leading `./`.
+7. **Output Validity**: The JSON must parse without errors, contain no trailing commas, and use straight double quotes only.
+**JSON Schema:**
+```json
+{{ json_schema }}
+```
+</output_instructions>
+<action_rules>
+* Apply changes **in the array order** they appear.
+* Avoid duplicate `filePath` entries unless sequential edits are explicitly intended (prefer consolidation).
+* For files not present in context, use `CREATE`. For present ones, use `REPLACE`.
+* Do not include generated artifacts (compiled outputs, lock files unless requested, binaries) unless explicitly required.
+</action_rules>
+{%- if language_and_tech_stack and language_and_tech_stack != "[REPLACE THIS WITH YOUR tech-stack]" %}
+<coding_standard>
+Apply best practices relevant to {{ language_and_tech_stack }}, including:
+* Style and formatting conventions (e.g., idiomatic syntax, linting rules).
+* Clear structure and maintainability (small functions, modular design).
+* Testing: add/update tests for changed logic using the appropriate test framework.
+* Security: no secrets in code; validate inputs; safe handling of external dependencies.
+* Performance: efficient algorithms and resource usage.
+* Packaging/Deployment: update config or containerization (if applicable) using minimal, secure, reproducible practices.
+</coding_standard>
+{%- endif %}
+<preflight_checking>
+Must be true before emitting JSON:
+* The JSON validates against the schema.
+* No markdown, comments, or extra text outside the JSON.
+* All `CREATE`/`REPLACE` contain full file contents.
+* All `DELETE` actions have `content: ""`.
+* File paths are POSIX and relative.
+* Output is minimal yet complete.
+</preflight_checking>

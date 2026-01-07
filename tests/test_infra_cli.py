@@ -177,7 +177,8 @@ def test_prompt_run(temp_config_file, monkeypatch):
                     exclude_code=False,
                     tech_stack="Python",
                     is_new_project=False,
-                    exclude_output_instructions=False
+                    exclude_output_instructions=False,
+                    output_guide=False
                 )
 
                 with patch('pathlib.Path.write_text') as mock_write:
@@ -211,7 +212,8 @@ def test_prompt_run_to_clipboard(temp_config_file, monkeypatch):
                     exclude_code=False,
                     tech_stack="Python",
                     is_new_project=False,
-                    exclude_output_instructions=False
+                    exclude_output_instructions=False,
+                    output_guide=False
                 )
                 prompt.run(args)
 

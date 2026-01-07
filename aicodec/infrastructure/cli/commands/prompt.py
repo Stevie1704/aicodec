@@ -93,14 +93,85 @@ def register_subparser(subparsers: Any) -> None:
         action="store_true",
         help="Skip opening the file in an external editor (useful when called from IDEs)."
     )
+    prompt_parser.add_argument(
+        "-og",
+        "--output-guide",
+        action="store_true",
+        dest="output_guide",
+        help="Output only the LLM formatting rules and schema (without code context or task)."
+    )
 
     prompt_parser.set_defaults(func=run)
+
+
+def _run_output_guide(args: Any, prompt_cfg: dict) -> None:
+    """Output only the LLM formatting rules and schema (without code context or task)."""
+    schema_path = files("aicodec") / "assets" / "decoder_schema.json"
+    schema_content = parse_json_file(schema_path)
+
+    prompt_templates_path = files("aicodec") / "assets" / "prompts"
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(str(prompt_templates_path)),
+        autoescape=False,  # nosec B701
+        trim_blocks=True,
+        lstrip_blocks=True
+    )
+
+    # Determine which guide template to use (minimal or full)
+    minimal_guide = args.minimal or prompt_cfg.get("minimal", False)
+    template_name = "output_guide_minimal.j2" if minimal_guide else "output_guide_full.j2"
+    template = env.get_template(template_name)
+
+    # Get tech stack for coding standards (optional in guide)
+    if args.tech_stack != "[REPLACE THIS WITH YOUR tech-stack]":
+        tech_stack = args.tech_stack
+    else:
+        tech_stack = prompt_cfg.get("tech_stack", args.tech_stack)
+
+    guide_context = {
+        "json_schema": schema_content,
+        "language_and_tech_stack": tech_stack,
+    }
+
+    guide = template.render(**guide_context)
+
+    clipboard = prompt_cfg.get("clipboard", False) or args.clipboard
+    output_file = args.output_file or prompt_cfg.get("output_file", ".aicodec/prompt.txt")
+
+    if clipboard:
+        try:
+            pyperclip.copy(guide)
+            print("Output guide successfully copied to clipboard.")
+        except (pyperclip.PyperclipException, FileNotFoundError):
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(guide, encoding="utf-8")
+            print(f"Clipboard not available. Output guide has been saved to '{output_path}' instead.")
+            if not args.skip_editor:
+                if not open_file_in_editor(output_path):
+                    print("Could not open an editor automatically.")
+                    print(f"Please open the file: {output_path}")
+    else:
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(guide, encoding="utf-8")
+        print(f'Successfully generated output guide at "{output_path}".')
+
+        if not args.skip_editor:
+            if not open_file_in_editor(output_path):
+                print("Could not open an editor automatically.")
+                print(f"Please open the file: {output_path}")
 
 
 def run(args: Any) -> None:
     """Handles the generation of a prompt file."""
     config = load_json_config(args.config)
     prompt_cfg = config.get("prompt", {})
+
+    # Handle --output-guide flag: output only the formatting rules and schema
+    if args.output_guide:
+        _run_output_guide(args, prompt_cfg)
+        return
 
     # Clear reverts folder to start a new session
     reverts_dir = Path(".aicodec") / "reverts"
