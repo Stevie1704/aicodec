@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "LLM Code Change Proposal",
     "type": "object",
-    "additionalProperties": false,
+    "additionalProperties": true,
     "properties": {
         "summary": {
             "description": "Brief summary of proposed changes.",
@@ -15,7 +15,7 @@
             "minItems": 1,
             "items": {
                 "type": "object",
-                "additionalProperties": false,
+                "additionalProperties": true,
                 "properties": {
                     "filePath": {
                         "description": "POSIX-style relative path from repo root (no leading './'), no absolute paths, and no '..' segments.",
