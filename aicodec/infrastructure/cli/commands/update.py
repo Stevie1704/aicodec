@@ -199,14 +199,34 @@ def get_download_url() -> str | None:
     return f"https://github.com/Stevie1704/aicodec/releases/latest/download/aicodec-{os_name}-{arch}.zip"
 
 
-def create_update_script(new_binary_path: Path, target_binary: Path, needs_sudo: bool, sudo_available: bool) -> Path:
+def create_update_script(
+    new_binary_path: Path,
+    target_binary: Path,
+    needs_sudo: bool,
+    sudo_available: bool,
+    additional_files: list[tuple[Path, Path]] | None = None,
+) -> Path:
     """Create a platform-specific update helper script."""
     os_name = platform.system().lower()
+
+    # Build additional file copy commands
+    additional_files_list = additional_files or []
 
     if os_name == "windows":
         # Create PowerShell script for Windows
         script_path = new_binary_path.parent / "update_helper.ps1"
         log_path = new_binary_path.parent / "update_log.txt"
+
+        # Build PowerShell commands for additional files
+        additional_copy_commands = ""
+        additional_cleanup_commands = ""
+        for src, dst in additional_files_list:
+            additional_copy_commands += f'''
+    "Copying {src.name} to {dst}" | Out-File -FilePath $logFile -Append
+    Copy-Item -Path "{src}" -Destination "{dst}" -Force -ErrorAction Stop
+'''
+            additional_cleanup_commands += f'Remove-Item -Path "{src}" -ErrorAction SilentlyContinue\n'
+
         script_content = f"""# Log file for debugging
 $logFile = "{log_path}"
 "Update started at $(Get-Date)" | Out-File -FilePath $logFile
@@ -236,10 +256,11 @@ if ($attempt -eq $maxAttempts) {{
     "WARNING: Timed out waiting for aicodec to exit" | Out-File -FilePath $logFile -Append
 }}
 
-# Replace the binary
+# Replace the binary and additional files
 try {{
     "Attempting to copy from {new_binary_path} to {target_binary}" | Out-File -FilePath $logFile -Append
     Copy-Item -Path "{new_binary_path}" -Destination "{target_binary}" -Force -ErrorAction Stop
+{additional_copy_commands}
     "✅ Update installed successfully!" | Out-File -FilePath $logFile -Append
     Write-Host "✅ Update installed successfully!"
     Write-Host "You can now run 'aicodec --version' to verify the update."
@@ -253,7 +274,7 @@ try {{
 
 # Clean up
 Remove-Item -Path "{new_binary_path}" -ErrorAction SilentlyContinue
-"Update completed at $(Get-Date)" | Out-File -FilePath $logFile -Append
+{additional_cleanup_commands}"Update completed at $(Get-Date)" | Out-File -FilePath $logFile -Append
 Start-Sleep -Seconds 2
 Remove-Item -Path $PSCommandPath -ErrorAction SilentlyContinue
 """
@@ -266,6 +287,21 @@ Remove-Item -Path $PSCommandPath -ErrorAction SilentlyContinue
 
         # Determine if we should use sudo
         use_sudo = needs_sudo and sudo_available
+
+        # Build shell commands for additional files
+        additional_move_commands_sudo = ""
+        additional_move_commands_nosudo = ""
+        additional_cleanup_commands = ""
+        for src, dst in additional_files_list:
+            additional_move_commands_sudo += f'''
+echo "Moving {src.name} to {dst}" >> "$LOG_FILE"
+sudo mv "{src}" "{dst}" 2>> "$LOG_FILE"
+'''
+            additional_move_commands_nosudo += f'''
+echo "Moving {src.name} to {dst}" >> "$LOG_FILE"
+mv "{src}" "{dst}" 2>> "$LOG_FILE"
+'''
+            additional_cleanup_commands += f'rm -f "{src}"\n'
 
         if use_sudo:
             script_content = f"""#!/bin/bash
@@ -294,11 +330,12 @@ if [ $attempt -eq $max_attempts ]; then
     echo "WARNING: Timed out waiting for aicodec to exit" >> "$LOG_FILE"
 fi
 
-# Replace the binary using sudo
+# Replace the binary and additional files using sudo
 echo "Attempting to move from {new_binary_path} to {target_binary}" >> "$LOG_FILE"
 sudo mv "{new_binary_path}" "{target_binary}" 2>> "$LOG_FILE"
 if [ $? -eq 0 ]; then
     sudo chmod +x "{target_binary}" 2>> "$LOG_FILE"
+{additional_move_commands_sudo}
     echo "✅ Update installed successfully!" | tee -a "$LOG_FILE"
     echo "You can now run 'aicodec --version' to verify the update."
     echo "Log file: {log_path}"
@@ -309,7 +346,7 @@ fi
 
 # Clean up
 rm -f "{new_binary_path}"
-echo "Update completed at $(date)" >> "$LOG_FILE"
+{additional_cleanup_commands}echo "Update completed at $(date)" >> "$LOG_FILE"
 sleep 2
 rm -f "$0"
 """
@@ -341,11 +378,12 @@ if [ $attempt -eq $max_attempts ]; then
     echo "WARNING: Timed out waiting for aicodec to exit" >> "$LOG_FILE"
 fi
 
-# Replace the binary without sudo
+# Replace the binary and additional files without sudo
 echo "Attempting to move from {new_binary_path} to {target_binary}" >> "$LOG_FILE"
 mv "{new_binary_path}" "{target_binary}" 2>> "$LOG_FILE"
 if [ $? -eq 0 ]; then
     chmod +x "{target_binary}" 2>> "$LOG_FILE"
+{additional_move_commands_nosudo}
     echo "✅ Update installed successfully!" | tee -a "$LOG_FILE"
     echo "You can now run 'aicodec --version' to verify the update."
     echo "Log file: {log_path}"
@@ -356,7 +394,7 @@ fi
 
 # Clean up
 rm -f "{new_binary_path}"
-echo "Update completed at $(date)" >> "$LOG_FILE"
+{additional_cleanup_commands}echo "Update completed at $(date)" >> "$LOG_FILE"
 sleep 2
 rm -f "$0"
 """
@@ -432,6 +470,9 @@ def update_binary() -> bool:
     new_binary_path = install_dir / new_binary_name
     zip_file = install_dir / "aicodec.zip.tmp"
 
+    # Track additional files that need to be moved with the binary (e.g., VERSION)
+    additional_files: list[tuple[Path, Path]] = []
+
     try:
         # Download
         print(f"Downloading from: {download_url}")
@@ -461,6 +502,12 @@ def update_binary() -> bool:
                     # Extract binary to temporary name first
                     target_path = new_binary_path
                     binary_found = True
+                elif base_name == "VERSION":
+                    # Extract VERSION file to temporary location (will be moved by helper script)
+                    temp_version_path = install_dir / "VERSION.new"
+                    target_path = temp_version_path
+                    final_version_path = install_dir / "VERSION"
+                    additional_files.append((temp_version_path, final_version_path))
                 else:
                     # Extract other files (metadata, etc.) directly to install directory
                     target_path = install_dir / base_name
@@ -484,7 +531,11 @@ def update_binary() -> bool:
         # Create update helper script
         print("Preparing update installer...")
         print(f"Target binary: {target_binary_path}")
-        script_path = create_update_script(new_binary_path, target_binary_path, needs_sudo, sudo_available)
+        if additional_files:
+            print(f"Additional files to update: {[f[1].name for f in additional_files]}")
+        script_path = create_update_script(
+            new_binary_path, target_binary_path, needs_sudo, sudo_available, additional_files
+        )
 
         # Launch the update script
         print("Launching update installer...")
@@ -524,6 +575,10 @@ def update_binary() -> bool:
             zip_file.unlink()
         if new_binary_path.exists():
             new_binary_path.unlink()
+        # Clean up any additional temporary files
+        for src, _ in additional_files:
+            if src.exists():
+                src.unlink()
         return False
 
 

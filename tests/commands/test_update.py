@@ -518,3 +518,246 @@ class TestUpdateCommand:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "Could not check for updates" in captured.out
+
+
+class TestCreateUpdateScript:
+    """Test helper script generation with additional files."""
+
+    @patch("platform.system")
+    def test_create_update_script_with_additional_files_unix_sudo(self, mock_system, tmp_path):
+        """Test that Unix script with sudo includes commands for additional files."""
+        mock_system.return_value = "Linux"
+
+        new_binary = tmp_path / "aicodec.new"
+        new_binary.write_text("dummy")
+        target_binary = tmp_path / "aicodec"
+
+        version_src = tmp_path / "VERSION.new"
+        version_dst = tmp_path / "VERSION"
+        additional_files = [(version_src, version_dst)]
+
+        script_path = update.create_update_script(
+            new_binary, target_binary, needs_sudo=True, sudo_available=True,
+            additional_files=additional_files
+        )
+
+        assert script_path.exists()
+        script_content = script_path.read_text()
+
+        # Verify sudo mv command for VERSION file is included
+        assert f'sudo mv "{version_src}" "{version_dst}"' in script_content
+        # Verify cleanup command for VERSION.new
+        assert f'rm -f "{version_src}"' in script_content
+
+    @patch("platform.system")
+    def test_create_update_script_with_additional_files_unix_no_sudo(self, mock_system, tmp_path):
+        """Test that Unix script without sudo includes commands for additional files."""
+        mock_system.return_value = "Linux"
+
+        new_binary = tmp_path / "aicodec.new"
+        new_binary.write_text("dummy")
+        target_binary = tmp_path / "aicodec"
+
+        version_src = tmp_path / "VERSION.new"
+        version_dst = tmp_path / "VERSION"
+        additional_files = [(version_src, version_dst)]
+
+        script_path = update.create_update_script(
+            new_binary, target_binary, needs_sudo=False, sudo_available=False,
+            additional_files=additional_files
+        )
+
+        assert script_path.exists()
+        script_content = script_path.read_text()
+
+        # Verify mv command (without sudo) for VERSION file is included
+        assert f'mv "{version_src}" "{version_dst}"' in script_content
+        # Should NOT have sudo
+        assert "sudo mv" not in script_content or f'sudo mv "{version_src}"' not in script_content
+
+    @patch("platform.system")
+    def test_create_update_script_with_additional_files_windows(self, mock_system, tmp_path):
+        """Test that Windows script includes commands for additional files."""
+        mock_system.return_value = "Windows"
+
+        new_binary = tmp_path / "aicodec.new.exe"
+        new_binary.write_text("dummy")
+        target_binary = tmp_path / "aicodec.exe"
+
+        version_src = tmp_path / "VERSION.new"
+        version_dst = tmp_path / "VERSION"
+        additional_files = [(version_src, version_dst)]
+
+        script_path = update.create_update_script(
+            new_binary, target_binary, needs_sudo=False, sudo_available=False,
+            additional_files=additional_files
+        )
+
+        assert script_path.exists()
+        script_content = script_path.read_text()
+
+        # Verify Copy-Item command for VERSION file is included
+        assert f'Copy-Item -Path "{version_src}" -Destination "{version_dst}"' in script_content
+        # Verify cleanup command for VERSION.new
+        assert f'Remove-Item -Path "{version_src}"' in script_content
+
+    @patch("platform.system")
+    def test_create_update_script_without_additional_files(self, mock_system, tmp_path):
+        """Test that script works without additional files (backward compatibility)."""
+        mock_system.return_value = "Linux"
+
+        new_binary = tmp_path / "aicodec.new"
+        new_binary.write_text("dummy")
+        target_binary = tmp_path / "aicodec"
+
+        # No additional files
+        script_path = update.create_update_script(
+            new_binary, target_binary, needs_sudo=False, sudo_available=False,
+            additional_files=None
+        )
+
+        assert script_path.exists()
+        script_content = script_path.read_text()
+
+        # Should still have the binary move
+        assert f'mv "{new_binary}" "{target_binary}"' in script_content
+        # Should not have VERSION-related commands
+        assert "VERSION" not in script_content
+
+
+class TestUpdateBinaryWithVersionFile:
+    """Test update_binary extraction with VERSION file."""
+
+    @patch("time.sleep")
+    @patch("subprocess.Popen")
+    @patch("aicodec.infrastructure.cli.commands.update.create_update_script")
+    @patch("zipfile.ZipFile")
+    @patch("urllib.request.urlretrieve")
+    @patch("aicodec.infrastructure.cli.commands.update.get_download_url")
+    @patch("aicodec.infrastructure.cli.commands.update.is_sudo_available")
+    @patch("aicodec.infrastructure.cli.commands.update.can_write_to_path")
+    @patch("aicodec.infrastructure.cli.commands.update.get_running_binary_path")
+    @patch("platform.system")
+    @patch("os.chmod")
+    def test_version_file_added_to_additional_files(
+        self, mock_chmod, mock_system, mock_get_binary_path, mock_can_write,
+        mock_sudo_available, mock_get_url, mock_retrieve, mock_zipfile,
+        mock_create_script, mock_popen, mock_sleep, tmp_path
+    ):
+        """Test that VERSION file from zip is extracted to temp and added to additional_files."""
+        mock_system.return_value = "Linux"
+        mock_get_url.return_value = "https://example.com/aicodec.zip"
+        mock_sudo_available.return_value = True
+        mock_can_write.return_value = False  # Need sudo
+
+        # Set up the binary path to use tmp_path
+        install_dir = tmp_path / "opt" / "aicodec"
+        install_dir.mkdir(parents=True)
+        binary_path = install_dir / "aicodec"
+        binary_path.write_text("dummy")
+        mock_get_binary_path.return_value = (binary_path, None)
+
+        # Create the zip file so unlink works
+        zip_file = install_dir / "aicodec.zip.tmp"
+        zip_file.write_text("dummy zip")
+
+        # Mock the zip file to contain both binary and VERSION
+        mock_zip = MagicMock()
+        mock_zip.namelist.return_value = ["aicodec", "VERSION"]
+
+        # Return different content for different files
+        def mock_open(name):
+            mock_file = MagicMock()
+            if name == "aicodec":
+                mock_file.__enter__.return_value.read.return_value = b"binary_content"
+            else:
+                mock_file.__enter__.return_value.read.return_value = b"2.13.0"
+            return mock_file
+
+        mock_zip.open = mock_open
+        mock_zipfile.return_value.__enter__.return_value = mock_zip
+
+        # Track what create_update_script receives
+        mock_create_script.return_value = tmp_path / "update_helper.sh"
+        (tmp_path / "update_helper.sh").write_text("#!/bin/bash\n")
+
+        mock_popen.return_value = MagicMock()
+
+        result = update.update_binary()
+        assert result is True
+
+        # Verify create_update_script was called with additional_files containing VERSION
+        mock_create_script.assert_called_once()
+        call_args = mock_create_script.call_args
+
+        # Get the additional_files argument (5th positional or keyword)
+        if call_args.kwargs:
+            additional_files = call_args.kwargs.get("additional_files", [])
+        else:
+            additional_files = call_args.args[4] if len(call_args.args) > 4 else []
+
+        # Should have one additional file (VERSION)
+        assert len(additional_files) == 1
+        src_path, dst_path = additional_files[0]
+        assert src_path.name == "VERSION.new"
+        assert dst_path.name == "VERSION"
+
+    @patch("time.sleep")
+    @patch("subprocess.Popen")
+    @patch("aicodec.infrastructure.cli.commands.update.create_update_script")
+    @patch("zipfile.ZipFile")
+    @patch("urllib.request.urlretrieve")
+    @patch("aicodec.infrastructure.cli.commands.update.get_download_url")
+    @patch("aicodec.infrastructure.cli.commands.update.is_sudo_available")
+    @patch("aicodec.infrastructure.cli.commands.update.can_write_to_path")
+    @patch("aicodec.infrastructure.cli.commands.update.get_running_binary_path")
+    @patch("platform.system")
+    @patch("os.chmod")
+    def test_no_version_file_in_zip(
+        self, mock_chmod, mock_system, mock_get_binary_path, mock_can_write,
+        mock_sudo_available, mock_get_url, mock_retrieve, mock_zipfile,
+        mock_create_script, mock_popen, mock_sleep, tmp_path
+    ):
+        """Test that update works when zip has no VERSION file."""
+        mock_system.return_value = "Linux"
+        mock_get_url.return_value = "https://example.com/aicodec.zip"
+        mock_sudo_available.return_value = True
+        mock_can_write.return_value = True  # Has write permission
+
+        # Set up the binary path to use tmp_path
+        install_dir = tmp_path / "opt" / "aicodec"
+        install_dir.mkdir(parents=True)
+        binary_path = install_dir / "aicodec"
+        binary_path.write_text("dummy")
+        mock_get_binary_path.return_value = (binary_path, None)
+
+        # Create the zip file so unlink works
+        zip_file = install_dir / "aicodec.zip.tmp"
+        zip_file.write_text("dummy zip")
+
+        # Mock the zip file to contain only the binary (no VERSION)
+        mock_zip = MagicMock()
+        mock_zip.namelist.return_value = ["aicodec"]
+        mock_zip.open.return_value.__enter__.return_value.read.return_value = b"binary_content"
+        mock_zipfile.return_value.__enter__.return_value = mock_zip
+
+        # Track what create_update_script receives
+        mock_create_script.return_value = tmp_path / "update_helper.sh"
+        (tmp_path / "update_helper.sh").write_text("#!/bin/bash\n")
+
+        mock_popen.return_value = MagicMock()
+
+        result = update.update_binary()
+        assert result is True
+
+        # Verify create_update_script was called with empty additional_files
+        mock_create_script.assert_called_once()
+        call_args = mock_create_script.call_args
+
+        if call_args.kwargs:
+            additional_files = call_args.kwargs.get("additional_files", [])
+        else:
+            additional_files = call_args.args[4] if len(call_args.args) > 4 else []
+
+        # Should have no additional files
+        assert len(additional_files) == 0
